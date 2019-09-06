@@ -5,7 +5,9 @@
 Create virtual environment
 ```bash
 python3 -m venv ./my-venv
-source my-venv/bin/activate
+source my-venv/bin/activate       # for Linux
+source my-venv/Scripts/activate   # for Windows (from git-bash.exe)
+my-venv\Scripts\activate.bat      # for Windows (from cmd.exe)
 ```
 
 Install dependencies
