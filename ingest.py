@@ -211,9 +211,6 @@ if len(argv) == 3 and argv[2] == "-v":
 else:   
     verboseprint = lambda *a: None      # do-nothing function
 
-# Zip up the directory to ingest as a backup
-shutil.make_archive(argv[1], 'zip', argv[1])
-
 # Establish connection with database and create cursor
 connection = sqlite3.connect(database)
 cursor = connection.cursor()
@@ -227,6 +224,4 @@ for dirs in os.listdir(argv[1]):
         # flatten the directory
         flatten(argv[1] + "/" + dirs)
 
-# Cleanup directory
-shutil.rmtree(argv[1])
 verboseprint("Finished")
