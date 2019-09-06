@@ -28,6 +28,7 @@ connection = None
 
 # root directory to add new files to Logstash
 root = os.path.realpath(__file__).replace("ingest.py", "logjam_categories/")
+scratchSpaceForUnzipping = os.path.realpath(__file__).replace("ingest.py", "scratch_space/")
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*", 
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
               "cassandra_gc" : r".*cassandra[/_-]*gc.*", 
@@ -154,35 +155,41 @@ def unzip(path, extension):
         if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
             verboseprint("Unzipping:", path)
             unzippedFile = path.replace(extension, "")
+            (head, unzippedFile) = os.path.split(unzippedFile)
+            unzippedFile = scratchSpaceForUnzipping + unzippedFile
             tools.unzip(path, unzippedFile)
             flatten(unzippedFile)
             # clean up
-            shutil.rmtree(unzippedFile)   # okay for now, clean scratch from inspect dir
+            shutil.rmtree(unzippedFile)   # okay for now, clean scratch space
         # .gz files
         elif extension == ".gz":
             verboseprint("Decompressing:", path)
             inF = gzip.GzipFile(path, 'rb').read()
             decompressedFile = path.replace(extension, "")
+            (head, decompressedFile) = os.path.split(decompressedFile)
+            decompressedFile = scratchSpaceForUnzipping + decompressedFile
             file(decompressedFile, 'wb').write(inF)
             filename, extension = os.path.splitext(decompressedFile)
             # valid log file, move it to the current path for ingesting 
             if extension == ".log" or extension == ".txt":
-                shutil.move(decompressedFile, path)
+                shutil.move(decompressedFile, path)   # this is bad, moves into inspec dir
             elif extension == ".tar":
                 # tar file, unpack it
                 unzip(decompressedFile, extension)
             # clean up
-            os.remove(decompressedFile)   # okay for now, clean scratch from inspect dir
+            os.remove(decompressedFile)   # okay for now, clean scratch space
         # .7z files
         elif extension == ".7z":
             filePath = path[:-3]
+            (head, filePath) = os.path.split(filePath)
+            filePath = scratchSpaceForUnzipping + filePath
             # make a directory to unpack the file contents to
             if not os.path.exists(filePath):
                 os.makedirs(filePath)
             Archive(path).extractall(filePath)
             # parse the newly unpacked directory and clean up
             flatten(filePath)
-            shutil.rmtree(filePath)       # okay for now, clean scratch from inspect dir
+            shutil.rmtree(filePath)       # okay for now, clean scratch space
         else :
             # improper file, flag in the database
             verboseprint("Assuming improperly formatted: ", path, "\n")
@@ -212,6 +219,9 @@ if len(argv) == 3 and argv[2] == "-v":
         print()
 else:   
     verboseprint = lambda *a: None      # do-nothing function
+
+if not os.path.exists(scratchSpaceForUnzipping):
+    os.makedirs(scratchSpaceForUnzipping)
 
 # Establish connection with database and create cursor
 connection = sqlite3.connect(database)
