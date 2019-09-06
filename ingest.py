@@ -61,47 +61,49 @@ def flatten(start, depth = None):
     for fileOrDir in os.listdir(os.path.join(start + depth)):
         # Check for the file type to make sure it's not compressed
         filename, extension = os.path.splitext(fileOrDir)
-        # Get the file's path
-        path = start + depth + "/" + fileOrDir
+        # Get the file's path in inspection dir
+        inspecDirPath = start + depth + "/" + fileOrDir
         # Get the case number
-        caseNum = re.search(r"(\d{10})", path)
+        caseNum = re.search(r"(\d{10})", inspecDirPath)
         if caseNum is None:
             caseNum = "0"
         else:
             caseNum = caseNum.group()
         # Get category
-        category = getCategory(path.lower(), fileOrDir.lower())
+        category = getCategory(inspecDirPath.lower(), fileOrDir.lower())
         # Check if this file has been previously ingested into our database
-        verboseprint("Checking if duplicate:", path)
-        cursor.execute("SELECT path FROM paths WHERE path=?", (path,))     
+        verboseprint("Checking if duplicate:", inspecDirPath)
+        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))     
         result = cursor.fetchone()
         if (result == None):
-            if os.path.isfile(path) and (extension in validExtensions or filename in validFiles):
+            if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
                 # New file, log in the database and move to the appropriate logjam category
-                shutil.move(path, root + category + "/" + fileOrDir)
+                categoryDirPath = root + category + "/" + fileOrDir
+                shutil.copy2(inspecDirPath, categoryDirPath)  # copy from inspection dir -> Logjam file space
                 timestamp = "%.20f" % time.time()
-                os.rename(root + category + "/" + fileOrDir, root + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp) 
-                verboseprint("Renamed " + category + "/" + fileOrDir + " to " + root + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp)
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (path, 0, category)) 
+                categoryDirPathWithTimestamp = root + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp
+                os.rename(categoryDirPath, categoryDirPathWithTimestamp) 
+                verboseprint("Renamed " + category + "/" + fileOrDir + " to " + categoryDirPathWithTimestamp)
+                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
-                verboseprint("Adding ", path, " to db and Logstash")
-            elif os.path.isdir(path):
+                verboseprint("Adding ", inspecDirPath, " to db and Logstash")
+            elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 verboseprint("This is a directory")                                  
                 flatten(start, os.path.join(depth + "/" + fileOrDir))
             elif extension in validZips:
                 # Zip file, extract contents and parse them
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (path, 0, category)) 
+                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
-                unzip(path, extension)
-                verboseprint("Adding ", path, " to db and Logstash")
+                unzip(inspecDirPath, extension)
+                verboseprint("Adding ", inspecDirPath, " to db and Logstash")
             else:
                 # Invalid file, flag as an error in database and continue
-                updateToErrorFlag(path)
-                verboseprint("Assumming incorrect filetype: ", path)  
+                updateToErrorFlag(inspecDirPath)
+                verboseprint("Assumming incorrect filetype: ", inspecDirPath)  
         else:
             # Previously ingested, continue
-            verboseprint("Already ingested", path)
+            verboseprint("Already ingested", inspecDirPath)
 
 
 """
@@ -155,7 +157,7 @@ def unzip(path, extension):
             tools.unzip(path, unzippedFile)
             flatten(unzippedFile)
             # clean up
-            shutil.rmtree(unzippedFile)
+            shutil.rmtree(unzippedFile)   # okay for now, clean scratch from inspect dir
         # .gz files
         elif extension == ".gz":
             verboseprint("Decompressing:", path)
@@ -170,7 +172,7 @@ def unzip(path, extension):
                 # tar file, unpack it
                 unzip(decompressedFile, extension)
             # clean up
-            os.remove(decompressedFile)
+            os.remove(decompressedFile)   # okay for now, clean scratch from inspect dir
         # .7z files
         elif extension == ".7z":
             filePath = path[:-3]
@@ -180,7 +182,7 @@ def unzip(path, extension):
             Archive(path).extractall(filePath)
             # parse the newly unpacked directory and clean up
             flatten(filePath)
-            shutil.rmtree(filePath)
+            shutil.rmtree(filePath)       # okay for now, clean scratch from inspect dir
         else :
             # improper file, flag in the database
             verboseprint("Assuming improperly formatted: ", path, "\n")
