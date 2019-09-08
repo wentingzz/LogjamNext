@@ -324,9 +324,6 @@ def unzipIntoScratchSpace(path, extension):
     assert os.path.exists(path), "Not a valid path: "+path
     assert os.path.isfile(path), "Should be file: "+path
     assert extension in validZips, "This is not a valid extension: "+extension
-
-    verboseprint("Unzipping ", path)
-    # Try to unpack the given file using one of the following tools
     
     # .zip, .tar, and .tgz files
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
