@@ -423,8 +423,8 @@ def deleteDirectory(fullPath):
     assert os.path.exists(fullPath), "Path does not exist: "+fullPath
     assert os.path.isdir(fullPath), "Path is not a directory: "+fullPath
     
-    try: shutil.rmtree(destPath,onerror=handleDirRemovalErrors)
-    except (IOError) as e:
+    try: shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
+    except Exception as e:
         print("Problem deleting unzipped folder:", e)
         sys.exit(1)
     
