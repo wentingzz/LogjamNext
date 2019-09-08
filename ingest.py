@@ -21,6 +21,7 @@ Terminology:
 # Import packages
 import os
 import argparse
+import sys
 from sys import argv
 # Tools for unzipping files
 import gzip
@@ -148,16 +149,10 @@ def searchAnInspectionDirectory(start, depth = None):
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                # New file, log in the database and move to the appropriate logjam category
-                categDirPath = categDirRoot + category + "/" + fileOrDir
-                shutil.copy2(inspecDirPath, categDirPath)  # copy from inspection dir -> Logjam file space
-                timestamp = "%.20f" % time.time()
-                categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp
-                os.rename(categDirPath, categDirPathWithTimestamp) 
-                verboseprint("Renamed " + category + "/" + fileOrDir + " to " + categDirPathWithTimestamp)
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
-                connection.commit()
-                verboseprint("Adding ", inspecDirPath, " to db and Logstash")
+                try: copyFileToCategoryDirectory(inspecDirPath, fileOrDir)
+                except:
+                    print("Cannot continue execution, something went wrong")
+                    sys.exit(1)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 verboseprint("This is a directory")                                  
@@ -176,6 +171,62 @@ def searchAnInspectionDirectory(start, depth = None):
             # Previously ingested, continue
             verboseprint("Already ingested", inspecDirPath)
 
+'''
+Assumes the file has not already been copied to the category directory
+fullPath : string
+    full path for the file
+filenameAndExtension : string
+    filename + the extension for the file, already computed from fullPath
+'''
+def copyFileToCategoryDirectory(fullPath, filenameAndExtension):
+    assert fullPath != None, "Null reference"
+    assert filenameAndExtension != None, "Null reference"
+    assert os.path.isfile(fullPath), "This is not a file: "+fullPath
+    assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
+    assert os.path.split(os.path.splitext(fullPath)[0])[1]+os.path.splitext(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
+    assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
+    
+    # Log in the database and copy to the appropriate logjam category
+    caseNum = getCaseNumber(fullPath)
+    assert caseNum != None, "Null reference"
+    # assert caseNum != "0", "Not a valid case number: "+caseNum
+    
+    category = getCategory(fullPath.lower(), filenameAndExtension.lower())
+    assert category != None, "Null reference"
+    
+    categDirPath = categDirRoot + category + "/" + filenameAndExtension
+    
+    try:
+        shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
+    except (IOError) as e:
+        print("Unable to copy file:", e)
+        assert False, "Cannot continue execution"
+    
+    timestamp = "%.20f" % time.time()
+    categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
+    
+    try:
+        os.rename(categDirPath, categDirPathWithTimestamp)
+    except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
+        print("Unable to rename file:", e)
+        assert False, "Cannot continue execution"
+    
+    verboseprint("Renamed " + category + "/" + filenameAndExtension + " to " + categDirPathWithTimestamp)
+    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
+    connection.commit()
+    verboseprint("Adding ", fullPath, " to db and Logstash")
+
+    return
+
+'''
+Same as 'copyFileToCategoryDirectory' but moves instead of copy.
+TODO: Fill this in
+'''
+def moveFileToCategoryDirectory(path):
+    
+    assert False, "This is not implemented yet"
+    
+    return
 
 """
 Updates a previously logged entry to have an error flag
@@ -210,6 +261,21 @@ def getCategory(path, filename):
     # Unrecognized file, so return "other"
     return "other"
 
+'''
+Extracts the relevant StorageGRID case number from the file's path.
+path : string
+    the path to search for case number
+return : string
+    the case number found in the path
+'''
+def getCaseNumber(path):
+    caseNum = re.search(r"(\d{10})", path)
+    if caseNum is None:
+        caseNum = "0"
+    else:
+        caseNum = caseNum.group()
+    return caseNum
+
 """
 Unzips the given file path based on extension
 path : string
@@ -231,8 +297,10 @@ def unzipIntoScratchSpace(path, extension):
             unzippedFile = scratchDirRoot + unzippedFile
             tools.unzip(path, unzippedFile)
             searchAnInspectionDirectory(unzippedFile)
-            # clean up
-            shutil.rmtree(unzippedFile)   # okay for now, clean scratch space
+            try: shutil.rmtree(unzippedFile)   # okay for now, clean scratch space
+            except (IOError) as e:
+                print("Problem deleting unzipped file:", e)
+                sys.exit(1)
         # .gz files
         elif extension == ".gz":
             verboseprint("Decompressing:", path)
@@ -244,6 +312,8 @@ def unzipIntoScratchSpace(path, extension):
             filename, extension = os.path.splitext(decompressedFile)
             # valid log file, move it to the current path for ingesting 
             if extension == ".log" or extension == ".txt":
+                print("This path is not handled yet")
+                sys.exit(1)
                 shutil.move(decompressedFile, path)   # this is bad, moves into inspec dir
             elif extension == ".tar":
                 # tar file, unpack it
