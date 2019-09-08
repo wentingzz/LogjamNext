@@ -334,13 +334,17 @@ def unzipIntoScratchSpace(path, extension):
             (head, destPath) = os.path.split(destPath)
             destPath = scratchDirRoot + destPath
             
-            tools.unzip(path, destPath)
+            try:                                # exception handling here only
+                tools.unzip(path, destPath)
+            except Exception as e:
+                print("Error during Conan unzip:", e)
+                sys.exit(1)                     # expand as exceptions are discovered
             
-            searchAnInspectionDirectory(destPath)
+            searchAnInspectionDirectory(destPath)   # search new directory
             
             try: shutil.rmtree(destPath,onerror=handleDirRemovalErrors)
             except (IOError) as e:
-                print("Problem deleting unzipped file:", e)
+                print("Problem deleting unzipped folder:", e)
                 sys.exit(1)
             
         # .gz files
@@ -350,20 +354,25 @@ def unzipIntoScratchSpace(path, extension):
             (head, destPath) = os.path.split(destPath)
             destPath = scratchDirRoot + destPath
             
-            decompressedFileData = gzip.GzipFile(path, 'rb').read()
-            open(destPath, 'wb').write(decompressedFileData)
+            try:                                # exception handling here only
+                decompressedFileData = gzip.GzipFile(path, 'rb').read()
+                open(destPath, 'wb').write(decompressedFileData)
+            except Exception as e:
+                print("Error during GZip unzip:", e)
+                sys.exit(1)                     # expand as exceptions are discovered
             
             filename, extension = os.path.splitext(destPath)
-            # valid log file, move it to the current path for ingesting 
-            if extension == ".log" or extension == ".txt":
+            if extension == ".log" or extension == ".txt":  # valid log file
                 print("This path is not handled yet")
                 sys.exit(1)
                 # shutil.move(destPath, path)   # this is bad, moves into inspec dir
-            elif extension == ".tar":
-                # tar file, unpack it
+            elif extension == ".tar":               # tar file, unpack it
                 unzipIntoScratchSpace(destPath, extension)
             
-            os.remove(destPath)
+            try: os.remove(destPath)
+            except Exception as e:
+                print("Problem deleting decompressed file:", e)
+                sys.exit(1)
         
         # .7z files
         elif extension == ".7z":
@@ -375,18 +384,21 @@ def unzipIntoScratchSpace(path, extension):
             # make a directory to unpack the file contents to
             if not os.path.exists(destPath):
                 os.makedirs(destPath)
-            Archive(path).extractall(destPath)
-            # parse the newly unpacked directory and clean up
             
-            searchAnInspectionDirectory(destPath)
+            try:                                # exception handling here only
+                Archive(path).extractall(destPath)
+            except Exception as e:
+                print("Error during pyunpack extraction:", e)
+                sys.exit(1)                     # expand as exceptions are discovered
+            
+            searchAnInspectionDirectory(destPath)   # parse newly unpacked folder
             
             try: shutil.rmtree(destPath,onerror=handleDirRemovalErrors)
             except (IOError) as e:
-                print("Problem deleting unzipped file:", e)
+                print("Problem deleting unzipped folder:", e)
                 sys.exit(1)
         
-        else :
-            # improper file, flag in the database
+        else :                                  # improper file, flag in database
             verboseprint("Assuming improperly formatted: ", path, "\n")
             updateToErrorFlag(path)
     # except Exception as e:
