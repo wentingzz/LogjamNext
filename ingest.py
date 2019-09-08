@@ -173,18 +173,20 @@ def searchAnInspectionDirectory(start, depth = None):
             verboseprint("Already ingested", inspecDirPath)
 
 '''
-Assumes the file has not already been copied to the category directory
+Assumes the file has not already been copied to the category directory.
+Logs the file in the "already scanned" database and then copies the file
+to the categories directory.
 fullPath : string
     full path for the file
 filenameAndExtension : string
-    filename + the extension for the file, already computed from fullPath
+    filename + extension for the file, possibly already computed before function call
 '''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension):
+def copyFileToCategoryDirectory(fullPath, filenameAndExtension=None):
     assert fullPath != None, "Null reference"
-    assert filenameAndExtension != None, "Null reference"
+    if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
-    assert os.path.split(os.path.splitext(fullPath)[0])[1]+os.path.splitext(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
+    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
     # Log in the database and copy to the appropriate logjam category
@@ -220,13 +222,50 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension):
     return
 
 '''
-Same as 'copyFileToCategoryDirectory' but moves instead of copy.
-TODO: Fill this in
+Assumes the file has not already been moved to the category directory.
+Logs the file in the "already scanned" database and then moves the file
+to the categories folder.
+
 '''
-def moveFileToCategoryDirectory(path):
+def moveFileToCategoryDirectory(fullPath, filenameAndExtension=None):
+    assert fullPath != None, "Null reference"
+    if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
+    assert filenameAndExtension != None, "Null reference"
+    assert os.path.isfile(fullPath), "This is not a file: "+fullPath
+    assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
+    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
+    assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
-    assert False, "This is not implemented yet"
+    # Log in the database and copy to the appropriate logjam category
+    caseNum = getCaseNumber(fullPath)
+    assert caseNum != None, "Null reference"
+    # assert caseNum != "0", "Not a valid case number: "+caseNum
     
+    category = getCategory(fullPath.lower(), filenameAndExtension.lower())
+    assert category != None, "Null reference"
+    
+    categDirPath = categDirRoot + category + "/" + filenameAndExtension
+    
+    try:
+        shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
+    except (IOError) as e:
+        print("Unable to move file:", e)
+        assert False, "Cannot continue execution"
+    
+    timestamp = "%.20f" % time.time()
+    categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
+    
+    try:
+        os.rename(categDirPath, categDirPathWithTimestamp)
+    except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
+        print("Unable to rename file:", e)
+        assert False, "Cannot continue execution"
+    
+    verboseprint("Renamed " + category + "/" + filenameAndExtension + " to " + categDirPathWithTimestamp)
+    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
+    connection.commit()
+    verboseprint("Adding ", fullPath, " to db and Logstash")
+
     return
 
 """
@@ -326,21 +365,28 @@ def unzipIntoScratchSpace(path, extension):
             elif extension == ".tar":
                 # tar file, unpack it
                 unzipIntoScratchSpace(destPath, extension)
-            # clean up
-            os.remove(destPath)   # okay for now, clean scratch space
+            
+            os.remove(destPath)
         
         # .7z files
         elif extension == ".7z":
-            filePath = path[:-3]
-            (head, filePath) = os.path.split(filePath)
-            filePath = scratchDirRoot + filePath
+            verboseprint("7z Decompressing:", path)
+            destPath = path[:-3]
+            (head, destPath) = os.path.split(destPath)
+            destPath = scratchDirRoot + destPath
+            
             # make a directory to unpack the file contents to
-            if not os.path.exists(filePath):
-                os.makedirs(filePath)
-            Archive(path).extractall(filePath)
+            if not os.path.exists(destPath):
+                os.makedirs(destPath)
+            Archive(path).extractall(destPath)
             # parse the newly unpacked directory and clean up
-            searchAnInspectionDirectory(filePath)
-            shutil.rmtree(filePath)       # okay for now, clean scratch space
+            
+            searchAnInspectionDirectory(destPath)
+            
+            try: shutil.rmtree(destPath,onerror=handleDirRemovalErrors)
+            except (IOError) as e:
+                print("Problem deleting unzipped file:", e)
+                sys.exit(1)
         
         else :
             # improper file, flag in the database
