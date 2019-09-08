@@ -124,7 +124,7 @@ start : string
 depth : string
     the sub-directories and sub-files associated with this directory
 """
-def searchAnInspectionDirectory(start, depth = None):
+def searchAnInspectionDirectory(start, depth=None, caseNum=None):
     if not depth:
         depth = ""
     
@@ -136,12 +136,8 @@ def searchAnInspectionDirectory(start, depth = None):
         filename, extension = os.path.splitext(fileOrDir)
         # Get the file's path in inspection dir
         inspecDirPath = start + depth + "/" + fileOrDir
-        # Get the case number
-        caseNum = re.search(r"(\d{10})", inspecDirPath)
-        if caseNum is None:
-            caseNum = "0"
-        else:
-            caseNum = caseNum.group()
+        if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
+        assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
         category = getCategory(inspecDirPath.lower(), fileOrDir.lower())
         # Check if this file has been previously ingested into our database
@@ -150,16 +146,16 @@ def searchAnInspectionDirectory(start, depth = None):
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                copyFileToCategoryDirectory(inspecDirPath, fileOrDir)
+                copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 verboseprint("This is a directory")                                  
-                searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir))
+                searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
                 # Zip file, extract contents and parse them
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
-                unzipIntoScratchSpace(inspecDirPath, extension)
+                unzipIntoScratchSpace(inspecDirPath, extension, caseNum)
                 verboseprint("Adding ", inspecDirPath, " to db and Logstash")
             else:
                 # Invalid file, flag as an error in database and continue
@@ -178,7 +174,7 @@ fullPath : string
 filenameAndExtension : string
     filename + extension for the file, possibly already computed before function call
 '''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension=None):
+def copyFileToCategoryDirectory(fullPath, filenameAndExtension=None, caseNum=None):
     assert fullPath != None, "Null reference"
     if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
@@ -187,9 +183,9 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension=None):
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
     # Log in the database and copy to the appropriate logjam category
-    caseNum = getCaseNumber(fullPath)
+    if caseNum == None: caseNum = getCaseNumber(fullPath)
     assert caseNum != None, "Null reference"
-    # assert caseNum != "0", "Not a valid case number: "+caseNum
+    assert caseNum != "0", "Not a valid case number: "+caseNum
     
     category = getCategory(fullPath.lower(), filenameAndExtension.lower())
     assert category != None, "Null reference"
@@ -224,7 +220,7 @@ Logs the file in the "already scanned" database and then moves the file
 to the categories folder.
 
 '''
-def moveFileToCategoryDirectory(fullPath, filenameAndExtension=None):
+def moveFileToCategoryDirectory(fullPath, filenameAndExtension=None, caseNum=None):
     assert fullPath != None, "Null reference"
     if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
     assert filenameAndExtension != None, "Null reference"
@@ -234,9 +230,9 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension=None):
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
     # Log in the database and copy to the appropriate logjam category
-    caseNum = getCaseNumber(fullPath)
+    if caseNum == None: caseNum = getCaseNumber(fullPath)
     assert caseNum != None, "Null reference"
-    # assert caseNum != "0", "Not a valid case number: "+caseNum
+    assert caseNum != "0", "Not a valid case number: "+caseNum
     
     category = getCategory(fullPath.lower(), filenameAndExtension.lower())
     assert category != None, "Null reference"
@@ -320,7 +316,7 @@ path : string
 extension : string
     the file's extension used in determining the unpacking tool
 """
-def unzipIntoScratchSpace(path, extension):
+def unzipIntoScratchSpace(path, extension, caseNum):
     assert os.path.exists(path), "Not a valid path: "+path
     assert os.path.isfile(path), "Should be file: "+path
     assert extension in validZips, "This is not a valid extension: "+extension
@@ -338,7 +334,7 @@ def unzipIntoScratchSpace(path, extension):
             print("Error during Conan unzip:", e)
             sys.exit(1)                         # expand as exceptions are discovered
         
-        searchAnInspectionDirectory(destPath)   # search new directory
+        searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
         
         deleteDirectory(destPath)               # clean up
         
@@ -358,10 +354,10 @@ def unzipIntoScratchSpace(path, extension):
         
         filename, extension = os.path.splitext(destPath)
         if extension == ".log" or extension == ".txt":  # valid log file
-            moveFileToCategoryDirectory(destPath)
+            moveFileToCategoryDirectory(destPath, os.path.split(destPath)[1], caseNum)
         
         elif extension == ".tar":                   # tar file, unpack it
-            unzipIntoScratchSpace(destPath, extension)
+            unzipIntoScratchSpace(destPath, extension, caseNum)
             deleteFile(destPath)                    # remove since not moved
         
         else:                                   # can't handl file type (TODO: Fix this)
@@ -384,7 +380,7 @@ def unzipIntoScratchSpace(path, extension):
             print("Error during pyunpack extraction:", e)
             sys.exit(1)                         # expand as exceptions are discovered
         
-        searchAnInspectionDirectory(destPath)   # parse newly unpacked folder
+        searchAnInspectionDirectory(destPath, "", caseNum)  # parse newly unpacked folder
         
         deleteDirectory(destPath)               # clean up
     
