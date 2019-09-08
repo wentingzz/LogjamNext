@@ -17,6 +17,7 @@ Terminology:
                        Logstash to consume, owned by ingest.py (can R/W there)
 """
 
+
 # Import packages
 import os
 import argparse
@@ -32,14 +33,17 @@ import time
 import shutil
 import re
 
+
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
-cursor = None
-connection = None
+cursor = None                       # assign inside main, will remove later no SQL database
+connection = None                   # assign inside main, will remove later no SQL database
 
-# root directory to add new files to Logstash
-root = os.path.realpath(__file__).replace("ingest.py", "logjam_categories/")
-scratchSpaceForUnzipping = os.path.realpath(__file__).replace("ingest.py", "scratch_space/")
+# Category directory root path to add new files to Logstash
+categDirRoot = os.path.realpath(__file__).replace("ingest.py", "logjam_categories/")
+# Scratch space directory root path to unzip compressed files to
+scratchDirRoot = os.path.realpath(__file__).replace("ingest.py", "scratch_space/")
+# List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*", 
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
               "cassandra_gc" : r".*cassandra[/_-]*gc.*", 
@@ -58,10 +62,7 @@ validFiles = ["syslog", "messages", "system_commands"]
 # Valid zip formats
 validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
-
 # Globals extracted from main function
-connection = None                   # assign inside main, will remove later no SQL database
-cursor = None                       # assign inside main, will remove later no SQL database
 verboseprint = lambda *a: None      # do-nothing function
 
 
@@ -94,8 +95,8 @@ def main():
         verboseprint = realverboseprint
         
 
-    if not os.path.exists(scratchSpaceForUnzipping):
-        os.makedirs(scratchSpaceForUnzipping)
+    if not os.path.exists(scratchDirRoot):
+        os.makedirs(scratchDirRoot)
 
     # Establish connection with database and create cursor
     global connection
@@ -148,12 +149,12 @@ def searchAnInspectionDirectory(start, depth = None):
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
                 # New file, log in the database and move to the appropriate logjam category
-                categoryDirPath = root + category + "/" + fileOrDir
-                shutil.copy2(inspecDirPath, categoryDirPath)  # copy from inspection dir -> Logjam file space
+                categDirPath = categDirRoot + category + "/" + fileOrDir
+                shutil.copy2(inspecDirPath, categDirPath)  # copy from inspection dir -> Logjam file space
                 timestamp = "%.20f" % time.time()
-                categoryDirPathWithTimestamp = root + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp
-                os.rename(categoryDirPath, categoryDirPathWithTimestamp) 
-                verboseprint("Renamed " + category + "/" + fileOrDir + " to " + categoryDirPathWithTimestamp)
+                categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + fileOrDir + "-" + timestamp
+                os.rename(categDirPath, categDirPathWithTimestamp) 
+                verboseprint("Renamed " + category + "/" + fileOrDir + " to " + categDirPathWithTimestamp)
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
                 verboseprint("Adding ", inspecDirPath, " to db and Logstash")
@@ -227,7 +228,7 @@ def unzipIntoScratchSpace(path, extension):
             verboseprint("Unzipping:", path)
             unzippedFile = path.replace(extension, "")
             (head, unzippedFile) = os.path.split(unzippedFile)
-            unzippedFile = scratchSpaceForUnzipping + unzippedFile
+            unzippedFile = scratchDirRoot + unzippedFile
             tools.unzip(path, unzippedFile)
             searchAnInspectionDirectory(unzippedFile)
             # clean up
@@ -238,7 +239,7 @@ def unzipIntoScratchSpace(path, extension):
             inF = gzip.GzipFile(path, 'rb').read()
             decompressedFile = path.replace(extension, "")
             (head, decompressedFile) = os.path.split(decompressedFile)
-            decompressedFile = scratchSpaceForUnzipping + decompressedFile
+            decompressedFile = scratchDirRoot + decompressedFile
             file(decompressedFile, 'wb').write(inF)
             filename, extension = os.path.splitext(decompressedFile)
             # valid log file, move it to the current path for ingesting 
@@ -253,7 +254,7 @@ def unzipIntoScratchSpace(path, extension):
         elif extension == ".7z":
             filePath = path[:-3]
             (head, filePath) = os.path.split(filePath)
-            filePath = scratchSpaceForUnzipping + filePath
+            filePath = scratchDirRoot + filePath
             # make a directory to unpack the file contents to
             if not os.path.exists(filePath):
                 os.makedirs(filePath)
