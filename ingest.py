@@ -150,10 +150,7 @@ def searchAnInspectionDirectory(start, depth = None):
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                try: copyFileToCategoryDirectory(inspecDirPath, fileOrDir)
-                except:
-                    print("Cannot continue execution, something went wrong")
-                    sys.exit(1)
+                copyFileToCategoryDirectory(inspecDirPath, fileOrDir)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 verboseprint("This is a directory")                                  
