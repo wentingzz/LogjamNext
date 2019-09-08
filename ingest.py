@@ -20,6 +20,7 @@ Terminology:
 
 # Import packages
 import os
+import stat
 import argparse
 import sys
 from sys import argv
@@ -288,38 +289,46 @@ def unzipIntoScratchSpace(path, extension):
 
     verboseprint("Unzipping ", path)
     # Try to unpack the given file using one of the following tools
-    try:
+    if True:
+    # try:
         # .zip, .tar, and .tgz files
         if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
             verboseprint("Unzipping:", path)
-            unzippedFile = path.replace(extension, "")
-            (head, unzippedFile) = os.path.split(unzippedFile)
-            unzippedFile = scratchDirRoot + unzippedFile
-            tools.unzip(path, unzippedFile)
-            searchAnInspectionDirectory(unzippedFile)
-            try: shutil.rmtree(unzippedFile)   # okay for now, clean scratch space
+            destPath = path.replace(extension, "")
+            (head, destPath) = os.path.split(destPath)
+            destPath = scratchDirRoot + destPath
+            
+            tools.unzip(path, destPath)
+            
+            searchAnInspectionDirectory(destPath)
+            
+            try: shutil.rmtree(destPath,onerror=handleDirRemovalErrors)
             except (IOError) as e:
                 print("Problem deleting unzipped file:", e)
                 sys.exit(1)
+            
         # .gz files
         elif extension == ".gz":
             verboseprint("Decompressing:", path)
-            inF = gzip.GzipFile(path, 'rb').read()
-            decompressedFile = path.replace(extension, "")
-            (head, decompressedFile) = os.path.split(decompressedFile)
-            decompressedFile = scratchDirRoot + decompressedFile
-            file(decompressedFile, 'wb').write(inF)
-            filename, extension = os.path.splitext(decompressedFile)
+            destPath = path.replace(extension, "")
+            (head, destPath) = os.path.split(destPath)
+            destPath = scratchDirRoot + destPath
+            
+            decompressedFileData = gzip.GzipFile(path, 'rb').read()
+            open(destPath, 'wb').write(decompressedFileData)
+            
+            filename, extension = os.path.splitext(destPath)
             # valid log file, move it to the current path for ingesting 
             if extension == ".log" or extension == ".txt":
                 print("This path is not handled yet")
                 sys.exit(1)
-                shutil.move(decompressedFile, path)   # this is bad, moves into inspec dir
+                # shutil.move(destPath, path)   # this is bad, moves into inspec dir
             elif extension == ".tar":
                 # tar file, unpack it
-                unzipIntoScratchSpace(decompressedFile, extension)
+                unzipIntoScratchSpace(destPath, extension)
             # clean up
-            os.remove(decompressedFile)   # okay for now, clean scratch space
+            os.remove(destPath)   # okay for now, clean scratch space
+        
         # .7z files
         elif extension == ".7z":
             filePath = path[:-3]
@@ -332,14 +341,34 @@ def unzipIntoScratchSpace(path, extension):
             # parse the newly unpacked directory and clean up
             searchAnInspectionDirectory(filePath)
             shutil.rmtree(filePath)       # okay for now, clean scratch space
+        
         else :
             # improper file, flag in the database
             verboseprint("Assuming improperly formatted: ", path, "\n")
             updateToErrorFlag(path)
-    except Exception as e:
-        # encountered an error, flag in the database
-        verboseprint("Error: could not unzip ", path)
-        updateToErrorFlag(path)
+    # except Exception as e:
+        # # encountered an error, flag in the database
+        # verboseprint("Error: could not unzip ", path)
+        # updateToErrorFlag(path)
+    
+    return
+
+"""
+Handles errors thrown by shutil.rmtree when trying to remove a
+directory that has read-only files on Microsoft Windows.
+This elegant solution was originally found on:
+https://stackoverflow.com/questions/1889597/deleting-directory-in-python
+"""
+def handleDirRemovalErrors(func, path, excinfo):
+    (t,exc,traceback) = excinfo
+    if isinstance(exc, OSError) and exc.errno == 13:
+        os.chmod(path, stat.S_IWRITE)       # try to make file writeable
+        func(path)                          # try removing file again
+    else:
+        print("Unknown exception occured during directory removal")
+        print(excinfo)
+        print(exc)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
