@@ -109,7 +109,7 @@ def main():
         # if change occurs:
         if dirs != ".DS_Store":
             # flatten the directory
-            flatten(argv[1] + "/" + dirs)
+            searchAnInspectionDirectory(argv[1] + "/" + dirs)
 
     verboseprint("Finished")
 
@@ -124,6 +124,9 @@ depth : string
 def searchAnInspectionDirectory(start, depth = None):
     if not depth:
         depth = ""
+    
+    assert os.path.isdir(os.path.join(start + depth)), "This is not a directory: "+os.path.join(start + depth)
+    
     # Loop over each file in the current directory
     for fileOrDir in os.listdir(os.path.join(start + depth)):
         # Check for the file type to make sure it's not compressed
@@ -214,6 +217,8 @@ extension : string
     the file's extension used in determining the unpacking tool
 """
 def unzipIntoScratchSpace(path, extension):
+    assert extension in validZips, "This is not a valid extension"+extension
+
     verboseprint("Unzipping ", path)
     # Try to unpack the given file using one of the following tools
     try:
