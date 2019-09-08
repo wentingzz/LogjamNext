@@ -174,9 +174,9 @@ fullPath : string
 filenameAndExtension : string
     filename + extension for the file, possibly already computed before function call
 '''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension=None, caseNum=None):
+def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert fullPath != None, "Null reference"
-    if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
+    assert filenameAndExtension != None, "Null reference"
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
@@ -220,9 +220,9 @@ Logs the file in the "already scanned" database and then moves the file
 to the categories folder.
 
 '''
-def moveFileToCategoryDirectory(fullPath, filenameAndExtension=None, caseNum=None):
+def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert fullPath != None, "Null reference"
-    if filenameAndExtension == None: filenameAndExtension = os.path.split(fullPath)[1]
+    assert filenameAndExtension != None, "Null reference"
     assert filenameAndExtension != None, "Null reference"
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
