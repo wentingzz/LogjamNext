@@ -21,6 +21,7 @@ import sqlite3
 import time
 import shutil
 import re
+
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
 cursor = None
@@ -46,6 +47,12 @@ validExtensions = [".txt", ".log"]
 validFiles = ["syslog", "messages", "system_commands"]
 # Valid zip formats
 validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
+
+
+# Globals extracted from main function
+connection = None                   # assign inside main, will remove later no SQL database
+cursor = None                       # assign inside main, will remove later no SQL database
+verboseprint = lambda *a: None      # do-nothing function
 
 """
 Recursively go through directories to find log files. If compressed, then we need to unzip/unpack them. Possible
@@ -199,41 +206,54 @@ def unzip(path, extension):
         verboseprint("Error: could not unzip ", path)
         updateToErrorFlag(path)
 
+'''
+Recursively walks the directories of the inspection
+directory, copying relevant files into Logjam controlled
+filespace for further processing by Logstash. Unzips compressed
+files into Logjam controlled scratchspace, then moves relevant files
+for further processing by Logstash.
+'''
+def main():
+    # Starting point, check command line arguments
+    if len(argv) != 2 and len(argv) != 3:
+        print("\tpython ingest.py [directory to ingest] [-v]")
+        exit(1)
 
-# Starting point, check command line arguments
-if len(argv) != 2 and len(argv) != 3:
-    print("\tpython ingest.py [directory to ingest] [-v]")
-    exit(1)
+    # Check if path is a directory 
+    if not os.path.isdir(argv[1]):
+        print(argv[1], "is not a directory")
+        exit(1)
 
-# Check if path is a directory 
-if not os.path.isdir(argv[1]):
-    print(argv[1], "is not a directory")
-    exit(1)
+    # Set logging if the verbose flag was specified
+    global verboseprint                    # is a global the best way to do verboseprint?
+    if len(argv) == 3 and argv[2] == "-v":
+        def realverboseprint(*args):
+            # print arguments separately as to avoid a single long string
+            for arg in args:
+               print(arg, end=' ')
+            print()
+        verboseprint = realverboseprint
+        
 
-# Set logging if the verbose flag was specified
-if len(argv) == 3 and argv[2] == "-v":
-    def verboseprint(*args):
-        # print arguments separately as to avoid a single long string
-        for arg in args:
-           print(arg, end=' ')
-        print()
-else:   
-    verboseprint = lambda *a: None      # do-nothing function
+    if not os.path.exists(scratchSpaceForUnzipping):
+        os.makedirs(scratchSpaceForUnzipping)
 
-if not os.path.exists(scratchSpaceForUnzipping):
-    os.makedirs(scratchSpaceForUnzipping)
+    # Establish connection with database and create cursor
+    global connection
+    connection = sqlite3.connect(database)  # will remove later, no SQL database
+    global cursor
+    cursor = connection.cursor()        # will remove later, no need for SQL database
+    
+    # Ingest the directories
+    verboseprint("Ingesting ", argv[1])
+    for dirs in os.listdir(argv[1]):
+        # if change occurs:
+        if dirs != ".DS_Store":
+            # flatten the directory
+            flatten(argv[1] + "/" + dirs)
 
-# Establish connection with database and create cursor
-connection = sqlite3.connect(database)
-cursor = connection.cursor()
+    verboseprint("Finished")
 
 
-# Ingest the directories
-verboseprint("Ingesting ", argv[1])
-for dirs in os.listdir(argv[1]):
-    # if change occurs:
-    if dirs != ".DS_Store":
-        # flatten the directory
-        flatten(argv[1] + "/" + dirs)
-
-verboseprint("Finished")
+if __name__ == "__main__":
+    main()
