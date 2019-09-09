@@ -10,7 +10,7 @@ and output files with extensions .log and .txt to Logjam
 
 Terminology:
   Inspection Directory - the original directory ingest.py searches through, it should
-                         be treated as real-only
+                         be treated as read-only
   Scratchspace Directory - a directory that ingest.py unzips compressed files into, owned
                            by ingest.py (can R/W there)
   Category Directory - the final directories where ingest.py copies/places files for
@@ -175,10 +175,7 @@ filenameAndExtension : string
     filename + extension for the file, possibly already computed before function call
 '''
 def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
-    assert fullPath != None, "Null reference"
-    assert filenameAndExtension != None, "Null reference"
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
@@ -221,11 +218,7 @@ to the categories folder.
 
 '''
 def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
-    assert fullPath != None, "Null reference"
-    assert filenameAndExtension != None, "Null reference"
-    assert filenameAndExtension != None, "Null reference"
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.splitext(fullPath)[1] == os.path.splitext(filenameAndExtension)[1], "Extension doesn't match '"+filenameAndExtension+"' - '"+fullPath+"'"
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
@@ -399,7 +392,8 @@ def deleteFile(fullPath):
     assert os.path.exists(fullPath), "Path does not exist: "+fullPath
     assert os.path.isfile(fullPath), "Path is not a file: "+fullPath
     
-    try: os.remove(fullPath)
+    try:
+        os.remove(fullPath)
     except Exception as e:
         print("Problem deleting file:", e)
         sys.exit(1)
@@ -416,7 +410,8 @@ def deleteDirectory(fullPath):
     assert os.path.exists(fullPath), "Path does not exist: "+fullPath
     assert os.path.isdir(fullPath), "Path is not a directory: "+fullPath
     
-    try: shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
+    try:
+        shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
     except Exception as e:
         print("Problem deleting unzipped folder:", e)
         sys.exit(1)
