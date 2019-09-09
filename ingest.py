@@ -192,9 +192,6 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
 
-    if not os.path.exists(categDirRoot + category):
-        os.makedirs(categDirRoot + category)
-    
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
