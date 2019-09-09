@@ -191,6 +191,9 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert category != None, "Null reference"
     
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
+
+    if not os.path.exists(categDirRoot + category):
+        os.makedirs(categDirRoot + category)
     
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
@@ -329,7 +332,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
         destPath = scratchDirRoot + destPath
         
         try:                                    # exception handling here only
-            tools.unzip(path, destPath)
+            tools.unzip(path, destPath, keep_permissions=False)
         except Exception as e:
             print("Error during Conan unzip:", e)
             sys.exit(1)                         # expand as exceptions are discovered
