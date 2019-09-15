@@ -432,7 +432,7 @@ https://stackoverflow.com/questions/1889597/deleting-directory-in-python
 def handleDirRemovalErrors(func, path, excinfo):
     (t,exc,traceback) = excinfo
     if isinstance(exc, OSError) and exc.errno == 13:
-        os.chmod(path, stat.S_IWRITE)       # try to make file writeable
+        os.system("chmod -R 755 scratch_space")
         func(path)                          # try removing file again
     else:
         print("Unknown exception occured during directory removal")
