@@ -432,6 +432,7 @@ https://stackoverflow.com/questions/1889597/deleting-directory-in-python
 def handleDirRemovalErrors(func, path, excinfo):
     (t,exc,traceback) = excinfo
     if isinstance(exc, OSError) and exc.errno == 13:
+        print("Error deleting {}. Attempting to fix permissions".format(path))
         os.system("chmod -R 755 {}".format(scratchDirRoot))
         func(path)                          # try removing file again
     else:
