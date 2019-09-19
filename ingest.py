@@ -188,7 +188,7 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert category != None, "Null reference"
     
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
-    
+
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
@@ -322,7 +322,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
         destPath = scratchDirRoot + destPath
         
         try:                                    # exception handling here only
-            tools.unzip(path, destPath)
+            tools.unzip(path, destPath, keep_permissions=False)
         except Exception as e:
             print("Error during Conan unzip:", e)
             sys.exit(1)                         # expand as exceptions are discovered
@@ -427,7 +427,8 @@ https://stackoverflow.com/questions/1889597/deleting-directory-in-python
 def handleDirRemovalErrors(func, path, excinfo):
     (t,exc,traceback) = excinfo
     if isinstance(exc, OSError) and exc.errno == 13:
-        os.chmod(path, stat.S_IWRITE)       # try to make file writeable
+        print("Error deleting {}. Attempting to fix permissions".format(path))
+        os.system("chmod -R 755 {}".format(scratchDirRoot))
         func(path)                          # try removing file again
     else:
         print("Unknown exception occured during directory removal")
