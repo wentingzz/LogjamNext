@@ -202,9 +202,9 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
-        logging.critical("Unable to copy file: %s", e)
-        assert False, "Cannot continue execution"
-    
+        logging.critical(str(e))
+        raise e
+
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
     
@@ -212,7 +212,7 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
         logging.critical("Unable to rename file: %s", e)
-        assert False, "Cannot continue execution"
+        raise e
     
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
     cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
@@ -246,7 +246,7 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
         shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
         logging.critical("Unable to move file: %s", e)
-        assert False, "Cannot continue execution"
+        raise e
     
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
@@ -255,7 +255,7 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
         logging.critical("Unable to rename file: %s", e)
-        assert False, "Cannot continue execution"
+        raise e
     
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
     cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
@@ -335,7 +335,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
             tools.unzip(path, destPath, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
-            sys.exit(1)                         # expand as exceptions are discovered
+            raise e
         
         searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
         
@@ -381,7 +381,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
             Archive(path).extractall(destPath)
         except Exception as e:
             logging.critical("Error during pyunpack extraction: %s", e)
-            sys.exit(1)                         # expand as exceptions are discovered
+            raise e
         
         searchAnInspectionDirectory(destPath, "", caseNum)  # parse newly unpacked folder
         
@@ -406,7 +406,7 @@ def deleteFile(fullPath):
         os.remove(fullPath)
     except Exception as e:
         logging.critical("Problem deleting file: %s", e)
-        sys.exit(1)
+        raise e
     
     return
 
@@ -424,7 +424,7 @@ def deleteDirectory(fullPath):
         shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
     except Exception as e:
         logging.critical("Problem deleting unzipped folder: %s", e)
-        sys.exit(1)
+        raise e
     
     return
     
@@ -444,7 +444,7 @@ def handleDirRemovalErrors(func, path, excinfo):
         logging.warning("Unknown exception occured during directory removal")
         logging.warning(excinfo)
         logging.warning(exc)
-        sys.exit(1)
+        raise exc
 
 if __name__ == "__main__":
     main()
