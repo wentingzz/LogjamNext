@@ -71,23 +71,24 @@ filespace for further processing by Logstash. Unzips compressed
 files into Logjam controlled scratchspace, then moves relevant files
 for further processing by Logstash.
 '''
+
 def main():
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
-        help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
+                        help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='ingestion_directory', action='store',
-        help='Directory to ingest files from')
+                        help='Directory to ingest files from')
     parser.add_argument('-o', dest='output_directory', action='store',
-        help='Directory to output StorageGRID files to')
+                        help='Directory to output StorageGRID files to')
     parser.add_argument('-s', dest='scratch_space', action='store',
-        help='Scratch space directory to unzip files into')
-    args = parser.parse_args();
+                        help='Scratch space directory to unzip files into')
+    args = parser.parse_args()
 
     if not os.path.isdir(args.ingestion_directory):
         parser.print_usage()
         print('ingestion_directory is not a directory')
         sys.exit(1)
-    
+
     if args.scratch_space is not None:
         if not os.path.isdir(args.scratch_space):
             parser.print_usage()
@@ -95,11 +96,11 @@ def main():
             sys.exit(1)
         global scratchDirRoot
         scratchDirRoot = args.scratch_space
-    
+
     if args.output_directory is not None:
         if not os.path.isdir(args.output_directory):
             parser.print_usage()
-            pritn('output_directory is not a directory')
+            print('output_directory is not a directory')
             sys.exit(1)
         global categDirRoot
         categDirRoot = args.output_directory
@@ -115,7 +116,7 @@ def main():
     connection = sqlite3.connect(database)  # will remove later, no SQL database
     global cursor
     cursor = connection.cursor()        # will remove later, no need for SQL database
-    
+
     # Ingest the directories
     logging.debug("Ingesting %s", argv[1])
     for dirs in os.listdir(argv[1]):
