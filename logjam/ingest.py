@@ -77,15 +77,15 @@ for further processing by Logstash.
 '''
 def main():
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
-    parser.add_argument('-v', dest='is_verbose', action='store_true',
+    parser.add_argument('-v', '--verbose', dest='is_verbose', action='store_true',
         help='Perform verbose debug printing')
     parser.add_argument(dest='ingestion_directory', action='store',
         help='Directory to ingest files from')
-    parser.add_argument('-o', dest='output_directory', action='store',
+    parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
         help='Directory to output StorageGRID files to')
-    parser.add_argument('-s', dest='scratch_space', action='store',
+    parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
         help='Scratch space directory to unzip files into')
-    args = parser.parse_args();
+    args = parser.parse_args()
     
     if args.is_verbose:
         def realverboseprint(*args):
@@ -102,23 +102,20 @@ def main():
         sys.exit(1)
     
     if args.scratch_space is not None:
-        if not os.path.isdir(args.scratch_space):
-            parser.print_usage()
-            print('scratch_space is not a directory')
-            sys.exit(1)
         global scratchDirRoot
         scratchDirRoot = args.scratch_space
-    
-    if args.output_directory is not None:
-        if not os.path.isdir(args.output_directory):
-            parser.print_usage()
-            pritn('output_directory is not a directory')
-            sys.exit(1)
-        global categDirRoot
-        categDirRoot = args.output_directory
-
+        
     if not os.path.exists(scratchDirRoot):
         os.makedirs(scratchDirRoot)
+        
+    if not os.path.isdir(scratchDirRoot):
+        parser.print_usage()
+        print('output_directory is not a directory')
+        sys.exit(1)
+    
+    if args.output_directory is not None:
+        global categDirRoot
+        categDirRoot = args.output_directory
 
     # Establish connection with database and create cursor
     global connection
