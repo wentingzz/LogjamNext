@@ -85,7 +85,7 @@ def main():
         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
         help='Scratch space directory to unzip files into')
-    args = parser.parse_args();
+    args = parser.parse_args()
     
     if args.is_verbose:
         def realverboseprint(*args):
