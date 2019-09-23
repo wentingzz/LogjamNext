@@ -77,11 +77,11 @@ def main():
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='ingestion_directory', action='store',
-                        help='Directory to ingest files from')
-    parser.add_argument('-o', dest='output_directory', action='store',
-                        help='Directory to output StorageGRID files to')
-    parser.add_argument('-s', dest='scratch_space', action='store',
-                        help='Scratch space directory to unzip files into')
+        help='Directory to ingest files from')
+    parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
+        help='Directory to output StorageGRID files to')
+    parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
+        help='Scratch space directory to unzip files into')
     args = parser.parse_args()
 
     if not os.path.isdir(args.ingestion_directory):
@@ -90,26 +90,23 @@ def main():
         sys.exit(1)
 
     if args.scratch_space is not None:
-        if not os.path.isdir(args.scratch_space):
-            parser.print_usage()
-            print('scratch_space is not a directory')
-            sys.exit(1)
         global scratchDirRoot
         scratchDirRoot = args.scratch_space
 
+    if not os.path.exists(scratchDirRoot):
+        os.makedirs(scratchDirRoot)
+        
+    if not os.path.isdir(scratchDirRoot):
+        parser.print_usage()
+        print('output_directory is not a directory')
+        sys.exit(1)
+    
     if args.output_directory is not None:
-        if not os.path.isdir(args.output_directory):
-            parser.print_usage()
-            print('output_directory is not a directory')
-            sys.exit(1)
         global categDirRoot
         categDirRoot = args.output_directory
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
-
-    if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)
 
     # Establish connection with database and create cursor
     global connection
