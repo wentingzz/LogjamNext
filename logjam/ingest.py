@@ -76,26 +76,46 @@ files into Logjam controlled scratchspace, then moves relevant files
 for further processing by Logstash.
 '''
 def main():
-    # Starting point, check command line arguments
-    if len(argv) != 2 and len(argv) != 3:
-        print("\tpython ingest.py [directory to ingest] [-v]")
-        exit(1)
-
-    # Check if path is a directory 
-    if not os.path.isdir(argv[1]):
-        print(argv[1], "is not a directory")
-        exit(1)
-
-    # Set logging if the verbose flag was specified
-    global verboseprint                    # is a global the best way to do verboseprint?
-    if len(argv) == 3 and argv[2] == "-v":
+    parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
+    parser.add_argument('-v', dest='is_verbose', action='store_true',
+        help='Perform verbose debug printing')
+    parser.add_argument(dest='ingestion_directory', action='store',
+        help='Directory to ingest files from')
+    parser.add_argument('-o', dest='output_directory', action='store',
+        help='Directory to output StorageGRID files to')
+    parser.add_argument('-s', dest='scratch_space', action='store',
+        help='Scratch space directory to unzip files into')
+    args = parser.parse_args();
+    
+    if args.is_verbose:
         def realverboseprint(*args):
             # print arguments separately as to avoid a single long string
             for arg in args:
                print(arg, end=' ')
             print()
+        global verboseprint             # set logging if verbose flag, need to change
         verboseprint = realverboseprint
-        
+    
+    if not os.path.isdir(args.ingestion_directory):
+        parser.print_usage()
+        print('ingestion_directory is not a directory')
+        sys.exit(1)
+    
+    if args.scratch_space is not None:
+        if not os.path.isdir(args.scratch_space):
+            parser.print_usage()
+            print('scratch_space is not a directory')
+            sys.exit(1)
+        global scratchDirRoot
+        scratchDirRoot = args.scratch_space
+    
+    if args.output_directory is not None:
+        if not os.path.isdir(args.output_directory):
+            parser.print_usage()
+            pritn('output_directory is not a directory')
+            sys.exit(1)
+        global categDirRoot
+        categDirRoot = args.output_directory
 
     if not os.path.exists(scratchDirRoot):
         os.makedirs(scratchDirRoot)
