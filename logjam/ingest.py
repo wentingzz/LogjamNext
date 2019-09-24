@@ -18,23 +18,21 @@ Terminology:
 """
 
 
-# Import packages
-import os
-import stat
 import argparse
-import sys
-from sys import argv
-# Tools for unzipping files
 import gzip
+import logging
+import os
+import re
+import shutil
+import sqlite3
+import stat
+import string
+import sys
+import time
+from sys import argv
+
 from conans import tools
 from pyunpack import Archive, PatoolError
-import string
-# database
-import sqlite3
-import time
-import shutil
-import re
-
 
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
@@ -64,8 +62,6 @@ validFiles = ["syslog", "messages", "system_commands"]
 # Valid zip formats
 validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
-# Globals extracted from main function
-verboseprint = lambda *a: None      # do-nothing function
 
 
 '''
@@ -75,46 +71,58 @@ filespace for further processing by Logstash. Unzips compressed
 files into Logjam controlled scratchspace, then moves relevant files
 for further processing by Logstash.
 '''
+
 def main():
-    # Starting point, check command line arguments
-    if len(argv) != 2 and len(argv) != 3:
-        print("\tpython ingest.py [directory to ingest] [-v]")
-        exit(1)
+    parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
+    parser.add_argument('--log-level', dest='log_level', default='DEBUG',
+                        help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
+    parser.add_argument(dest='ingestion_directory', action='store',
+        help='Directory to ingest files from')
+    parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
+        help='Directory to output StorageGRID files to')
+    parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
+        help='Scratch space directory to unzip files into')
+    args = parser.parse_args()
 
-    # Check if path is a directory 
-    if not os.path.isdir(argv[1]):
-        print(argv[1], "is not a directory")
-        exit(1)
+    if not os.path.isdir(args.ingestion_directory):
+        parser.print_usage()
+        print('ingestion_directory is not a directory')
+        sys.exit(1)
 
-    # Set logging if the verbose flag was specified
-    global verboseprint                    # is a global the best way to do verboseprint?
-    if len(argv) == 3 and argv[2] == "-v":
-        def realverboseprint(*args):
-            # print arguments separately as to avoid a single long string
-            for arg in args:
-               print(arg, end=' ')
-            print()
-        verboseprint = realverboseprint
-        
+    if args.scratch_space is not None:
+        global scratchDirRoot
+        scratchDirRoot = args.scratch_space
 
     if not os.path.exists(scratchDirRoot):
         os.makedirs(scratchDirRoot)
+        
+    if not os.path.isdir(scratchDirRoot):
+        parser.print_usage()
+        print('output_directory is not a directory')
+        sys.exit(1)
+    
+    if args.output_directory is not None:
+        global categDirRoot
+        categDirRoot = args.output_directory
+
+    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
     # Establish connection with database and create cursor
     global connection
     connection = sqlite3.connect(database)  # will remove later, no SQL database
     global cursor
     cursor = connection.cursor()        # will remove later, no need for SQL database
-    
+
     # Ingest the directories
-    verboseprint("Ingesting ", argv[1])
+    logging.debug("Ingesting %s", argv[1])
     for dirs in os.listdir(argv[1]):
         # if change occurs:
         if dirs != ".DS_Store":
             # flatten the directory
             searchAnInspectionDirectory(argv[1] + "/" + dirs)
 
-    verboseprint("Finished")
+    logging.info("Finished")
 
 """
 Recursively go through directories to find log files. If compressed, then we need
@@ -141,7 +149,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
         # Get category
         category = getCategory(inspecDirPath.lower(), fileOrDir.lower())
         # Check if this file has been previously ingested into our database
-        verboseprint("Checking if duplicate:", inspecDirPath)
+        logging.debug("Checking if duplicate: %s", inspecDirPath)
         cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))     
         result = cursor.fetchone()
         if (result == None):
@@ -149,21 +157,21 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                verboseprint("This is a directory")                                  
+                logging.debug("This is a directory")                                  
                 searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
                 # Zip file, extract contents and parse them
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
                 unzipIntoScratchSpace(inspecDirPath, extension, caseNum)
-                verboseprint("Adding ", inspecDirPath, " to db and Logstash")
+                logging.debug("Adding %s to db and Logstash", inspecDirPath)
             else:
                 # Invalid file, flag as an error in database and continue
                 updateToErrorFlag(inspecDirPath)
-                verboseprint("Assumming incorrect filetype: ", inspecDirPath)  
+                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)  
         else:
             # Previously ingested, continue
-            verboseprint("Already ingested", inspecDirPath)
+            logging.debug("Already ingested %s", inspecDirPath)
 
 '''
 Assumes the file has not already been copied to the category directory.
@@ -188,26 +196,26 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert category != None, "Null reference"
     
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
-    
+
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
-        print("Unable to copy file:", e)
-        assert False, "Cannot continue execution"
-    
+        logging.critical(str(e))
+        raise e
+
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
     
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
-        print("Unable to rename file:", e)
-        assert False, "Cannot continue execution"
+        logging.critical("Unable to rename file: %s", e)
+        raise e
     
-    verboseprint("Renamed " + category + "/" + filenameAndExtension + " to " + categDirPathWithTimestamp)
+    logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
     cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
     connection.commit()
-    verboseprint("Adding ", fullPath, " to db and Logstash")
+    logging.debug("Adding %s to db and Logstash", fullPath)
 
     return
 
@@ -235,8 +243,8 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     try:
         shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
-        print("Unable to move file:", e)
-        assert False, "Cannot continue execution"
+        logging.critical("Unable to move file: %s", e)
+        raise e
     
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
@@ -244,13 +252,13 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
-        print("Unable to rename file:", e)
-        assert False, "Cannot continue execution"
+        logging.critical("Unable to rename file: %s", e)
+        raise e
     
-    verboseprint("Renamed " + category + "/" + filenameAndExtension + " to " + categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
+    logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
+    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
     connection.commit()
-    verboseprint("Adding ", fullPath, " to db and Logstash")
+    logging.debug("Adding %s to db and Logstash", fullPath)
 
     return
 
@@ -262,7 +270,7 @@ path : string
 def updateToErrorFlag(path):
     cursor.execute(''' UPDATE paths SET flag = ? WHERE path = ?''', (1, path,))
     connection.commit()
-    verboseprint("Flagging " + path)
+    logging.debug("Flagging " + path)
 
 """
 Gets the category for this file based on path
@@ -316,16 +324,16 @@ def unzipIntoScratchSpace(path, extension, caseNum):
     
     # .zip, .tar, and .tgz files
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
-        verboseprint("Unzipping:", path)
+        logging.debug("Unzipping: %s", path)
         destPath = path.replace(extension, "")
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
         
         try:                                    # exception handling here only
-            tools.unzip(path, destPath)
+            tools.unzip(path, destPath, keep_permissions=False)
         except Exception as e:
-            print("Error during Conan unzip:", e)
-            sys.exit(1)                         # expand as exceptions are discovered
+            logging.critical("Error during Conan unzip: %s", e)
+            raise e
         
         searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
         
@@ -333,7 +341,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
         
     # .gz files
     elif extension == ".gz":
-        verboseprint("Decompressing:", path)
+        logging.debug("Decompressing: %s", path)
         destPath = path.replace(extension, "")
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
@@ -342,7 +350,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
             decompressedFileData = gzip.GzipFile(path, 'rb').read()
             open(destPath, 'wb').write(decompressedFileData)
         except Exception as e:
-            print("Error during GZip unzip:", e)
+            logging.critical("Error during GZip unzip: %s", e)
             sys.exit(1)                         # expand as exceptions are discovered
         
         filename, extension = os.path.splitext(destPath)
@@ -358,7 +366,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
     
     # .7z files
     elif extension == ".7z":
-        verboseprint("7z Decompressing:", path)
+        logging.debug("7z Decompressing: %s", path)
         destPath = path[:-3]
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
@@ -370,8 +378,8 @@ def unzipIntoScratchSpace(path, extension, caseNum):
         try:                                    # exception handling here only
             Archive(path).extractall(destPath)
         except Exception as e:
-            print("Error during pyunpack extraction:", e)
-            sys.exit(1)                         # expand as exceptions are discovered
+            logging.critical("Error during pyunpack extraction: %s", e)
+            raise e
         
         searchAnInspectionDirectory(destPath, "", caseNum)  # parse newly unpacked folder
         
@@ -395,8 +403,8 @@ def deleteFile(fullPath):
     try:
         os.remove(fullPath)
     except Exception as e:
-        print("Problem deleting file:", e)
-        sys.exit(1)
+        logging.critical("Problem deleting file: %s", e)
+        raise e
     
     return
 
@@ -413,8 +421,8 @@ def deleteDirectory(fullPath):
     try:
         shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
     except Exception as e:
-        print("Problem deleting unzipped folder:", e)
-        sys.exit(1)
+        logging.critical("Problem deleting unzipped folder: %s", e)
+        raise e
     
     return
     
@@ -427,13 +435,14 @@ https://stackoverflow.com/questions/1889597/deleting-directory-in-python
 def handleDirRemovalErrors(func, path, excinfo):
     (t,exc,traceback) = excinfo
     if isinstance(exc, OSError) and exc.errno == 13:
-        os.chmod(path, stat.S_IWRITE)       # try to make file writeable
+        logging.warning("Error deleting %s. Attempting to fix permissions", path)
+        os.system("chmod -R 755 {}".format(scratchDirRoot))
         func(path)                          # try removing file again
     else:
-        print("Unknown exception occured during directory removal")
-        print(excinfo)
-        print(exc)
-        sys.exit(1)
+        logging.warning("Unknown exception occured during directory removal")
+        logging.warning(excinfo)
+        logging.warning(exc)
+        raise exc
 
 if __name__ == "__main__":
     main()
