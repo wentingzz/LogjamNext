@@ -88,7 +88,7 @@ def main():
         parser.print_usage()
         print('ingestion_directory is not a directory')
         sys.exit(1)
-
+    
     if args.scratch_space is not None:
         global scratchDirRoot
         scratchDirRoot = args.scratch_space
@@ -104,6 +104,23 @@ def main():
     if args.output_directory is not None:
         global categDirRoot
         categDirRoot = args.output_directory
+
+
+    # Create database in the cwd
+    path = os.path.realpath(__file__)
+    root = path.replace("ingest.py", "logjam_categories")
+    path = path.replace("ingest.py", "duplicates.db")
+    sql_table = """ CREATE TABLE IF NOT EXISTS paths (
+                           path text, 
+                           flag integer,
+                           category text,
+                           timestamp float
+                     ); """
+
+    initDatabase(path,sql_table) 
+    if not os.path.exists(root):
+        os.makedirs(root)
+        createCategories(root)
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
@@ -443,6 +460,34 @@ def handleDirRemovalErrors(func, path, excinfo):
         logging.warning(excinfo)
         logging.warning(exc)
         raise exc
+'''
+Creates and initializes database for storing filepaths to prevent duplicates
+'''
+def initDatabase(db_file,sql_table):
+    try:
+        connection = sqlite3.connect(db_file)
+    except Error as e:
+        print(e)
+        exit(1)
+    try:
+        c = connection.cursor()
+        c.execute(sql_table)
+        c.close()
+        connection.close()
+    except Error as e:
+        print(e)
+
+'''
+Creates the different category folders for ingesting in not already created
+'''
+def createCategories(root):
+    db_categories = ["audit", "base_os_commands", "bycast", "cassandra_commands", "cassandra_gc",
+                     "cassandra_system", "dmesg", "gdu_server", "init_sg", "install", "kern", 
+                     "messages", "pge_image_updater", "pge_mgmt_api", "server_manager", "sg_fw_update",
+                     "storagegrid_daemon", "storagegrid_node", "syslog", "system_commands", "upgrade", "other"]
+    for category in db_categories:
+        os.makedirs(root + "/" + category)
 
 if __name__ == "__main__":
     main()
+        
