@@ -110,18 +110,8 @@ def main():
     path = os.path.realpath(__file__)
     root = path.replace("ingest.py", "logjam_categories")
     path = path.replace("ingest.py", "duplicates.db")
-    sql_table = """ CREATE TABLE IF NOT EXISTS paths (
-                           path text, 
-                           flag integer,
-                           category text,
-                           timestamp float
-                     ); """
-
-    initDatabase(path,sql_table) 
-    if not os.path.exists(root):
-        os.makedirs(root)
-        createCategories(root)
-
+    initDatabase(path) 
+    
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
@@ -212,6 +202,12 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     category = getCategory(fullPath.lower(), filenameAndExtension.lower())
     assert category != None, "Null reference"
     
+    if not os.path.exists(categDirRoot):
+        os.makedirs(categDirRoot)
+    
+    if not os.path.exists(categDirRoot + "/" + category):
+        os.makedirs(categDirRoot + "/" + category)
+
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
 
     try:
@@ -255,6 +251,12 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     category = getCategory(fullPath.lower(), filenameAndExtension.lower())
     assert category != None, "Null reference"
     
+    if not os.path.exists(categDirRoot):
+        os.makedirs(categDirRoot)
+
+    if not os.path.exists(categDirRoot + "/" + category):
+        os.makedirs(categDirRoot + "/" + category)
+
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
     
     try:
@@ -463,19 +465,27 @@ def handleDirRemovalErrors(func, path, excinfo):
 '''
 Creates and initializes database for storing filepaths to prevent duplicates
 '''
-def initDatabase(db_file,sql_table):
+def initDatabase(db_file):
+    sql_table = """ CREATE TABLE IF NOT EXISTS paths (
+                           path text,
+                           flag integer,
+                           category text,
+                           timestamp float
+                        ); """
+
     try:
         connection = sqlite3.connect(db_file)
     except Error as e:
-        print(e)
-        exit(1)
+        logging.critical(str(e))
+        raise e
     try:
         c = connection.cursor()
         c.execute(sql_table)
         c.close()
         connection.close()
     except Error as e:
-        print(e)
+        logging.critical(str(e))
+        raise e
 
 '''
 Creates the different category folders for ingesting in not already created
