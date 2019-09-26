@@ -2,3 +2,4 @@
 /duplicates.db
 /logjam_categories/
 venv
+/logjam/__pycache__
