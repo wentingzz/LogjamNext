@@ -25,14 +25,12 @@ import os
 import re
 import shutil
 import sqlite3
-import stat
-import string
 import sys
-import time
 from sys import argv
+import time
 
 from conans import tools
-from pyunpack import Archive, PatoolError
+from pyunpack import Archive
 
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
@@ -295,7 +293,7 @@ path : string
 filename : string
     the file's name
 """
-def getCategory(path, filename):
+def getCategory(path):
     # Split the path by sub-directories
     splitPath = path.split("/")
     start = splitPath[len(splitPath) - 1]
@@ -353,6 +351,7 @@ def unzipIntoScratchSpace(path, extension, caseNum):
         
         searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
         
+        sys.exit()
         deleteDirectory(destPath)               # clean up
         
     # .gz files
