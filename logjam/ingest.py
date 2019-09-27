@@ -42,15 +42,15 @@ categDirRoot = os.path.realpath(__file__).replace("ingest.py", "logjam_categorie
 # Scratch space directory root path to unzip compressed files to
 scratchDirRoot = os.path.realpath(__file__).replace("ingest.py", "scratch_space/")
 # List of all categories to sort log files by
-categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*", 
+categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
-              "cassandra_gc" : r".*cassandra[/_-]*gc.*", 
-              "cassandra_system" : r".*cassandra[/_-]*system.*", "dmesg" : r".*dmesg.*", 
+              "cassandra_gc" : r".*cassandra[/_-]*gc.*",
+              "cassandra_system" : r".*cassandra[/_-]*system.*", "dmesg" : r".*dmesg.*",
               "gdu_server" : r".*gdu[/_-]*server.*", "init_sg": r".*init[/_-]*sg.*", "install": r".*install.*",
-              "kern" : r".*kern.*", "messages": r".*messages.*", "pge_image_updater": r".*pge[/_-]*image[/_-]*updater.*", 
+              "kern" : r".*kern.*", "messages": r".*messages.*", "pge_image_updater": r".*pge[/_-]*image[/_-]*updater.*",
               "pge_mgmt_api" : r".*pge[/_-]*mgmt[/_-]*api.*", "server_manager" : r".*server[/_-]*manager.*",
               "sg_fw_update" : r".*sg[/_-]*fw[/_-]*update.*", "storagegrid_daemon" : r".*storagegrid.*daemon.*",
-              "storagegrid_node" : r".*storagegrid.*node.*", "syslog" : ".*syslog.*", 
+              "storagegrid_node" : r".*storagegrid.*node.*", "syslog" : ".*syslog.*",
               "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*" }
 
 # Valid extensions to ingest
@@ -75,38 +75,38 @@ def main():
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='ingestion_directory', action='store',
-        help='Directory to ingest files from')
+                        help='Directory to ingest files from')
     parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
-        help='Directory to output StorageGRID files to')
+                        help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
-        help='Scratch space directory to unzip files into')
+                        help='Scratch space directory to unzip files into')
     args = parser.parse_args()
 
     if not os.path.isdir(args.ingestion_directory):
         parser.print_usage()
         print('ingestion_directory is not a directory')
         sys.exit(1)
-    
+
     if args.scratch_space is not None:
         global scratchDirRoot
         scratchDirRoot = args.scratch_space
 
     if not os.path.exists(scratchDirRoot):
         os.makedirs(scratchDirRoot)
-        
+
     if not os.path.isdir(scratchDirRoot):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
-    
+
     if args.output_directory is not None:
         global categDirRoot
         categDirRoot = args.output_directory
 
 
     # Create database in the cwd
-    initDatabase(database) 
-    
+    initDatabase(database)
+
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
@@ -137,9 +137,9 @@ depth : string
 def searchAnInspectionDirectory(start, depth=None, caseNum=None):
     if not depth:
         depth = ""
-    
+
     assert os.path.isdir(os.path.join(start + depth)), "This is not a directory: "+os.path.join(start + depth)
-    
+
     # Loop over each file in the current directory
     for fileOrDir in os.listdir(os.path.join(start + depth)):
         # Check for the file type to make sure it's not compressed
@@ -149,28 +149,28 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
         if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
         assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
-        category = getCategory(inspecDirPath.lower(), fileOrDir.lower())
+        category = getCategory(inspecDirPath.lower())
         # Check if this file has been previously ingested into our database
         logging.debug("Checking if duplicate: %s", inspecDirPath)
-        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))     
+        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                logging.debug("This is a directory")                                  
+                logging.debug("This is a directory")
                 searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
                 # Zip file, extract contents and parse them
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
+                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category))
                 connection.commit()
                 unzipIntoScratchSpace(inspecDirPath, extension, caseNum)
                 logging.debug("Adding %s to db and Logstash", inspecDirPath)
             else:
                 # Invalid file, flag as an error in database and continue
                 updateToErrorFlag(inspecDirPath)
-                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)  
+                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
@@ -188,18 +188,18 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
-    
+
     # Log in the database and copy to the appropriate logjam category
     if caseNum == None: caseNum = getCaseNumber(fullPath)
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
-    
-    category = getCategory(fullPath.lower(), filenameAndExtension.lower())
+
+    category = getCategory(fullPath.lower())
     assert category != None, "Null reference"
-    
+
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
-    
+
     if not os.path.exists(categDirRoot + "/" + category):
         os.makedirs(categDirRoot + "/" + category)
 
@@ -213,15 +213,15 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
 
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
-    
+
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
         logging.critical("Unable to rename file: %s", e)
         raise e
-    
+
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
+    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
     connection.commit()
     logging.debug("Adding %s to db and Logstash", fullPath)
 
@@ -237,15 +237,15 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
-    
+
     # Log in the database and copy to the appropriate logjam category
     if caseNum == None: caseNum = getCaseNumber(fullPath)
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
-    
-    category = getCategory(fullPath.lower(), filenameAndExtension.lower())
+
+    category = getCategory(fullPath.lower())
     assert category != None, "Null reference"
-    
+
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
 
@@ -253,22 +253,22 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
         os.makedirs(categDirRoot + "/" + category)
 
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
-    
+
     try:
         shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
     except (IOError) as e:
         logging.critical("Unable to move file: %s", e)
         raise e
-    
+
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
-    
+
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
         logging.critical("Unable to rename file: %s", e)
         raise e
-    
+
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
     cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
     connection.commit()
@@ -304,7 +304,7 @@ def getCategory(path):
         for cat, regex in categories.items():
             if re.search(regex, start):
                 return cat
-        start = part + "/" + start 
+        start = part + "/" + start
 
     # Unrecognized file, so return "other"
     return "other"
@@ -335,75 +335,74 @@ def unzipIntoScratchSpace(path, extension, caseNum):
     assert os.path.exists(path), "Not a valid path: "+path
     assert os.path.isfile(path), "Should be file: "+path
     assert extension in validZips, "This is not a valid extension: "+extension
-    
+
     # .zip, .tar, and .tgz files
-    if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
+    if extension == ".zip" or extension == ".tar" or extension == ".tgz":
         logging.debug("Unzipping: %s", path)
         destPath = path.replace(extension, "")
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
-        
+
         try:                                    # exception handling here only
             tools.unzip(path, destPath, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
             raise e
-        
+
         searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
-        
-        sys.exit()
+
         deleteDirectory(destPath)               # clean up
-        
+
     # .gz files
     elif extension == ".gz":
         logging.debug("Decompressing: %s", path)
         destPath = path.replace(extension, "")
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
-        
+
         try:                                    # exception handling here only
             decompressedFileData = gzip.GzipFile(path, 'rb').read()
             open(destPath, 'wb').write(decompressedFileData)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
             sys.exit(1)                         # expand as exceptions are discovered
-        
+
         filename, extension = os.path.splitext(destPath)
         if extension == ".log" or extension == ".txt":  # valid log file
             moveFileToCategoryDirectory(destPath, os.path.split(destPath)[1], caseNum)
-        
+
         elif extension == ".tar":                   # tar file, unpack it
             unzipIntoScratchSpace(destPath, extension, caseNum)
             deleteFile(destPath)                    # remove since not moved
-        
+
         else:                                   # can't handl file type (TODO: Fix this)
             deleteFile(destPath)
-    
+
     # .7z files
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", path)
         destPath = path[:-3]
         (head, destPath) = os.path.split(destPath)
         destPath = scratchDirRoot + destPath
-        
+
         # make a directory to unpack the file contents to
         if not os.path.exists(destPath):
             os.makedirs(destPath)
-        
+
         try:                                    # exception handling here only
             Archive(path).extractall(destPath)
         except Exception as e:
             logging.critical("Error during pyunpack extraction: %s", e)
             raise e
-        
+
         searchAnInspectionDirectory(destPath, "", caseNum)  # parse newly unpacked folder
-        
+
         deleteDirectory(destPath)               # clean up
-    
+
     else:                                       # impossible execution path
         print("This execution path should never be reached")
         sys.exit(1)
-    
+
     return
 
 '''
@@ -414,13 +413,13 @@ fullPath : string
 def deleteFile(fullPath):
     assert os.path.exists(fullPath), "Path does not exist: "+fullPath
     assert os.path.isfile(fullPath), "Path is not a file: "+fullPath
-    
+
     try:
         os.remove(fullPath)
     except Exception as e:
         logging.critical("Problem deleting file: %s", e)
         raise e
-    
+
     return
 
 '''
@@ -432,15 +431,15 @@ fullPath : string
 def deleteDirectory(fullPath):
     assert os.path.exists(fullPath), "Path does not exist: "+fullPath
     assert os.path.isdir(fullPath), "Path is not a directory: "+fullPath
-    
+
     try:
         shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
     except Exception as e:
         logging.critical("Problem deleting unzipped folder: %s", e)
         raise e
-    
+
     return
-    
+
 '''
 Handles errors thrown by shutil.rmtree when trying to remove a
 directory that has read-only files on Microsoft Windows.
@@ -482,4 +481,3 @@ def initDatabase(db_file):
 
 if __name__ == "__main__":
     main()
-        
