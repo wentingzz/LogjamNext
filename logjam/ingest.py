@@ -1,9 +1,8 @@
 """
 @author Renata Ann Zeitler
 @author Josh Good
-
-@author Jeremy Schmidt - Updated to python3 09-Sep-2019
-@author Nathaniel Brooks - 2019-09-08 No zip inspection dir & treat as read-only
+@author Jeremy Schmidt
+@author Nathaniel Brooks
 
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
@@ -164,11 +163,33 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 logging.debug("This is a directory")                                  
                 searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
-                # Zip file, extract contents and parse them
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
-                unzipIntoScratchSpace(inspecDirPath, extension, caseNum)
-                logging.debug("Adding %s to db and Logstash", inspecDirPath)
+                
+                def handle_unzipped_file(path):
+                  # TODO: Change to conditional function
+                  # TODO: if is_storagegrid(path):
+                  (name,ext) = os.path.splitext(path)
+                  if ext in validExtensions or name in validFiles:
+                    # TODO: Check with duplicates database somehow
+                    # TODO: if is_duplicate(path):
+                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
+                    logging.debug("Added to ELK: %s", path)
+                  else:
+                    utils.delete_file(path)
+                    logging.debug("Ignored non-StorageGRID file: %s", path)
+                  return
+                
+                # TODO: Choose unique folder names per Logjam worker instance
+                # TODO: new_scratch_dir = new_unique_scratch_folder()
+                new_scratch_dir = os.path.join(scratchDirRoot,"tmp")
+                os.makedirs(new_scratch_dir)
+                utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
+                assert os.path.exists(inspecDirPath), "Should still exist"
+                assert os.path.exists(new_scratch_dir), "Should still exist"
+                utils.delete_directory(new_scratch_dir)
+                
+                logging.debug("Added to DB & ELK: %s", inspecDirPath)
             else:
                 # Invalid file, flag as an error in database and continue
                 updateToErrorFlag(inspecDirPath)
