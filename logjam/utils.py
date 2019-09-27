@@ -142,7 +142,7 @@ def delete_file(path):
         absolute path of the file to delete
     '''
     assert os.path.exists(path), "Path does not exist: "+path
-    assert os.path.isfile(path), "Path is not a file: "+path
+    assert not os.path.isdir(path), "Path is not a file: "+path
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     try:
