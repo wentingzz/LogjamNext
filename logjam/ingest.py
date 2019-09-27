@@ -471,10 +471,7 @@ def initDatabase(db_file):
 
     try:
         connection = sqlite3.connect(db_file)
-    except Error as e:
-        logging.critical(str(e))
-        raise e
-    try:
+
         c = connection.cursor()
         c.execute(sql_table)
         c.close()
