@@ -141,8 +141,6 @@ def delete_file(path):
     path : string
         absolute path of the file to delete
     '''
-    assert os.path.exists(path), "Path does not exist: "+path
-    assert not os.path.isdir(path), "Path is not a file: "+path
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     try:
@@ -177,8 +175,7 @@ def delete_directory(path):
     path : string
         absolute path of the directory to delete
     '''
-    assert os.path.exists(path), "Path does not exist: "+path
-    assert os.path.isdir(path), "Path is not a directory: "+path
+    assert os.path.isabs(path), "Path should be absolute: "+path
     
     def handle_errors(func, path, excinfo):
         ''' Handles errors thrown by shutil.rmtree when trying to remove directories w/
