@@ -160,7 +160,6 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                logging.debug("This is a directory")                                  
                 searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
@@ -171,10 +170,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
                   if ext in validExtensions or name in validFiles:
-                    # TODO: Check with duplicates database somehow
-                    # TODO: if is_duplicate(path):
                     moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
-                    logging.debug("Added to ELK: %s", path)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
@@ -189,7 +185,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 assert os.path.exists(new_scratch_dir), "Should still exist"
                 utils.delete_directory(new_scratch_dir)
                 
-                logging.debug("Added to DB & ELK: %s", inspecDirPath)
+                logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
             else:
                 # Invalid file, flag as an error in database and continue
                 updateToErrorFlag(inspecDirPath)
