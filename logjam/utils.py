@@ -149,7 +149,11 @@ def delete_file(path):
         if isinstance(exc, OSError) and exc.errno == 13:
             if platform.system() != "Windows":
                 logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                os.system("chmod -R 755 {}".format(scratchDirRoot))
+                
+                parent_dir = os.path.dirname(path)
+                exit_code = os.system("chmod -R 755 {}".format(parent_dir)
+                logging.debug("EXIT CODE: " + str(exit_code))
+                # os.system("chmod -R 755 {}".format(scratchDirRoot))
                 try:
                     os.remove(path)             # try removing file again
                 except Exception as exc:
