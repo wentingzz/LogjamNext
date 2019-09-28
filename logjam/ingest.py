@@ -91,12 +91,11 @@ def main():
     
     if args.scratch_space is not None:
         global scratchDirRoot
-        scratchDirRoot = args.scratch_space
+        scratchDirRoot = os.path.abspath(args.scratch_space)
 
     if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)
-        
-    if not os.path.isdir(scratchDirRoot):
+        os.makedirs(scratchDirRoot)  
+    elif not os.path.isdir(scratchDirRoot):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
