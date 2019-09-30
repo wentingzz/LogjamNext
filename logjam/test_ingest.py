@@ -9,7 +9,7 @@ import unittest
 import sqlite3
 
 
-from logjam import ingest
+import ingest
 
 
 class TestIngest(unittest.TestCase):
@@ -17,15 +17,17 @@ class TestIngest(unittest.TestCase):
     Test case class for ingest unit tests
     """
 
-    @classmethod
-    def setUpClass(cls):
-        dirname = os.path.dirname(os.path.realpath(__file__))
-        cls.tmpdir = os.path.join(dirname, "test-" + str(int(time.time())))
-        os.mkdir(cls.tmpdir)
+    data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test-data")
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmpdir)
+    def setUp(self):
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmpdir = os.path.join(dirname, tmp_name)
+        os.mkdir(self.tmpdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
 
     def test_match_category(self):
         """ Test that expected categories are matched from file paths """
@@ -86,3 +88,29 @@ class TestIngest(unittest.TestCase):
 
         # Make sure the table exists by querying it
         cursor.execute("SELECT * from paths")
+
+    def test_basic_ingest(self):
+        """ Run the full ingest process on a simple set of inputs """
+        # Establish paths under the test's temp directory
+        sample_input = os.path.join(self.data_dir, "StandardFiles")
+        output_dir = os.path.join(self.tmpdir, "categories")
+        scratch_dir = os.path.join(self.tmpdir, "scratch")
+
+        # Initialize a database in the test directory instead of the default
+        ingest.initDatabase(os.path.join(self.tmpdir, "duplicates.db"))
+
+        # Run ingest on sample data
+        ingest.ingest_log_files(sample_input, output_dir, scratch_dir)
+
+        expected_files = [("audit", 1), ("bycast", 1), ("dmesg", 1), ("gdu_server", 1),
+                          ("init_sg", 1), ("install", 1), ("kern", 1), ("messages", 1),
+                          ("other", 8), ("pge_image_updater", 1), ("server_manager", 1),
+                          ("sg_fw_update", 1), ("syslog", 1), ("system_commands", 1),
+                          ("upgrade", 1)]
+
+        for category, count in expected_files:
+            category_path = os.path.join(output_dir, category)
+            category_files = os.listdir(category_path)
+
+            # Make sure we got the right number of files per category
+            self.assertEqual(len(category_files), count)

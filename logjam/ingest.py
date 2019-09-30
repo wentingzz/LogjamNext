@@ -16,7 +16,6 @@ Terminology:
                        Logstash to consume, owned by ingest.py (can R/W there)
 """
 
-
 import argparse
 import gzip
 import logging
@@ -25,22 +24,19 @@ import re
 import shutil
 import sqlite3
 import sys
-from sys import argv
 import time
-import utils
 
 from conans import tools
 from pyunpack import Archive
 
+import utils
+
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
-cursor = None                       # assign inside main, will remove later no SQL database
-connection = None                   # assign inside main, will remove later no SQL database
 
-# Category directory root path to add new files to Logstash
-categDirRoot = os.path.realpath(__file__).replace("ingest.py", "logjam_categories/")
-# Scratch space directory root path to unzip compressed files to
-scratchDirRoot = os.path.realpath(__file__).replace("ingest.py", "scratch_space/")
+connection = None  # will remove later, no SQL database
+cursor = None      # will remove later, no need for SQL database
+
 # List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
@@ -88,19 +84,21 @@ def main():
         sys.exit(1)
 
     if args.scratch_space is not None:
-        global scratchDirRoot
         scratchDirRoot = os.path.abspath(args.scratch_space)
+    else:
+        scratchDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch_space/")
 
     if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)  
+        os.makedirs(scratchDirRoot)
     elif not os.path.isdir(scratchDirRoot):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
 
     if args.output_directory is not None:
-        global categDirRoot
         categDirRoot = args.output_directory
+    else:
+        categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "logjam_categories/")
 
 
     # Create database in the cwd
@@ -109,21 +107,20 @@ def main():
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
-    # Establish connection with database and create cursor
-    global connection
-    connection = sqlite3.connect(database)  # will remove later, no SQL database
-    global cursor
-    cursor = connection.cursor()        # will remove later, no need for SQL database
-
     # Ingest the directories
-    logging.debug("Ingesting %s", argv[1])
-    for dirs in os.listdir(argv[1]):
+    logging.debug("Ingesting %s", args.ingestion_directory)
+    ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot)
+
+    logging.info("Finished")
+
+
+def ingest_log_files(input_root, output_root, scratch_space):
+    for dirs in os.listdir(input_root):
         # if change occurs:
         if dirs != ".DS_Store":
             # flatten the directory
-            searchAnInspectionDirectory(argv[1] + "/" + dirs)
+            searchAnInspectionDirectory(os.path.join(input_root, dirs), output_root, scratch_space)
 
-    logging.info("Finished")
 
 """
 Recursively go through directories to find log files. If compressed, then we need
@@ -133,7 +130,7 @@ start : string
 depth : string
     the sub-directories and sub-files associated with this directory
 """
-def searchAnInspectionDirectory(start, depth=None, caseNum=None):
+def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
     if not depth:
         depth = ""
 
@@ -155,10 +152,10 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
+                copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum, output_root)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
+                searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth + "/" + fileOrDir), caseNum=caseNum)
             elif extension in validZips:
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
@@ -168,7 +165,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
                   if ext in validExtensions or name in validFiles:
-                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
+                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum, output_root)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
@@ -176,7 +173,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scratchDirRoot,"tmp")
+                new_scratch_dir = os.path.join(scratch_space, "tmp")
                 os.makedirs(new_scratch_dir)
                 utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
                 assert os.path.exists(inspecDirPath), "Should still exist"
@@ -201,7 +198,7 @@ fullPath : string
 filenameAndExtension : string
     filename + extension for the file, possibly already computed before function call
 '''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
+def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDirRoot):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
@@ -217,10 +214,11 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
 
-    if not os.path.exists(categDirRoot + "/" + category):
-        os.makedirs(categDirRoot + "/" + category)
+    category_dir = os.path.join(categDirRoot, category)
+    if not os.path.exists(category_dir):
+        os.makedirs(category_dir)
 
-    categDirPath = categDirRoot + category + "/" + filenameAndExtension
+    categDirPath = os.path.join(categDirRoot, category, filenameAndExtension)
 
     try:
         shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
@@ -229,7 +227,8 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
         raise e
 
     timestamp = "%.20f" % time.time()
-    categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
+    basename = "-".join([caseNum, filenameAndExtension, timestamp])
+    categDirPathWithTimestamp = os.path.join(categDirRoot, category, basename)
 
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
@@ -250,7 +249,7 @@ Logs the file in the "already scanned" database and then moves the file
 to the categories folder.
 
 '''
-def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
+def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDirRoot):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
@@ -345,6 +344,9 @@ def getCaseNumber(path):
 Creates and initializes database for storing filepaths to prevent duplicates
 '''
 def initDatabase(db_file):
+    global connection
+    global cursor
+
     sql_table = """ CREATE TABLE IF NOT EXISTS paths (
                            path text,
                            flag integer,
@@ -354,11 +356,8 @@ def initDatabase(db_file):
 
     try:
         connection = sqlite3.connect(db_file)
-
-        c = connection.cursor()
-        c.execute(sql_table)
-        c.close()
-        connection.close()
+        cursor = connection.cursor()
+        cursor.execute(sql_table)
     except Error as e:
         logging.critical(str(e))
         raise e
