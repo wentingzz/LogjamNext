@@ -1,5 +1,9 @@
-# Output files created by Logjam in the project's root folder
+# Output files created by the old Logjam implementation
 /duplicates.db
 /logjam_categories/
+/logjam/duplicates.db
+/logjam/logjam_categories/
+
+# Python configuration & misc files
 venv
 /logjam/__pycache__

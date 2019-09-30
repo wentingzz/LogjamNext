@@ -1,9 +1,8 @@
 """
 @author Renata Ann Zeitler
 @author Josh Good
-
-@author Jeremy Schmidt - Updated to python3 09-Sep-2019
-@author Nathaniel Brooks - 2019-09-08 No zip inspection dir & treat as read-only
+@author Jeremy Schmidt
+@author Nathaniel Brooks
 
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
@@ -30,6 +29,7 @@ import string
 import sys
 import time
 from sys import argv
+import utils
 
 from conans import tools
 from pyunpack import Archive, PatoolError
@@ -91,12 +91,11 @@ def main():
     
     if args.scratch_space is not None:
         global scratchDirRoot
-        scratchDirRoot = args.scratch_space
+        scratchDirRoot = os.path.abspath(args.scratch_space)
 
     if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)
-        
-    if not os.path.isdir(scratchDirRoot):
+        os.makedirs(scratchDirRoot)  
+    elif not os.path.isdir(scratchDirRoot):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
@@ -161,14 +160,32 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                logging.debug("This is a directory")                                  
                 searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
             elif extension in validZips:
-                # Zip file, extract contents and parse them
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
-                unzipIntoScratchSpace(inspecDirPath, extension, caseNum)
-                logging.debug("Adding %s to db and Logstash", inspecDirPath)
+                
+                def handle_unzipped_file(path):
+                  # TODO: Change to conditional function
+                  # TODO: if is_storagegrid(path):
+                  (name,ext) = os.path.splitext(path)
+                  if ext in validExtensions or name in validFiles:
+                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
+                  else:
+                    utils.delete_file(path)
+                    logging.debug("Ignored non-StorageGRID file: %s", path)
+                  return
+                
+                # TODO: Choose unique folder names per Logjam worker instance
+                # TODO: new_scratch_dir = new_unique_scratch_folder()
+                new_scratch_dir = os.path.join(scratchDirRoot,"tmp")
+                os.makedirs(new_scratch_dir)
+                utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
+                assert os.path.exists(inspecDirPath), "Should still exist"
+                assert os.path.exists(new_scratch_dir), "Should still exist"
+                utils.delete_directory(new_scratch_dir)
+                
+                logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
             else:
                 # Invalid file, flag as an error in database and continue
                 updateToErrorFlag(inspecDirPath)
@@ -326,139 +343,6 @@ def getCaseNumber(path):
         caseNum = caseNum.group()
     return caseNum
 
-"""
-Unzips the given file path based on extension
-path : string
-    the path to unzip
-extension : string
-    the file's extension used in determining the unpacking tool
-"""
-def unzipIntoScratchSpace(path, extension, caseNum):
-    assert os.path.exists(path), "Not a valid path: "+path
-    assert os.path.isfile(path), "Should be file: "+path
-    assert extension in validZips, "This is not a valid extension: "+extension
-    
-    # .zip, .tar, and .tgz files
-    if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
-        logging.debug("Unzipping: %s", path)
-        destPath = path.replace(extension, "")
-        (head, destPath) = os.path.split(destPath)
-        destPath = scratchDirRoot + destPath
-        
-        try:                                    # exception handling here only
-            tools.unzip(path, destPath, keep_permissions=False)
-        except Exception as e:
-            logging.critical("Error during Conan unzip: %s", e)
-            raise e
-        
-        searchAnInspectionDirectory(destPath, "", caseNum)  # search new directory
-        
-        deleteDirectory(destPath)               # clean up
-        
-    # .gz files
-    elif extension == ".gz":
-        logging.debug("Decompressing: %s", path)
-        destPath = path.replace(extension, "")
-        (head, destPath) = os.path.split(destPath)
-        destPath = scratchDirRoot + destPath
-        
-        try:                                    # exception handling here only
-            decompressedFileData = gzip.GzipFile(path, 'rb').read()
-            open(destPath, 'wb').write(decompressedFileData)
-        except Exception as e:
-            logging.critical("Error during GZip unzip: %s", e)
-            sys.exit(1)                         # expand as exceptions are discovered
-        
-        filename, extension = os.path.splitext(destPath)
-        if extension == ".log" or extension == ".txt":  # valid log file
-            moveFileToCategoryDirectory(destPath, os.path.split(destPath)[1], caseNum)
-        
-        elif extension == ".tar":                   # tar file, unpack it
-            unzipIntoScratchSpace(destPath, extension, caseNum)
-            deleteFile(destPath)                    # remove since not moved
-        
-        else:                                   # can't handl file type (TODO: Fix this)
-            deleteFile(destPath)
-    
-    # .7z files
-    elif extension == ".7z":
-        logging.debug("7z Decompressing: %s", path)
-        destPath = path[:-3]
-        (head, destPath) = os.path.split(destPath)
-        destPath = scratchDirRoot + destPath
-        
-        # make a directory to unpack the file contents to
-        if not os.path.exists(destPath):
-            os.makedirs(destPath)
-        
-        try:                                    # exception handling here only
-            Archive(path).extractall(destPath)
-        except Exception as e:
-            logging.critical("Error during pyunpack extraction: %s", e)
-            raise e
-        
-        searchAnInspectionDirectory(destPath, "", caseNum)  # parse newly unpacked folder
-        
-        deleteDirectory(destPath)               # clean up
-    
-    else:                                       # impossible execution path
-        print("This execution path should never be reached")
-        sys.exit(1)
-    
-    return
-
-'''
-Attempts to delete a file owned by Logjam, if there is a problem halt the program
-fullPath : string
-    full path for the file to delete
-'''
-def deleteFile(fullPath):
-    assert os.path.exists(fullPath), "Path does not exist: "+fullPath
-    assert os.path.isfile(fullPath), "Path is not a file: "+fullPath
-    
-    try:
-        os.remove(fullPath)
-    except Exception as e:
-        logging.critical("Problem deleting file: %s", e)
-        raise e
-    
-    return
-
-'''
-Attempts to recursively delete a directory owned by Logjam, if there is a problem
-halt the program
-fullPath : string
-    full path for the directory to delete
-'''
-def deleteDirectory(fullPath):
-    assert os.path.exists(fullPath), "Path does not exist: "+fullPath
-    assert os.path.isdir(fullPath), "Path is not a directory: "+fullPath
-    
-    try:
-        shutil.rmtree(fullPath,onerror=handleDirRemovalErrors)
-    except Exception as e:
-        logging.critical("Problem deleting unzipped folder: %s", e)
-        raise e
-    
-    return
-    
-'''
-Handles errors thrown by shutil.rmtree when trying to remove a
-directory that has read-only files on Microsoft Windows.
-This elegant solution was originally found on:
-https://stackoverflow.com/questions/1889597/deleting-directory-in-python
-'''
-def handleDirRemovalErrors(func, path, excinfo):
-    (t,exc,traceback) = excinfo
-    if isinstance(exc, OSError) and exc.errno == 13:
-        logging.warning("Error deleting %s. Attempting to fix permissions", path)
-        os.system("chmod -R 755 {}".format(scratchDirRoot))
-        func(path)                          # try removing file again
-    else:
-        logging.warning("Unknown exception occured during directory removal")
-        logging.warning(excinfo)
-        logging.warning(exc)
-        raise exc
 '''
 Creates and initializes database for storing filepaths to prevent duplicates
 '''
