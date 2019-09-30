@@ -160,7 +160,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                searchAnInspectionDirectory(start, os.path.join(depth + "/" + fileOrDir), caseNum)
+                searchAnInspectionDirectory(start, os.path.join(depth,fileOrDir), caseNum)
             elif extension in validZips:
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
@@ -203,9 +203,17 @@ fullPath : string
 filenameAndExtension : string
     filename + extension for the file, possibly already computed before function call
 '''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
+def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, is_owned):
+    """ Stashes file in ELK stack; checks if duplicate, computes important
+    fields like log category, and prepares for ingest by Logstash
+    TODO: Finish this
+    """
+    
+    TODO: Finish this: How boi: How boi
+    
+    
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
+    assert os.path.basename(fullPath) == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
     
     # Log in the database and copy to the appropriate logjam category
@@ -224,11 +232,18 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
 
     categDirPath = categDirRoot + category + "/" + filenameAndExtension
 
-    try:
-        shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
-    except (IOError) as e:
-        logging.critical(str(e))
-        raise e
+    if is_owned:
+        try:
+            shutil.move(fullPath, categDirPath)     # mv scratch space -> categ folder
+        except (IOError) as e:
+            logging.critical("Unable to move file: %s", e)
+            raise e
+    else:
+        try:
+            shutil.copy2(fullPath, categDirPath)    # cp input dir -> categ folder
+        except (IOError) as e:
+            logging.critical("Unable to copy file: %s", e)
+            raise e
 
     timestamp = "%.20f" % time.time()
     categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
@@ -241,55 +256,6 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
     
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
     cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category)) 
-    connection.commit()
-    logging.debug("Adding %s to db and Logstash", fullPath)
-
-    return
-
-'''
-Assumes the file has not already been moved to the category directory.
-Logs the file in the "already scanned" database and then moves the file
-to the categories folder.
-
-'''
-def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum):
-    assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
-    assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
-    
-    # Log in the database and copy to the appropriate logjam category
-    if caseNum == None: caseNum = getCaseNumber(fullPath)
-    assert caseNum != None, "Null reference"
-    assert caseNum != "0", "Not a valid case number: "+caseNum
-    
-    category = getCategory(fullPath.lower(), filenameAndExtension.lower())
-    assert category != None, "Null reference"
-    
-    if not os.path.exists(categDirRoot):
-        os.makedirs(categDirRoot)
-
-    if not os.path.exists(categDirRoot + "/" + category):
-        os.makedirs(categDirRoot + "/" + category)
-
-    categDirPath = categDirRoot + category + "/" + filenameAndExtension
-    
-    try:
-        shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
-    except (IOError) as e:
-        logging.critical("Unable to move file: %s", e)
-        raise e
-    
-    timestamp = "%.20f" % time.time()
-    categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
-    
-    try:
-        os.rename(categDirPath, categDirPathWithTimestamp)
-    except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
-        logging.critical("Unable to rename file: %s", e)
-        raise e
-    
-    logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
     connection.commit()
     logging.debug("Adding %s to db and Logstash", fullPath)
 
