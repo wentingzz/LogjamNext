@@ -2,6 +2,8 @@
 **/duplicates.db
 **/logjam_categories
 **/scratch_space
+
+# Python configuration & misc files
 venv
 __pycache__
 .coverage

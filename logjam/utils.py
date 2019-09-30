@@ -141,8 +141,6 @@ def delete_file(path):
     path : string
         absolute path of the file to delete
     '''
-    assert os.path.exists(path), "Path does not exist: "+path
-    assert os.path.isfile(path), "Path is not a file: "+path
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     try:
@@ -151,11 +149,14 @@ def delete_file(path):
         if isinstance(exc, OSError) and exc.errno == 13:
             if platform.system() != "Windows":
                 logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                os.system("chmod -R 755 {}".format(scratchDirRoot))
+                parent_dir = os.path.dirname(path)
+                exit_code = os.system("chmod -R 755 {}".format(parent_dir))
+                if exit_code != 0:
+                  logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
                 try:
                     os.remove(path)             # try removing file again
                 except Exception as exc:
-                    logging.critical("Problem deleting file: %d %s", e.errno, e)
+                    logging.critical("Could not fix permissions: %d %s", exc.errno, exc)
                     raise exc                   # give up, tried everything
             else:
                 logging.warning("Error deleting %s. Attempting to turn off read-only", path)
@@ -163,7 +164,7 @@ def delete_file(path):
                 try:
                     os.remove(path)             # try removing file again
                 except Exception as exc:
-                    logging.critical("Problem deleting file: %d %s", e.errno, e)
+                    logging.critical("Could not fix permissions: %d %s", exc.errno, exc)
                     raise exc                   # give up, tried everything
         else:
             logging.critical("Problem deleting file: %s", exc)
@@ -177,8 +178,7 @@ def delete_directory(path):
     path : string
         absolute path of the directory to delete
     '''
-    assert os.path.exists(path), "Path does not exist: "+path
-    assert os.path.isdir(path), "Path is not a directory: "+path
+    assert os.path.isabs(path), "Path should be absolute: "+path
     
     def handle_errors(func, path, excinfo):
         ''' Handles errors thrown by shutil.rmtree when trying to remove directories w/
@@ -189,7 +189,10 @@ def delete_directory(path):
         if isinstance(exc, OSError) and exc.errno == 13:
             if platform.system() != "Windows":
                 logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                os.system("chmod -R 755 {}".format(scratchDirRoot))
+                parent_dir = os.path.dirname(path)
+                exit_code = os.system("chmod -R 755 {}".format(parent_dir))
+                if exit_code != 0:
+                  logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
                 func(path)                      # try removing file again
             else:
                 logging.warning("Error deleting %s. Attempting to turn off read-only", path)
