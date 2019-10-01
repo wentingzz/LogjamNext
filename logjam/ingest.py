@@ -3,10 +3,8 @@
 @author Josh Good
 @author Jeremy Schmidt
 @author Nathaniel Brooks
-
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
-
 Terminology:
   Inspection Directory - the original directory ingest.py searches through, it should
                          be treated as read-only
@@ -141,7 +139,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
         # Check for the file type to make sure it's not compressed
         filename, extension = os.path.splitext(fileOrDir)
         # Get the file's path in inspection dir
-        inspecDirPath = start + depth + "/" + fileOrDir
+        inspecDirPath = os.path.join(start + depth, fileOrDir)
         if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
         assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
@@ -155,7 +153,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                 copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum, output_root)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth + "/" + fileOrDir), caseNum=caseNum)
+                searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
             elif extension in validZips:
                 cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
                 connection.commit()
@@ -249,7 +247,6 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDi
 Assumes the file has not already been moved to the category directory.
 Logs the file in the "already scanned" database and then moves the file
 to the categories folder.
-
 '''
 def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDirRoot):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
@@ -267,10 +264,10 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDi
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
 
-    if not os.path.exists(categDirRoot + "/" + category):
-        os.makedirs(categDirRoot + "/" + category)
+    if not os.path.exists(os.path.join(categDirRoot,category)):
+        os.makedirs(os.path.join(categDirRoot,category))
 
-    categDirPath = categDirRoot + category + "/" + filenameAndExtension
+    categDirPath = os.path.join(categDirRoot + category, filenameAndExtension)
 
     try:
         shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
@@ -279,7 +276,7 @@ def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDi
         raise e
 
     timestamp = "%.20f" % time.time()
-    categDirPathWithTimestamp = categDirRoot + category + "/" + caseNum + "-" + filenameAndExtension + "-" + timestamp
+    categDirPathWithTimestamp = os.path.join(categDirRoot + category, caseNum + "-" + filenameAndExtension + "-" + timestamp)
 
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
@@ -322,7 +319,7 @@ def getCategory(path):
         for cat, regex in categories.items():
             if re.search(regex, start):
                 return cat
-        start = part + "/" + start
+        start = os.path.join(part, start)
 
     # Unrecognized file, so return "other"
     return "other"
