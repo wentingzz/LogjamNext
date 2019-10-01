@@ -169,7 +169,7 @@ def searchAnInspectionDirectory(start, depth=None, caseNum=None):
                   # TODO: Change to conditional function
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
-                  if ext in validExtensions or name in validFiles:
+                  if ext in validExtensions or os.path.basename(name) in validFiles:
                     moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
                   else:
                     utils.delete_file(path)
