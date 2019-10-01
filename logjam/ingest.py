@@ -152,7 +152,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum, output_root)
+                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth + "/" + fileOrDir), caseNum=caseNum)
@@ -165,7 +165,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
                   if ext in validExtensions or os.path.basename(name) in validFiles:
-                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum, output_root)
+                    stash_file_in_elk(path, os.path.basename(path), caseNum, output_root, True)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
@@ -189,22 +189,20 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
 
-'''
-Assumes the file has not already been copied to the category directory.
-Logs the file in the "already scanned" database and then copies the file
-to the categories directory.
-fullPath : string
-    full path for the file
-filenameAndExtension : string
-    filename + extension for the file, possibly already computed before function call
-'''
-def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot):
+def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
     """ Stashes file in ELK stack; checks if duplicate, computes important
-    fields like log category, and prepares for ingest by Logstash
-    TODO: Finish this
+    fields like log category, and prepares for ingest by Logstash.
+    fullPath : string
+        absolute path of the file
+    filenameAndExtension : string
+        filename + extension of the file, precomputed before function call
+    caseNum : string
+        StorageGRID case number for this file
+    categDirRoot : string
+        directory to stash the file into for Logstash
+    is_owned : boolean
+        indicates whether the Logjam system owns this file (i.e. can move/delete it)
     """
-    
-    TODO: Finish this: How boi: How boi
 
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.basename(fullPath) == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
