@@ -115,11 +115,12 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
-    for dirs in os.listdir(input_root):
-        # if change occurs:
-        if dirs != ".DS_Store":
-            # flatten the directory
-            searchAnInspectionDirectory(os.path.join(input_root, dirs), output_root, scratch_space)
+    for entity in os.listdir(input_root):
+        full_path = os.path.join(input_root,entity)
+        if os.path.isdir(full_path) and entity != ".DS_Store":
+            searchAnInspectionDirectory(full_path, output_root, scratch_space)
+        else:
+            logging.debug("Ignored non-StorageGRID file: %s", full_path)
 
 
 """
@@ -164,10 +165,8 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                   # TODO: Change to conditional function
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
-
                   if ext in validExtensions or os.path.basename(name) in validFiles:
                     moveFileToCategoryDirectory(path, os.path.basename(path), caseNum, output_root)
-
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
