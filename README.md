@@ -11,6 +11,12 @@ Install docker and docker-compose:
 sudo apt-get install docker docker-compose
 ```
 
+Add your user to the docker group (or else run all subsequent docker commands as root which is not reccomended):
+```
+sudo usermod -aG docker $(whoami)
+```
+You may need to re-log for this to take effect.
+
 Start services (run from project root folder):
 ```bash
 docker-compose up -d
@@ -62,7 +68,7 @@ The data will be sent by logstash to an elasticsearch index called `logjam-test`
 curl localhost:9200/_cat/indices
 ```
 
-Should output something like this (index size and doc cound will vary):
+Should output something like this (index size and doc count will vary):
 ```
 green  open .kibana_task_manager Pi8KlZsLQNuC5pQR0T25eQ 1 0        2 0 29.5kb 29.5kb
 yellow open logjam-test          4NvFxEaZQz-gz177FVJPyQ 1 1 26129762 0 10.8gb 10.8gb
@@ -77,7 +83,7 @@ See the [Elastic Search documentation](https://www.elastic.co/guide/en/elasticse
 
 ## Accessing Kibana
 
-Kibana should be accessible on port `5601` of the host machine. Kibaba should be able to connect to the Elastic Search index but as yet we have not created any Kibana-specific configuration.
+Kibana should be accessible on port `5601` of the host machine. Kibana should be able to connect to the Elastic Search index but as yet we have not created any Kibana-specific configuration.
 
 ## Alternative: Running ingest.py with Docker
 We have prepared a Dockerfile for the ingest script which can be used in place of running in a "real" Python environment. This should work but considering the effort involved with mounting volumes into the container, this method is currently not the simplest.
