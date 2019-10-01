@@ -1,8 +1,6 @@
 version: "3.3"
 services:
   elasticsearch:
-    networks:
-      - logjam
     image: elasticsearch:7.3.2
     ports:
       - "9200:9200"
@@ -10,8 +8,6 @@ services:
     environment:
       "discovery.type": "single-node"
   logstash:
-    networks:
-      - logjam
     image: docker.elastic.co/logstash/logstash:7.3.2
     volumes:
       - "./logjam:/logjam"
@@ -19,10 +15,6 @@ services:
     environment:
       XPACK_MONITORING_ENABLED: "false"
   kibana:
-    networks:
-      - logjam
     image: docker.elastic.co/kibana/kibana:7.3.2
     ports:
       - "5601:5601"
-networks:
-  logjam:
