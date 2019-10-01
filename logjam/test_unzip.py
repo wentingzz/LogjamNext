@@ -25,7 +25,8 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         shutil.copy2(os.path.join(cls.tmpdir, 'hello_zip.zip'), os.path.join(cls.srcdir, 'hello_targz'))
         shutil.make_archive(os.path.join(cls.tmpdir, 'hello_targz'), 'gztar', os.path.join(cls.srcdir, 'hello_targz'))
         with gzip.open(os.path.join(cls.tmpdir, 'hello_gz.gz'), 'wb') as f:
-            f.write('hello_gz.txt')
+            f.write('hello_gz.txt'.encode())
+
         process = subprocess.call(['7z', 'a', os.path.join(cls.tmpdir, 'hello_7z.7z'), os.path.join(cls.srcdir, 'hello_7z', '7z.txt'), '-mx9'], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
         # Prepare compressed data for each test gz tgz
         # (zip, gz, tar.gz, 7z, tar) plus multiple layer versions
