@@ -11,6 +11,12 @@ Install docker and docker-compose:
 sudo apt-get install docker docker-compose
 ```
 
+Add your user to the docker group (or else run all subsequent docker commands as root which is not reccomended):
+```
+sudo usermod -aG docker $(whoami)
+```
+You may need to re-log for this to take effect.
+
 Start services (run from project root folder):
 ```bash
 docker-compose up -d
