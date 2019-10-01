@@ -166,7 +166,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                   (name,ext) = os.path.splitext(path)
 
                   if ext in validExtensions or os.path.basename(name) in validFiles:
-                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum)
+                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum, output_root)
 
                   else:
                     utils.delete_file(path)
