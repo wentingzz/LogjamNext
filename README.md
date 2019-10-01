@@ -6,9 +6,9 @@ git clone https://github.ncsu.edu/engr-csc-sdc/2019FallTeam20.git
 
 ## Starting ELK Stack
 
-Install docker and docker-compose:
+Install docker, docker-compose, & python3-venv:
 ```bash
-sudo apt-get install docker docker-compose
+sudo apt-get install docker docker-compose python3-venv
 ```
 
 Add your user to the docker group (or else run all subsequent docker commands as root which is not reccomended):
