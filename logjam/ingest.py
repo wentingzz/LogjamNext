@@ -113,11 +113,12 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
-    for dirs in os.listdir(input_root):
-        # if change occurs:
-        if dirs != ".DS_Store":
-            # flatten the directory
-            searchAnInspectionDirectory(os.path.join(input_root, dirs), output_root, scratch_space)
+    for entity in os.listdir(input_root):
+        full_path = os.path.join(input_root,entity)
+        if os.path.isdir(full_path) and entity != ".DS_Store":
+            searchAnInspectionDirectory(full_path, output_root, scratch_space)
+        else:
+            logging.debug("Ignored non-StorageGRID file: %s", full_path)
 
 
 """
@@ -150,7 +151,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
         result = cursor.fetchone()
         if (result == None):
             if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                copyFileToCategoryDirectory(inspecDirPath, fileOrDir, caseNum, output_root)
+                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False)
             elif os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
                 searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
@@ -162,10 +163,8 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                   # TODO: Change to conditional function
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
-
                   if ext in validExtensions or os.path.basename(name) in validFiles:
-                    moveFileToCategoryDirectory(path, os.path.basename(path), caseNum, output_root)
-
+                    stash_file_in_elk(path, os.path.basename(path), caseNum, output_root, True)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
@@ -189,18 +188,23 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
 
-'''
-Assumes the file has not already been copied to the category directory.
-Logs the file in the "already scanned" database and then copies the file
-to the categories directory.
-fullPath : string
-    full path for the file
-filenameAndExtension : string
-    filename + extension for the file, possibly already computed before function call
-'''
-def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDirRoot):
+def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
+    """ Stashes file in ELK stack; checks if duplicate, computes important
+    fields like log category, and prepares for ingest by Logstash.
+    fullPath : string
+        absolute path of the file
+    filenameAndExtension : string
+        filename + extension of the file, precomputed before function call
+    caseNum : string
+        StorageGRID case number for this file
+    categDirRoot : string
+        directory to stash the file into for Logstash
+    is_owned : boolean
+        indicates whether the Logjam system owns this file (i.e. can move/delete it)
+    """
+
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
+    assert os.path.basename(fullPath) == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
 
     # Log in the database and copy to the appropriate logjam category
@@ -220,11 +224,18 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDi
 
     categDirPath = os.path.join(categDirRoot, category, filenameAndExtension)
 
-    try:
-        shutil.copy2(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
-    except (IOError) as e:
-        logging.critical(str(e))
-        raise e
+    if is_owned:
+        try:
+            shutil.move(fullPath, categDirPath)     # mv scratch space -> categ folder
+        except (IOError) as e:
+            logging.critical("Unable to move file: %s", e)
+            raise e
+    else:
+        try:
+            shutil.copy2(fullPath, categDirPath)    # cp input dir -> categ folder
+        except (IOError) as e:
+            logging.critical("Unable to copy file: %s", e)
+            raise e
 
     timestamp = "%.20f" % time.time()
     basename = "-".join([caseNum, filenameAndExtension, timestamp])
@@ -243,53 +254,6 @@ def copyFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDi
 
     return
 
-'''
-Assumes the file has not already been moved to the category directory.
-Logs the file in the "already scanned" database and then moves the file
-to the categories folder.
-'''
-def moveFileToCategoryDirectory(fullPath, filenameAndExtension, caseNum, categDirRoot):
-    assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.split(fullPath)[1] == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
-    assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
-
-    # Log in the database and copy to the appropriate logjam category
-    if caseNum == None: caseNum = getCaseNumber(fullPath)
-    assert caseNum != None, "Null reference"
-    assert caseNum != "0", "Not a valid case number: "+caseNum
-
-    category = getCategory(fullPath.lower())
-    assert category != None, "Null reference"
-
-    if not os.path.exists(categDirRoot):
-        os.makedirs(categDirRoot)
-
-    if not os.path.exists(os.path.join(categDirRoot,category)):
-        os.makedirs(os.path.join(categDirRoot,category))
-
-    categDirPath = os.path.join(categDirRoot + category, filenameAndExtension)
-
-    try:
-        shutil.move(fullPath, categDirPath)  # copy from inspection dir -> Logjam file space
-    except (IOError) as e:
-        logging.critical("Unable to move file: %s", e)
-        raise e
-
-    timestamp = "%.20f" % time.time()
-    categDirPathWithTimestamp = os.path.join(categDirRoot + category, caseNum + "-" + filenameAndExtension + "-" + timestamp)
-
-    try:
-        os.rename(categDirPath, categDirPathWithTimestamp)
-    except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
-        logging.critical("Unable to rename file: %s", e)
-        raise e
-
-    logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
-    connection.commit()
-    logging.debug("Adding %s to db and Logstash", fullPath)
-
-    return
 
 """
 Updates a previously logged entry to have an error flag
