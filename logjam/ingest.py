@@ -132,14 +132,14 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
     if not depth:
         depth = ""
 
-    assert os.path.isdir(os.path.join(start + depth)), "This is not a directory: "+os.path.join(start + depth)
+    assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
 
     # Loop over each file in the current directory
-    for fileOrDir in os.listdir(os.path.join(start + depth)):
+    for fileOrDir in os.listdir(os.path.join(start, depth)):
         # Check for the file type to make sure it's not compressed
         filename, extension = os.path.splitext(fileOrDir)
         # Get the file's path in inspection dir
-        inspecDirPath = os.path.join(start + depth, fileOrDir)
+        inspecDirPath = os.path.join(start, depth, fileOrDir)
         if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
         assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
