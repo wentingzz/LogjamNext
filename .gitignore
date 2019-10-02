@@ -1,4 +1,15 @@
 # Output files created by Logjam in the project's root folder
-/duplicates.db
-/logjam_categories/
+**/duplicates.db
+**/logjam_categories
+**/scratch_space
+
+# Python configuration & misc files
 venv
+__pycache__
+.coverage
+
+# Archives used for testing
+**.zip
+**.7z
+**.tgz
+**.gz
