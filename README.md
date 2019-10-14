@@ -23,7 +23,7 @@ docker-compose up -d
 ```
 This will create a network with three containers: one logstash, one elasticsearch, and one kibana.
 
-Logstash will start with a pipeline located at `logjam/logstash/logstash.conf`. This pipeline is configured to read from `logjam_categories` and output to an elasticsearch index called `logjam-test`.
+Logstash will start with a pipeline located at `src/logstash/logstash.conf`. This pipeline is configured to read from `logjam-categories` and output to an elasticsearch index called `logjam-test`.
 
 ## Running ingest.py
 
@@ -37,12 +37,12 @@ my-venv\Scripts\activate.bat      # for Windows (from cmd.exe)
 
 Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r ./src/ingester/requirements.txt
 ```
 
 Run ingest script on input data:
 ```bash
-python ingest.py [ingestion_directory]
+python ./src/ingester/ingest.py [ingestion_directory]
 ```
 
 Ingest script arguments:
