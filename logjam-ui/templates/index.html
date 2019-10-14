@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<!-- production version, optimized for size and speed -->
+<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script src="static/js/Chart.min.js"></script>
+
+<body>
+    <div id="canvas-holder" style="width:40%">
+        <canvas id="chart-area"></canvas>
+    </div>
+    <script>
+        var config = {
+            type: 'pie',
+            data: {
+                datasets: [{
+                    data: [
+                        25,
+                        25,
+                        25,
+                        5,
+                        20
+                    ],
+                    backgroundColor: [
+                        '#ff6384',
+                        '#36a2eb',
+                        '#cc65fe',
+                        '#ffce56',
+                        '#30c589',
+                    ],
+                    label: 'Dataset 1'
+                }],
+                labels: [
+                    'Red',
+                    'Orange',
+                    'Yellow',
+                    'Green',
+                    'Blue'
+                ]
+            },
+            options: {
+                responsive: true
+            }
+        };
+        window.onload = function() {
+            var ctx = document.getElementById('chart-area').getContext('2d');
+            window.myPie = new Chart(ctx, config);
+        };
+    </script>
+</body>
+</html>
