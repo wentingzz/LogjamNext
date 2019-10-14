@@ -2,9 +2,9 @@ FROM python:3.7
 
 WORKDIR /logjam
 
-COPY requirements.txt /logjam
-RUN pip install -r requirements.txt
+COPY ./src/ingester/requirements.txt /logjam/src/ingester/requirements.txt
+RUN pip install -r /logjam/src/ingester/requirements.txt
 
-COPY logjam /logjam/src
+COPY ./src /logjam/src
 
-ENTRYPOINT ["python3", "/logjam/src/ingest.py"]
+ENTRYPOINT ["python3", "/logjam/src/inester/ingest.py"]

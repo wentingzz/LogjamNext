@@ -93,11 +93,8 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    if args.output_directory is not None:
-        categDirRoot = args.output_directory
-    else:
-        categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "logjam_categories/")
-
+    # Should not allow configuration of intermediate directory
+    categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data", "logjam-categories")
 
     # Create database in the cwd
     initDatabase(database)
