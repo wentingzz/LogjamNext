@@ -8,7 +8,7 @@ git clone https://github.ncsu.edu/engr-csc-sdc/2019FallTeam20.git
 
 Install docker, docker-compose, & python3-venv:
 ```bash
-sudo apt-get install docker docker-compose python3-venv
+sudo apt-get install docker.io docker-compose python3-venv p7zip-full
 ```
 
 Add your user to the docker group (or else run all subsequent docker commands as root which is not reccomended):
