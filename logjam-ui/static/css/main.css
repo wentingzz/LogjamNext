@@ -1,5 +1,14 @@
+#options > * {
+    margin-bottom: 3px;
+}
 
-#submitBtn {
-    float: right;
-    display: block;
+#options {
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    padding-left: 5px;
+}
+
+textarea {
+    width: 100%;
 }

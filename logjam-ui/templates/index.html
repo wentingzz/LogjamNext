@@ -15,15 +15,16 @@
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
 <body>
-    <div id=logjam-header class="container">
+    <div id=logjamHeader class="container">
         <h1>Welcome to Logjam</h1>
+        <div class="row">
 
-        <div>
-        <p>Enter log text to analyze:</p>
-        <textarea name="logContents" cols="40" rows="5"></textarea>
+        <div id="textEntry" class="col-sm-4">
+          <p>Enter log text to analyze:</p>
+          <textarea name="logContents" rows="5"></textarea>
         </div>
 
-        <div id="options" class="input-group">
+        <div id="options" class="col-sm-2">
         <select id="platform">
           <option>All Platforms</option>
           <option>Platform A</option>
@@ -42,11 +43,15 @@
         </select>
         <input id="submitBtn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?">
         </div>
+        </div>
     </div>
 
-    <div id="canvas-holder" class="container" style="width:40%">
-        <label for="chart-area">Text occurrences across all log files:</label>
-        <canvas id="chart-area"></canvas>
+    <div class="container" id="charts">
+      <div class="row">
+        <div id="canvas-holder" class="col-sm-6">
+            <label for="chart-area">Text occurrences across all log files:</label>
+            <canvas id="chart-area" class="w-25"></canvas>
+        </div>
     </div>
 
     <script>
