@@ -67,31 +67,42 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
+        error_flag = False
         try:                                    # exception handling here only
             conans.tools.unzip(src, dest, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-        #delete_directory(dest)                 # no basic dir clean up, leave for caller
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
         
     elif extension == ".gz":
         logging.debug("Decompressing: %s", src)
         
+        error_flag = False
         try:                                    # exception handling here only
             decompressed_file_data = gzip.GzipFile(src, "rb").read()
             open(dest, "wb").write(decompressed_file_data)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        if os.path.splitext(dest)[1] in recursive_unzip_file_types:
-            recursive_unzip(dest, os.path.dirname(dest), action)
-            delete_file(dest)                   # delete zip file, unzipped same location
-        else:
-            action(dest)                        # basic file, perform action
-            #delete_file(dest)                  # no basic file clean up, leave for caller
+        if not error_flag:
+            if os.path.splitext(dest)[1] in recursive_unzip_file_types:
+                recursive_unzip(dest, os.path.dirname(dest), action)
+                delete_file(dest)               # delete zip file, unzipped same location
+            else:
+                action(dest)                    # basic file, perform action
+                #delete_file(dest)              # no basic file clean up, leave for caller
+        elif os.path.exists(dest):
+            if os.path.isdir(dest):
+                delete_directory(dest)
+            else:
+                delete_file(dest)
     
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", src)
@@ -99,14 +110,18 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
+        error_flag = False
         try:                                    # exception handling here only
             pyunpack.Archive(src).extractall(dest)
         except Exception as e:
             logging.critical("Error during pyunpack extraction: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-        #delete_directory(dest)                 # no basic dir clean up, leave for caller
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
     
     else:
         logging.critical("This execution path should never be reached")
