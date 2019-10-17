@@ -79,7 +79,7 @@ green  open .kibana_1            7wBkKNuxRRK7KEBZnxhXAw 1 0        4 1 23.9kb 23
 
 Arbitrary searches can be run against Elastic Search using the `_search` endpoint:
 ```
-curl 'sd-vm24.csc.ncsu.edu:9200/logjam/_search?pretty=true&q=category:"bycast"'
+curl 'localhost:9200/logjam/_search?pretty=true&q=category:"bycast"'
 ```
 See the [Elastic Search documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs.html) for more info.
 
