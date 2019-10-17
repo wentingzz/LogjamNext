@@ -39,12 +39,12 @@ my-venv\Scripts\activate.bat      # for Windows (from cmd.exe)
 
 Install dependencies
 ```bash
-pip install -r ./src/ingester/requirements.txt
+pip install -r ./src/logjam-ingest/requirements.txt
 ```
 
 Run ingest script on input data:
 ```bash
-python ./src/ingester/ingest.py [input_directory]
+python ./src/logjam-ingest/ingest.py [input_directory]
 ```
 
 Ingest script arguments:
