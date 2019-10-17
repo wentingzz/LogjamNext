@@ -6,6 +6,7 @@ Utility file for incremental scanning.
 
 import os
 import time
+from collections import namedtuple
 
 
 class TimePeriod:
@@ -30,9 +31,8 @@ class TimePeriod:
         return start <= new_time and new_time < stop
 
 
-class ScanRecord:
-    """ Simple record for storing the scan's time period (start + stop), input
-    directory, and last searched path.
+class Scan:
+    """
     """
     
     def __init__(self,time_period=TimePeriod(0,0),input_dir="",last_path=""):
@@ -50,6 +50,12 @@ class ScanRecord:
         assert len(self.input_dir) > 0, "Input directory should be given"
         
         return len(last_path) == 0
+
+
+ScanRecord = namedtuple("ScanRecord", ["time_period","input_directory","last_path"])
+""" Simple record for storing the scan's time period (start + stop), input
+directory, and last searched path.
+"""
 
 
 def compute_scan_period(history_file,stop_time=None):
