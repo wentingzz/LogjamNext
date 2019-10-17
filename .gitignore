@@ -7,6 +7,7 @@
 venv
 __pycache__
 .coverage
+tags
 
 # Archives used for testing
 **.zip
