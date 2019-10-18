@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <!-- Vue JS -->
-<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.0"></script><Paste>
 <!-- Chart JS -->
 <script src="static/js/Chart.min.js"></script>
 <!-- Bootstrap CSS -->
@@ -18,34 +18,32 @@
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
 
+
 <body>
-    <div id=logjamHeader class="container">
+    <div id="app">
+    <div id="logjamForm" class="container">
         <h1>Welcome to Logjam</h1>
         <div class="row">
 
         <div id="textEntry" class="col-sm-4">
-          <p>Enter log text to analyze:</p>
-          <textarea name="logContents" rows="5"></textarea>
+          <textarea name="logContents" placeholder="Enter log text to analyze" rows="5" v-model="logText"></textarea>
         </div>
 
-        <div id="options" class="col-sm-2">
-        <select id="platform">
-          <option>All Platforms</option>
-          <option>Platform A</option>
-          <option>Platform B</option>
-          <option>Platform C</option>
+        <div id="options-col" class="col-sm-2">
+        <div id="options">
+        <select id="platform" v-model="platform">
+            <option v-for="p in platforms" v-bind:value="p.value">
+              [[p.text]]
+            </option>
         </select>
-       <select id="Encoding">
-          <option>All Encodings</option>
-          <option>utf-8</option>
-          <option>ascii</option>
-        </select>
-        <select id="StorageGrid Version">
-          <option>All Versions</option>
-          <option>1.0</option>
-          <option>1.1</option>
+
+        <select id="SGVersion" v-model="storageGridVersion">
+            <option v-for="version in versions" v-bind:value="version.value">
+              [[version.text]]
+            </option>
         </select>
         <input id="submitBtn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?">
+        </div>
         </div>
         </div>
     </div>
@@ -89,5 +87,7 @@
             window.myPie = new Chart(ctx, config);
         };
     </script>
+    </div>
+    <script src="static/js/vueModel.js"></script>
 </body>
 </html>
