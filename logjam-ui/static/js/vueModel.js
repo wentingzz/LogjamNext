@@ -1,7 +1,43 @@
 Vue.component('pie-chart', {
+    props: [],
     data: function() {
         return {
+            config: {
+                type: 'pie',
+                data: {
+                    datasets: [{
+                        data: [ 77, 33 ],
+                        backgroundColor: [
+                            '#36a2eb',
+                            '#ff6384',
+                            '#cc65fe',
+                            '#ffce56',
+                            '#30c589',
+                        ],
+                        label: 'Dataset 1'
+                    }],
+                    labels: [
+                        'Occurs',
+                        'Does not occur',
+                    ]
+                },
+                options: {
+                    responsive: true
+                }
+            }
         };
+    },
+    template: '<canvas class="w-25"></canvas>',
+    methods: {
+        createChart(chartConfig) {
+            const ctx = this.$el;
+            const myChart = new Chart(ctx, chartConfig);
+      }
+    },
+
+    mounted() {
+        console.log(this.$el);
+        this.createChart(this.config);
     }
 })
 

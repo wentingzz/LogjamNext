@@ -52,41 +52,11 @@
       <div class="row">
         <div id="canvas-holder" class="col-sm-6">
             <label for="chart-area">Text occurrences across all log files:</label>
-            <canvas id="chart-area" class="w-25"></canvas>
+            <pie-chart></pie-chart>
         </div>
     </div>
 
-    <script>
-        var config = {
-            type: 'pie',
-            data: {
-                datasets: [{
-                    data: [
-                        77, 33
-                    ],
-                    backgroundColor: [
-                        '#36a2eb',
-                        '#ff6384',
-                        '#cc65fe',
-                        '#ffce56',
-                        '#30c589',
-                    ],
-                    label: 'Dataset 1'
-                }],
-                labels: [
-                    'Occurs',
-                    'Does not occur',
-                ]
-            },
-            options: {
-                responsive: true
-            }
-        };
-        window.onload = function() {
-            var ctx = document.getElementById('chart-area').getContext('2d');
-            window.myPie = new Chart(ctx, config);
-        };
-    </script>
+
     </div>
     <script src="static/js/vueModel.js"></script>
 </body>
