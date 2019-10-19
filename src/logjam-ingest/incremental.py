@@ -211,6 +211,4 @@ def append_scan_record(history_file, scan_record):
     assert len(scan_record.input_dir) > 0, "Input directory should be given"
     
     with open(history_file, "a") as file:
-        file.write(scan_record.to_str()+"\n")
-    
-    return
+        file.write(str(scan_record)+"\n")

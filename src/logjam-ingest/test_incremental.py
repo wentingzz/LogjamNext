@@ -8,7 +8,6 @@ import unittest
 import os
 import time
 import stat
-import subprocess
 
 
 import incremental
@@ -73,13 +72,10 @@ class ScanRecordTestCase(unittest.TestCase):
         self.assertTrue(tmp.is_complete())
 
 
-
-
 class ScanTestCase(unittest.TestCase):
     """ Tests the business logic of the Scan class.
     """
     
     def test_init(self):
         return
-    
-    
+
