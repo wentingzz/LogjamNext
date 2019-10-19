@@ -27,7 +27,7 @@ class TimePeriod:
         """ Returns whether two TimePeriods are equal.
         """
         if not isinstance(other, TimePeriod):
-            return NotImplemented
+            raise NotImplementedError("Can only compare TimePeriod")
         
         return self._start == other._start and self._stop == other._stop
     
@@ -71,7 +71,11 @@ class ScanRecord:
     directory, and last searched path. Designed to be immutable.
     """
     
-    def __init__(self, line):
+    @classmethod
+    def from_str(cls, line):
+        """
+        """
+        assert isinstance(line, str)
         assert len(line) > 0, "Should not be an empty string"
     
         space_tokens = line.split(' ')
@@ -79,17 +83,30 @@ class ScanRecord:
         
         start = int(space_tokens[0])
         stop = int(space_tokens[1])
-        self.time_period = TimePeriod(start, stop)
         
         quote_tokens = line.split('"')
         assert len(quote_tokens) == 5, "Should be exactly 5 tokens upon split"
         
-        self.input_dir = quote_tokens[1]
-        assert len(self.input_dir) > 0, "Input directory should be given"
+        input_dir = quote_tokens[1]
+        assert len(input_dir) > 0, "Input directory should be given"
         
-        self.last_path = quote_tokens[3]
+        last_path = quote_tokens[3]
+        
+        return ScanRecord(start, stop, input_dir, last_path)
+    
+    def __init__(self, start, stop, input_dir, last_path):
+        """
+        """
+        assert isinstance(input_dir, str)
+        assert isinstance(last_path, str)
+        
+        self.time_period = TimePeriod(start, stop)
+        self.input_dir = input_dir
+        self.last_path = last_path
     
     def __str__(self):
+        """
+        """
         time = str(self.time_period)
         input = '"' + str(self.input_dir) + '"'
         last = '"' + str(self.last_path) + '"'
@@ -110,13 +127,12 @@ class Scan:
         """ Constructs a Scan which operates on the given input directory.
         """
         assert os.path.exists(input_dir), "File path must exist"
-        assert os.path.isabs(input_dir), "File path should be absolute"
         
         self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
-        self.input_dir = input_dir                  # immutable after construction
+        self.input_dir = input_dir                  # <-^ both immutable after init
         
         self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
-        self.last_path = None
+        self.last_path = ""
     
     def update_from_history_file(self, history_file):
         """
@@ -137,7 +153,7 @@ class Scan:
             new_start = min(scan_record.time_period.stop, self.safe_time-1)
             new_stop = self.safe_time
             self.time_period = TimePeriod(new_start, new_stop)
-            self.last_path = None
+            self.last_path = ""
         else:                                       # didn't finish, adopt old period
             self.time_period = scan_record.time_period
             self.last_path = scan_record.last_path
@@ -145,15 +161,15 @@ class Scan:
         assert self.time_period.stop <= self.safe_time, "Must remain within safe time"
         
     def to_scan_record(self):
+        """ Returns a ScanRecord representing this Scan at a moment in time
         """
-        """
-        return
+        return ScanRecord(self.time_period.start, self.time_period.stop, self.input_dir, self.last_path)
     
-    def should_consider_file(path):
+    def should_consider_file(self, path):
         """ Checks to see if the file denoted by path would be considered for this
         over the given time period.
         """
-        assert os.path.isabs(path), "File path should be absolute"
+        assert os.path.exists(path), "File should exist on system"
         
         modification_time = os.path.getmtime(path)
         return modification_time in self.time_period
@@ -194,7 +210,6 @@ def extract_last_scan_record(history_file):
     file denoted by the path and returns the information in a ScanRecord.
     """
     assert os.path.exists(history_file), "File path should exist"
-    assert os.path.isabs(history_file), "File path should be absolute"
     assert os.stat(history_file).st_size > 0, "File must contain at least one record"
     
     with open(history_file, "r") as file_stream:
@@ -207,8 +222,8 @@ def append_scan_record(history_file, scan_record):
     the path. The scan time period (start & stop), input directory, and last searched
     path are written as a single line to the file.
     """
-    assert os.path.isabs(history_file), "File path should be absolute"
     assert len(scan_record.input_dir) > 0, "Input directory should be given"
     
     with open(history_file, "a") as file:
         file.write(str(scan_record)+"\n")
+
