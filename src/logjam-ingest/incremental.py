@@ -9,7 +9,7 @@ import time
 from collections import namedtuple
 
 
-seconds_between_automatic_history_updates = 60
+seconds_between_automatic_history_updates = 10
 
 
 class TimePeriod:
@@ -205,17 +205,6 @@ class Scan:
             self.input_dir,
             self.last_path)
     
-    def should_consider_file(self, path):
-        """ Checks to see if the file denoted by path would be considered for this
-        scan over the given time period.
-        """
-        assert self.input_dir != None, "Scan was internally closed"
-        assert os.path.exists(path), "File should exist on system"
-        assert not os.path.isdir(path), "Path should point to a file"
-        
-        modification_time = os.path.getmtime(path)
-        return modification_time in self.time_period
-    
     def just_scanned_this_path(self, path):
         """ Caller just scanned the given path, so update the internal last
         scanned path variable and possibly write the file to our history file if
@@ -223,6 +212,9 @@ class Scan:
         """
         assert self.input_dir != None, "Scan was internally closed"
         assert os.path.exists(path), "Path should exist on system"
+        
+        if not self.should_consider_file(path):
+            return                              # do nothing if file outside period
         
         self.last_path = path
         
@@ -234,6 +226,17 @@ class Scan:
             
             append_scan_record(self.history_file, new_record)
             self.last_history_update = cur_time
+    
+    def should_consider_file(self, path):
+        """ Checks to see if the file denoted by path would be considered for this
+        scan over the given time period.
+        """
+        assert self.input_dir != None, "Scan was internally closed"
+        assert os.path.exists(path), "File should exist on system"
+        assert not os.path.isdir(path), "Path should point to a file"
+        
+        modification_time = os.path.getmtime(path)
+        return modification_time in self.time_period
     
     def complete_scan(self):
         """ Completes the scan, writing out information to the history file
@@ -283,7 +286,7 @@ def extract_last_scan_record(history_file):
     
     with open(history_file, "r") as file_stream:
         last_line = file_stream.readlines()[-1]
-        return ScanRecord(last_line)
+        return ScanRecord.from_str(last_line)
 
 
 def append_scan_record(history_file, scan_record):
