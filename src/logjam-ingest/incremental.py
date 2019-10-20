@@ -180,6 +180,7 @@ class Scan:
     def update_from_scan_record(self, scan_record):
         """ 
         """
+        assert self.input_dir != None, "Scan was internally closed"
         assert scan_record.input_dir == self.input_dir, "Input directories must match"
         
         if scan_record.is_complete():               # completed, new period = then -> safe
@@ -196,6 +197,8 @@ class Scan:
     def to_scan_record(self):
         """ Returns a ScanRecord representing this Scan at a moment in time
         """
+        assert self.input_dir != None, "Scan was internally closed"
+        
         return ScanRecord(
             self.time_period.start,
             self.time_period.stop,
@@ -206,6 +209,7 @@ class Scan:
         """ Checks to see if the file denoted by path would be considered for this
         scan over the given time period.
         """
+        assert self.input_dir != None, "Scan was internally closed"
         assert os.path.exists(path), "File should exist on system"
         assert not os.path.isdir(path), "Path should point to a file"
         
@@ -217,6 +221,7 @@ class Scan:
         scanned path variable and possibly write the file to our history file if
         enough time has passed.
         """
+        assert self.input_dir != None, "Scan was internally closed"
         assert os.path.exists(path), "Path should exist on system"
         
         self.last_path = path
@@ -233,6 +238,7 @@ class Scan:
         """ Completes the scan, writing out information to the history file
         to show that the scan was completed.
         """
+        assert self.input_dir != None, "Scan was internally closed"
         
         self.last_path = ""
         cur_time = int(time.time())
@@ -242,11 +248,18 @@ class Scan:
         
         append_scan_record(self.history_file, new_record)
         self.last_history_update = cur_time
+        
+        self.input_dir = None                   # internally close the Scan
     
     def premature_exit(self):
         """ Program needs to halt the scan prematurely. Write out information
         to history file so that it can hopefully be picked up next time.
         """
+        assert self.input_dir != None, "Scan was internally closed"
+        
+        if self.last_path == "":                # no successfully scanned paths so far
+            self.input_dir = None               # internally close the Scan
+            return                              # don't write to history, nothing scanned
         
         cur_time = int(time.time())
         
@@ -255,6 +268,8 @@ class Scan:
         
         append_scan_record(self.history_file, new_record)
         self.last_history_update = cur_time
+        
+        self.input_dir = None                   # internally close the Scan
         
 
 def extract_last_scan_record(history_file):
