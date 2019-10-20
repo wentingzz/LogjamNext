@@ -28,13 +28,8 @@ import signal
 from conans import tools
 from pyunpack import Archive
 
+import incremental
 import utils
-
-# Database connection path
-database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
-
-connection = None  # will remove later, no SQL database
-cursor = None      # will remove later, no need for SQL database
 
 # List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
@@ -96,13 +91,10 @@ def main():
         sys.exit(1)
 
     # Should not allow configuration of intermediate directory
-    categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data", "logjam-categories")
+    output_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data")
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
-
-    # Create database in the cwd
-    initDatabase(database)
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
@@ -113,7 +105,7 @@ def main():
 
     # Ingest the directories
     logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot)
+    ingest_log_files(args.ingestion_directory, output_root, scratchDirRoot)
     if graceful_abort:
         logging.info("Graceful abort successful")
     else:
@@ -124,12 +116,24 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
+    categ_root = os.path.join(output_root, "logjam-categories")
+    history_file = os.path.join(output_root, "scan-history.txt")
+    
+    scan = incremental.Scan(input_root, history_file)
+    
     for entity in os.listdir(input_root):
         full_path = os.path.join(input_root,entity)
         if os.path.isdir(full_path) and entity != ".DS_Store":
-            searchAnInspectionDirectory(full_path, output_root, scratch_space)
+            searchAnInspectionDirectory(scan, full_path, categ_root, scratch_space)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
+    
+    if graceful_abort:
+        scan.premature_exit()
+    else:
+        scan.complete_scan()
+        
+    return
 
 
 """
@@ -140,7 +144,7 @@ start : string
 depth : string
     the sub-directories and sub-files associated with this directory
 """
-def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
+def searchAnInspectionDirectory(scan, start, categ_root, scratch_space, depth=None, caseNum=None):
     if graceful_abort:
         return
 
@@ -159,26 +163,22 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
         assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
         category = getCategory(inspecDirPath.lower())
-        # Check if this file has been previously ingested into our database
-        logging.debug("Checking if duplicate: %s", inspecDirPath)
-        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))
-        result = cursor.fetchone()
-        if (result == None):
-            if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False)
-            elif os.path.isdir(inspecDirPath):
-                # Detected a directory, continue
-                searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
+          
+        if os.path.isdir(inspecDirPath):
+            # Detected a directory, continue
+            searchAnInspectionDirectory(scan, start, categ_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
+        
+        elif os.path.isfile(inspecDirPath) and scan.should_consider_file(inspecDirPath):    
+            if extension in validExtensions or filename in validFiles:
+                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, categ_root, False)
+            
             elif extension in validZips:
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
-                connection.commit()
-                
                 def handle_unzipped_file(path):
                   # TODO: Change to conditional function
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
                   if ext in validExtensions or os.path.basename(name) in validFiles:
-                    stash_file_in_elk(path, os.path.basename(path), caseNum, output_root, True)
+                    stash_file_in_elk(path, os.path.basename(path), caseNum, categ_root, True)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
@@ -193,14 +193,17 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
                 assert os.path.exists(new_scratch_dir), "Should still exist"
                 utils.delete_directory(new_scratch_dir)
                 
-                logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
+                logging.debug("Added compressed archive to ELK: %s", inspecDirPath)
+            
             else:
-                # Invalid file, flag as an error in database and continue
-                updateToErrorFlag(inspecDirPath)
+                # Invalid file, continue
                 logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
+        
+        scan.just_scanned_this_path(inspecDirPath)
+
 
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
     """ Stashes file in ELK stack; checks if duplicate, computes important
@@ -262,22 +265,10 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         raise e
 
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
-    connection.commit()
-    logging.debug("Adding %s to db and Logstash", fullPath)
+    logging.debug("Adding %s to Logstash", fullPath)
 
     return
 
-
-"""
-Updates a previously logged entry to have an error flag
-path : string
-    the file path to update in the database
-"""
-def updateToErrorFlag(path):
-    cursor.execute(''' UPDATE paths SET flag = ? WHERE path = ?''', (1, path,))
-    connection.commit()
-    logging.debug("Flagging " + path)
 
 """
 Gets the category for this file based on path
@@ -317,27 +308,6 @@ def getCaseNumber(path):
         caseNum = caseNum.group()
     return caseNum
 
-'''
-Creates and initializes database for storing filepaths to prevent duplicates
-'''
-def initDatabase(db_file):
-    global connection
-    global cursor
-
-    sql_table = """ CREATE TABLE IF NOT EXISTS paths (
-                           path text,
-                           flag integer,
-                           category text,
-                           timestamp float
-                        ); """
-
-    try:
-        connection = sqlite3.connect(db_file)
-        cursor = connection.cursor()
-        cursor.execute(sql_table)
-    except Error as e:
-        logging.critical(str(e))
-        raise e
 
 if __name__ == "__main__":
     main()
