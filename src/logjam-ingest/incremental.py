@@ -242,6 +242,19 @@ class Scan:
         
         append_scan_record(self.history_file, new_record)
         self.last_history_update = cur_time
+    
+    def premature_exit(self):
+        """ Program needs to halt the scan prematurely. Write out information
+        to history file so that it can hopefully be picked up next time.
+        """
+        
+        cur_time = int(time.time())
+        
+        new_record = self.to_scan_record()
+        assert not new_record.is_complete(), "Record should not be labeled complete"
+        
+        append_scan_record(self.history_file, new_record)
+        self.last_history_update = cur_time
         
 
 def extract_last_scan_record(history_file):
