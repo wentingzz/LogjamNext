@@ -28,6 +28,7 @@ class TestIngest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+
     def test_match_category(self):
         """ Test that expected categories are matched from file paths """
         # Map sample paths to their "correct" answer
