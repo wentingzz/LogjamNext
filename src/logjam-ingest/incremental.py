@@ -225,6 +225,7 @@ class Scan:
         assert os.path.exists(path), "Path should exist on system"
         
         self.last_path = path
+        
         cur_time = int(time.time())
         
         if cur_time-self.last_history_update > seconds_between_automatic_history_updates:
@@ -241,6 +242,7 @@ class Scan:
         assert self.input_dir != None, "Scan was internally closed"
         
         self.last_path = ""
+        
         cur_time = int(time.time())
         
         new_record = self.to_scan_record()
