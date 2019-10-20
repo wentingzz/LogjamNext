@@ -198,11 +198,11 @@ def searchAnInspectionDirectory(scan, start, categ_root, scratch_space, depth=No
             else:
                 # Invalid file, continue
                 logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
+            
+            scan.just_scanned_this_path(inspecDirPath)
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
-        
-        scan.just_scanned_this_path(inspecDirPath)
 
 
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
