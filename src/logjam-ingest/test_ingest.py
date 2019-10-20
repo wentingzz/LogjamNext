@@ -28,7 +28,6 @@ class TestIngest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-
     def test_match_category(self):
         """ Test that expected categories are matched from file paths """
         # Map sample paths to their "correct" answer
@@ -77,30 +76,16 @@ class TestIngest(unittest.TestCase):
             case_num = ingest.getCaseNumber(path)
             self.assertEqual(case_num, "0", "Case number provided for bad folder path %s" % path)
 
-    def test_init_db(self):
-        """ Test that db and table are created """
-        db_name = os.path.join(self.tmpdir, 'test.db')
-        ingest.initDatabase(db_name)
-        self.assertTrue(os.path.exists(db_name))
-
-        conn = sqlite3.connect(db_name)
-        cursor = conn.cursor()
-
-        # Make sure the table exists by querying it
-        cursor.execute("SELECT * from paths")
-
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """
         # Establish paths under the test's temp directory
-        sample_input = os.path.join(self.data_dir, "StandardFiles")
-        output_dir = os.path.join(self.tmpdir, "categories")
+        input_dir = os.path.join(self.data_dir, "StandardFiles")
+        categ_dir = os.path.join(self.tmpdir, "categories")
         scratch_dir = os.path.join(self.tmpdir, "scratch")
-
-        # Initialize a database in the test directory instead of the default
-        ingest.initDatabase(os.path.join(self.tmpdir, "duplicates.db"))
+        history_file = os.path.join(self.tmpdir, "history.txt")
 
         # Run ingest on sample data
-        ingest.ingest_log_files(sample_input, output_dir, scratch_dir)
+        ingest.ingest_log_files(input_dir, categ_dir, scratch_dir, history_file)
 
         expected_files = [("audit", 1), ("bycast", 1), ("dmesg", 1), ("gdu_server", 1),
                           ("init_sg", 1), ("install", 1), ("kern", 1), ("messages", 1),
@@ -109,7 +94,7 @@ class TestIngest(unittest.TestCase):
                           ("upgrade", 1)]
 
         for category, count in expected_files:
-            category_path = os.path.join(output_dir, category)
+            category_path = os.path.join(categ_dir, category)
             category_files = os.listdir(category_path)
 
             # Make sure we got the right number of files per category

@@ -31,6 +31,9 @@ from pyunpack import Archive
 import incremental
 import utils
 
+code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
+intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+
 # List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
@@ -79,19 +82,20 @@ def main():
         sys.exit(1)
 
     if args.scratch_space is not None:
-        scratchDirRoot = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
+        scratch_dir = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
     else:
-        scratchDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch-space/")
+        scratch_dir = os.path.join(intermediate_dir, "scratch-space/")
 
-    if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)
-    elif not os.path.isdir(scratchDirRoot):
+    if not os.path.exists(scratch_dir):
+        os.makedirs(scratch_dir)
+    elif not os.path.isdir(scratch_dir):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
 
     # Should not allow configuration of intermediate directory
-    output_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data")
+    categ_dir = os.path.join(intermediate_dir, "logjam-categories")
+    history_file = os.path.join(intermediate_dir, "scan-history.txt")
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
@@ -105,26 +109,29 @@ def main():
 
     # Ingest the directories
     logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, output_root, scratchDirRoot)
+    ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir, history_file)
     if graceful_abort:
         logging.info("Graceful abort successful")
     else:
         logging.info("Finished ingesting")
     
     logging.info("Cleaning up scratch space")
-    utils.delete_directory(scratchDirRoot)
+    utils.delete_directory(scratch_dir)
 
 
-def ingest_log_files(input_root, output_root, scratch_space):
-    categ_root = os.path.join(output_root, "logjam-categories")
-    history_file = os.path.join(output_root, "scan-history.txt")
+def ingest_log_files(input_dir, categ_dir, scratch_dir, history_file):
+    """ Begins ingesting files from the specified directories. Assumes that
+    Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
+    Logjam DOES own `scratch_dir` and `history_file`.
+    """
+    assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
-    scan = incremental.Scan(input_root, history_file)
+    scan = incremental.Scan(input_dir, history_file)
     
-    for entity in os.listdir(input_root):
-        full_path = os.path.join(input_root,entity)
+    for entity in os.listdir(input_dir):
+        full_path = os.path.join(input_dir,entity)
         if os.path.isdir(full_path) and entity != ".DS_Store":
-            searchAnInspectionDirectory(scan, full_path, categ_root, scratch_space)
+            searchAnInspectionDirectory(scan, full_path, categ_dir, scratch_dir)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
     
@@ -279,7 +286,7 @@ filename : string
 """
 def getCategory(path):
     # Split the path by sub-directories
-    splitPath = path.split("/")
+    splitPath = path.replace('\\','/').split("/")
     start = splitPath[len(splitPath) - 1]
     splitPath.pop()
     # For each part in this path, run each category regex expression
