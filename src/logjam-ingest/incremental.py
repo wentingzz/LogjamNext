@@ -9,6 +9,9 @@ import time
 from collections import namedtuple
 
 
+seconds_between_automatic_history_updates = 60
+
+
 class TimePeriod:
     """ Represents a period in time defined by a start and stop time. These start
     and stop times are measured in integer seconds since the 'epoch'. On Unix this
@@ -73,7 +76,8 @@ class ScanRecord:
     
     @classmethod
     def from_str(cls, line):
-        """
+        """ Builds a ScanRecord from a string representation of a ScanRecord.
+        This operation is the opposite of the `__str__` method.
         """
         assert isinstance(line, str)
         assert len(line) > 0, "Should not be an empty string"
@@ -100,49 +104,78 @@ class ScanRecord:
         assert isinstance(input_dir, str)
         assert isinstance(last_path, str)
         
-        self.time_period = TimePeriod(start, stop)
-        self.input_dir = input_dir
-        self.last_path = last_path
+        self._time_period = TimePeriod(start, stop)
+        self._input_dir = input_dir
+        self._last_path = last_path
+    
+    def __eq__(self, other):
+        """ Returns whether two ScanRecords are equal.
+        """
+        if not isinstance(other, ScanRecord):
+            raise NotImplementedError("Can only compare ScanRecord")
+        
+        return self._time_period == other._time_period and \
+            self._input_dir == other._input_dir and \
+            self._last_path == other._last_path
     
     def __str__(self):
+        """ Returns a string representation of the ScanRecord. Each field is
+        separated by a single space.
         """
-        """
-        time = str(self.time_period)
-        input = '"' + str(self.input_dir) + '"'
-        last = '"' + str(self.last_path) + '"'
+        time = str(self._time_period)
+        input = '"' + str(self._input_dir) + '"'
+        last = '"' + str(self._last_path) + '"'
         return ' '.join([time, input, last])
     
     def is_complete(self):
         """ Checks to see if this record represents a complete scan. A complete
         scan is denoted by a scan with no last path.
         """
-        return len(self.last_path) == 0
+        return len(self._last_path) == 0
+    
+    @property
+    def time_period(self):
+        """ Getter property for time_period
+        """
+        return self._time_period
+    
+    @property
+    def input_dir(self):
+        """ Getter property for input_dir
+        """
+        return self._input_dir
+    
+    @property
+    def last_path(self):
+        """ Getter property for last_path
+        """
+        return self._last_path
 
 
 class Scan:
     """ Represents an active scan of the input directory.
     """
     
-    def __init__(self,input_dir):
+    def __init__(self, input_dir, history_file):
         """ Constructs a Scan which operates on the given input directory.
         """
         assert os.path.exists(input_dir), "File path must exist"
         
         self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
-        self.input_dir = input_dir                  # <-^ both immutable after init
+        self.input_dir = input_dir                  # these 3 fields immutable after init
+        self.history_file = history_file
+        
+        self.last_path = ""
+        self.last_history_update = TimePeriod.ancient_history()
         
         self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
-        self.last_path = ""
-    
-    def update_from_history_file(self, history_file):
-        """
-        """
-        assert os.path.exists(history_file), "History file must exist"
         
-        if os.stat(history_file).st_size == 0:      # no previous scans, keep defaults
-            return
-    
-        self.update_from_scan_record(extract_last_scan_record(history_file))
+        if not os.path.exists(history_file):
+            open(history_file, 'a').close()
+        elif os.stat(history_file).st_size == 0:
+            pass                                    # no previous scans, keep defaults
+        else:
+            self.update_from_scan_record(extract_last_scan_record(self.history_file))
         
     def update_from_scan_record(self, scan_record):
         """ 
@@ -163,47 +196,53 @@ class Scan:
     def to_scan_record(self):
         """ Returns a ScanRecord representing this Scan at a moment in time
         """
-        return ScanRecord(self.time_period.start, self.time_period.stop, self.input_dir, self.last_path)
+        return ScanRecord(
+            self.time_period.start,
+            self.time_period.stop,
+            self.input_dir,
+            self.last_path)
     
     def should_consider_file(self, path):
         """ Checks to see if the file denoted by path would be considered for this
-        over the given time period.
+        scan over the given time period.
         """
         assert os.path.exists(path), "File should exist on system"
+        assert not os.path.isdir(path), "Path should point to a file"
         
         modification_time = os.path.getmtime(path)
         return modification_time in self.time_period
-
-
-# # # def compute_scan_period(history_file,stop=None):
-    # # # """ Computes a new period for scanning based on the last scan. If the last
-    # # # scan successfully completed, computes start as the stop of the last scan and stop
-    # # # as 6 minutes before the current system time or a caller provided value. If the last
-    # # # scan was not successful, justs uses the scanning period of the previous scan.
-    # # # """
-    # # # assert os.path.isabs(history_file), "File path should be absolute"
     
-    # # # start = 0
-    
-    # # # if os.stat(history_file).st_size != 0:              # history file is not empty
-        # # # scan_record = read_last_scan(history_file)
+    def just_scanned_this_path(self, path):
+        """ Caller just scanned the given path, so update the internal last
+        scanned path variable and possibly write the file to our history file if
+        enough time has passed.
+        """
+        assert os.path.exists(path), "Path should exist on system"
         
-        # # # if not scan_record.is_complete():               # last scan didn't finish
-            # # # start = scan_record.time_period.start
-            # # # stop = scan_record.time_period.stop
-        # # # else:                                           # last scan did finish
-            # # # start = scan_record.time_period.stop
-            # # # if stop == None:
-                # # # stop  = int(time.time()) - 60 * 6;      # 6 min before current time
+        self.last_path = path
+        cur_time = int(time.time())
+        
+        if cur_time-self.last_history_update > seconds_between_automatic_history_updates:
+            new_record = self.to_scan_record()
+            assert not new_record.is_complete(), "Record should not be labeled complete"
+            
+            append_scan_record(self.history_file, new_record)
+            self.last_history_update = cur_time
     
-    # # # else:                                               # history file was empty
-        # # # start = -60 * 60 * 24 * 365 * 30                # 30 years before epoch
-        # # # if stop == None:
-            # # # stop  = int(time.time()) - 60 * 6;          # 6 min before current time
-    
-    # # # assert stop <= int(time.time()), "Stop time cannot be in the future"
-    # # # return TimePeriod(start, stop)
-
+    def complete_scan(self):
+        """ Completes the scan, writing out information to the history file
+        to show that the scan was completed.
+        """
+        
+        self.last_path = ""
+        cur_time = int(time.time())
+        
+        new_record = self.to_scan_record()
+        assert new_record.is_complete(), "Record should be labeled as complete"
+        
+        append_scan_record(self.history_file, new_record)
+        self.last_history_update = cur_time
+        
 
 def extract_last_scan_record(history_file):
     """ Reads the last successful scan information from the scan history
@@ -222,6 +261,7 @@ def append_scan_record(history_file, scan_record):
     the path. The scan time period (start & stop), input directory, and last searched
     path are written as a single line to the file.
     """
+    assert os.path.exists(history_file), "File path should exist"
     assert len(scan_record.input_dir) > 0, "Input directory should be given"
     
     with open(history_file, "a") as file:

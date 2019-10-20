@@ -105,12 +105,22 @@ class ScanRecordTestCase(unittest.TestCase):
         self.assertEqual("/nfs", record.input_dir)
         self.assertEqual("", record.last_path)
     
+    def test_eq(self):
+        record = incremental.ScanRecord.from_str('3 4 "." "X"')
+        
+        self.assertEqual(record, record)
+        self.assertEqual(record, incremental.ScanRecord.from_str('3 4 "." "X"'))
+        self.assertEqual(record, incremental.ScanRecord(3, 4, ".", "X"))
+    
     def test_str(self):
         record = incremental.ScanRecord.from_str('5 7 "/nfs" "./2001938907/log.txt"')
         self.assertEqual('5 7 "/nfs" "./2001938907/log.txt"', str(record))
         
         record = incremental.ScanRecord.from_str('5 7 "/path w/ spaces" "log.txt"')
         self.assertEqual('5 7 "/path w/ spaces" "log.txt"', str(record))
+        
+        record = incremental.ScanRecord.from_str('0 1 "." "x"')
+        self.assertEqual(record, incremental.ScanRecord.from_str(str(record)))
     
     def test_is_complete(self):
         record = incremental.ScanRecord.from_str('0 1 "/nfs" "./folder/log.txt"')
@@ -124,19 +134,25 @@ class ScanTestCase(unittest.TestCase):
     """ Tests the business logic of the Scan class.
     """
     
+    def tearDown(self):
+        self.assertTrue(os.path.exists("./history.txt"))
+        self.assertFalse(os.path.isdir("./history.txt"))
+        os.remove("./history.txt")
+    
     def test_init(self):
-        scan = incremental.Scan(".")                    # assumes "." is a valid path
+        scan = incremental.Scan(".","history.txt")      # assumes "." is a valid path
         cur_time = time.time()                          # assumes both same time source
         
         self.assertGreater(cur_time, scan.safe_time)
         self.assertEqual(".", scan.input_dir)
+        self.assertEqual("history.txt", scan.history_file)
         
         self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
         self.assertEqual(scan.safe_time, scan.time_period.stop)
         self.assertEqual("", scan.last_path)
     
     def test_update_from_scan_record(self):
-        scan = incremental.Scan(".")
+        scan = incremental.Scan(".","history.txt")
         
         self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
         self.assertEqual(scan.safe_time, scan.time_period.stop)
@@ -155,7 +171,7 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual("./log.txt", scan.last_path)
     
     def test_to_scan_record(self):
-        scan = incremental.Scan(".")
+        scan = incremental.Scan(".","history.txt")
         
         scan.last_path = ""
         
