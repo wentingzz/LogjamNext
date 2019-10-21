@@ -3,12 +3,6 @@
     margin-top: 2px;
 }
 
-/*
-#options-col, #text-entry {
-    height: 200px;
-}
-*/
-
 
 #options {
     height: 100%;
@@ -27,4 +21,9 @@ textarea {
 
 canvas {
     display: inline-block;
+}
+
+.alert {
+    margin-bottom: 4px;
+    margin-top: 4px;
 }
