@@ -25,6 +25,7 @@ Vue.component('pie-chart', {
                 },
                 options: {
                     responsive: true,
+                    aspectRatio: 1,
                     title: {
                         display: true,
                         text: ""
@@ -33,7 +34,7 @@ Vue.component('pie-chart', {
             }
         };
     },
-    template: '<canvas class="w-25"></canvas>',
+    template: '<canvas></canvas>',
     methods: {
         createChart(chartConfig) {
             const ctx = this.$el;

@@ -51,11 +51,15 @@
             </div>
 
             <div class="container" id="charts">
-                <div class="row">
-                    <div id="canvas-holder" class="col-sm-6">
-                        <pie-chart v-for="chart in charts" v-bind:title="chart.title" v-bind:labels="chart.labels" v-bind:values="chart.values"></pie-chart>
+                    <div id="canvas-holder">
+                        <div class="col-sm-3" v-for="chart in charts">
+                            <pie-chart 
+                                   v-bind:title="chart.title"
+                                   v-bind:labels="chart.labels"
+                                   v-bind:values="chart.values">
+                            </pie-chart>
+                        </div>
                     </div>
-                </div>
             </div>
             <script src="static/js/vueModel.js"></script>
     </body>
