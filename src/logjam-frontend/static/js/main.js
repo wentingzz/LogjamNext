@@ -1,6 +1,10 @@
+// vue-resources for http requests
 Vue.use(VueResource);
 
 function getColors(count) {
+    /**
+     * Returns a list of <count> unique colors in hex form
+     */
     const availableColors = [
         '#36a2eb',
         '#ff6384',
@@ -9,6 +13,7 @@ function getColors(count) {
         '#30c589',
     ];
 
+    // Shuffle the list of available, then return the first n
     // https://stackoverflow.com/questions/11935175/sampling-a-random-subset-from-an-array
     var shuffled = availableColors.slice(0), i = availableColors.length, temp, index;
     while (i--) {
@@ -21,13 +26,17 @@ function getColors(count) {
 }
 
 Vue.component('pie-chart', {
+    /**
+     * Reusable component for a chartjs pie chart
+     */
     props: {
-        title: String,
-        labels: Array,
-        values: Array
+        title: String, // Title that is displayed above chart
+        labels: Array, // List of the 'axis' labels in order
+        values: Array  // List of data values in order matching labels
     },
     data: function() {
         return {
+            // Config template for a pie chart. Data and labels will be filled in upon instantiation
             config: {
                 type: 'pie',
                 data: {
@@ -50,18 +59,21 @@ Vue.component('pie-chart', {
     template: '<canvas></canvas>',
     methods: {
         createChart(chartConfig) {
-            const ctx = this.$el;
+            // Set title, labels, and data
             chartConfig.options.title.text = this.title;
             chartConfig.data.labels = this.labels;
             chartConfig.data.datasets[0].data = this.values;
+
+            // Randomly pick some pretty colors
             chartConfig.data.datasets[0].backgroundColor = getColors(this.values.length)
 
-            const myChart = new Chart(ctx, chartConfig);
+            // Bind the chart component to the canvas (which is this object's $el property)
+            const myChart = new Chart(this.$el, chartConfig);
       }
     },
 
     mounted() {
-        console.log(this.$el);
+        // Runs when this object shows up on the page
         this.createChart(this.config);
     }
 })
@@ -100,6 +112,9 @@ var vm = new Vue({
     },
     methods: {
         checkForm() {
+            /**
+             * Validate form elements. Store any errors in this.errors and return false if any
+             */
             this.errors = [];
 
             if (!this.logText) {
@@ -113,12 +128,15 @@ var vm = new Vue({
             }
             else {
                 this.hasError = true;
+                return false;
             }
         },
         getOccurrences(event) {
-            this.checkForm();
+            /**
+             * Make an API call to query for the given log text. Server should return data on what charts to display.
+             */
 
-            if (this.errors.length) {
+            if (!this.checkForm()) {
                 return;
             }
 
@@ -129,6 +147,6 @@ var vm = new Vue({
             });
         }
     },
-    delimiters: ['[[',']]']
+    delimiters: ['[[',']]'] // Change from the default {{ }} to work with Flask's Jinja templates
 })
 
