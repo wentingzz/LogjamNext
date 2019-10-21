@@ -85,8 +85,12 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         error_flag = False
         try:                                    # exception handling here only
-            decompressed_file_data = gzip.GzipFile(src, "rb").read()
-            open(dest, "wb").write(decompressed_file_data)
+            with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
+                while True:
+                    data = in_fd.read(100000)
+                    if data == '':
+                        break
+                    out_fd.write(data)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
             error_flag = True                   # just log it and skip it
