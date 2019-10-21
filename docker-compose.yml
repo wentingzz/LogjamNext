@@ -22,4 +22,4 @@ services:
       context: ./src/logjam-frontend
     image: logjam-ui
     ports:
-      - "8080:8080"
+      - "80:8080"
