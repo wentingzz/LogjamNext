@@ -7,7 +7,7 @@ services:
       - "9300:9300"
     environment:
       "discovery.type": "single-node"
-  
+
   logstash:
     image: docker.elastic.co/logstash/logstash:7.3.2
     volumes:
@@ -16,8 +16,10 @@ services:
       - "./src/logstash/:/usr/share/logstash/pipeline/"
     environment:
       XPACK_MONITORING_ENABLED: "false"
-  
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.3.2
+
+  logjam-ui:
+    build:
+      context: ./src/logjam-frontend
+    image: logjam-ui
     ports:
-      - "5601:5601"
+      - "8080:8080"
