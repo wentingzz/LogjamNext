@@ -22,4 +22,20 @@ def get_occurrences():
             "title": "Occurrences by version",
             "labels": ["1.0", "2.1.3", "2.2.4"],
             "values": [22, 13, 44]
-        }])
+        },
+        {
+            "title": "Third graph",
+            "labels": ["A", "B", "C"],
+            "values": [3, 4, 5]
+        },
+        {
+            "title": "Fourth graph",
+            "labels": ["A", "B", "C"],
+            "values": [3, 4, 5]
+        },
+        {
+            "title": "Fifth graph",
+            "labels": ["A", "B", "C"],
+            "values": [3, 4, 5]
+        },
+        ])
