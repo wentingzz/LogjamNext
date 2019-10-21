@@ -1,12 +1,18 @@
+Vue.use(VueResource);
+
 Vue.component('pie-chart', {
-    props: ['label'],
+    props: {
+        title: String,
+        labels: Array,
+        values: Array
+    },
     data: function() {
         return {
             config: {
                 type: 'pie',
                 data: {
                     datasets: [{
-                        data: [ 77, 33 ],
+                        data: [],
                         backgroundColor: [
                             '#36a2eb',
                             '#ff6384',
@@ -15,16 +21,13 @@ Vue.component('pie-chart', {
                             '#30c589',
                         ]
                     }],
-                    labels: [
-                        'Occurs',
-                        'Does not occur',
-                    ]
+                    labels: []
                 },
                 options: {
                     responsive: true,
                     title: {
                         display: true,
-                        text: "Text occurrences across all nodes"
+                        text: ""
                     }
                 }
             }
@@ -34,6 +37,10 @@ Vue.component('pie-chart', {
     methods: {
         createChart(chartConfig) {
             const ctx = this.$el;
+            chartConfig.options.title.text = this.title;
+            chartConfig.data.labels = this.labels;
+            chartConfig.data.datasets[0].data = this.values;
+
             const myChart = new Chart(ctx, chartConfig);
       }
     },
@@ -44,12 +51,6 @@ Vue.component('pie-chart', {
     }
 })
 
-function getOccurrences(logText, platform, sgVersion) {
-    console.log(logText);
-    console.log(platform);
-    console.log(sgVersion);
-
-}
 
 var vm = new Vue({
     el: "#app",
@@ -66,12 +67,16 @@ var vm = new Vue({
             {text: "1.1.4", value: "1.1.4"},
             {text: "2.3", value: "2.3"}],
         sgVersion: null,
-        logText: ""
+        logText: "",
+        charts: {}
     },
     methods: {
-        getOccurrences: function (event) {
-            // Currying!
-            getOccurrences(this.logText, this.platform, this.sgVersion);
+        getOccurrences(event) {
+            this.$http.post('/occurrences', {logText: this.logText}).then( response => {
+                this.charts = response.body;
+            }, response => {
+                alert("Error getting occurrences: " + response.status + "\n" + response.json());
+            });
         }
     },
     delimiters: ['[[',']]']
