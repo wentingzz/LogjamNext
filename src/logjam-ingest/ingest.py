@@ -23,6 +23,7 @@ import shutil
 import sqlite3
 import sys
 import time
+import signal
 
 from conans import tools
 from pyunpack import Archive
@@ -54,6 +55,7 @@ validFiles = ["syslog", "messages", "system_commands"]
 # Valid zip formats
 validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
+graceful_abort = False
 
 
 '''
@@ -82,9 +84,9 @@ def main():
         sys.exit(1)
 
     if args.scratch_space is not None:
-        scratchDirRoot = os.path.abspath(args.scratch_space)
+        scratchDirRoot = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
     else:
-        scratchDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch_space/")
+        scratchDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch-space/")
 
     if not os.path.exists(scratchDirRoot):
         os.makedirs(scratchDirRoot)
@@ -93,23 +95,32 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    if args.output_directory is not None:
-        categDirRoot = args.output_directory
-    else:
-        categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "logjam_categories/")
-
-
-    # Create database in the cwd
-    initDatabase(database)
+    # Should not allow configuration of intermediate directory
+    categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data", "logjam-categories")
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
+    # Create database in the cwd
+    initDatabase(database)
+
+    def signal_handler(signum, frame):
+        if signum == signal.SIGINT:
+            logging.info("Gracefully aborting")
+            global graceful_abort
+            graceful_abort = True
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Ingest the directories
     logging.debug("Ingesting %s", args.ingestion_directory)
     ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot)
-
-    logging.info("Finished")
+    if graceful_abort:
+        logging.info("Graceful abort successful")
+    else:
+        logging.info("Finished ingesting")
+    
+    logging.info("Cleaning up scratch space")
+    utils.delete_directory(scratchDirRoot)
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
@@ -130,6 +141,9 @@ depth : string
     the sub-directories and sub-files associated with this directory
 """
 def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
+    if graceful_abort:
+        return
+
     if not depth:
         depth = ""
 
