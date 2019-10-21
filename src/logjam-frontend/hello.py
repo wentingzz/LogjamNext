@@ -31,7 +31,7 @@ def get_occurrences():
         {
             "title": "Fourth graph",
             "labels": ["A", "B", "C"],
-            "values": [3, 4, 5]
+            "values": [3, 4, 50]
         },
         {
             "title": "Fifth graph",

@@ -22,12 +22,12 @@
 
     <body>
         <div id="app">
-            <div id="logjamForm" class="container">
+            <div id="logjam-form" class="container">
                 <h1>Welcome to Logjam</h1>
                 <div class="row">
 
-                    <div id="textEntry" class="col-sm-4">
-                        <textarea name="logContents" placeholder="Enter log text to analyze"
+                    <div id="text-entry" class="col-sm-4">
+                        <textarea name="log-text" placeholder="Enter log text to analyze"
                                                      rows="5" v-model="logText"></textarea>
                     </div>
 
@@ -39,12 +39,12 @@
                                 </option>
                             </select>
 
-                            <select id="SGVersion" v-model="sgVersion">
+                            <select id="sg-version" v-model="sgVersion">
                                 <option v-for="version in versions" v-bind:value="version.value">
                                 [[version.text]]
                                 </option>
                             </select>
-                            <input id="submitBtn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?" v-on:click="getOccurrences">
+                            <input id="submit-btn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?" v-on:click="getOccurrences">
                         </div>
                     </div>
                 </div>

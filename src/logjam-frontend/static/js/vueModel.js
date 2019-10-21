@@ -1,5 +1,25 @@
 Vue.use(VueResource);
 
+function getColors(count) {
+    const availableColors = [
+        '#36a2eb',
+        '#ff6384',
+        '#cc65fe',
+        '#ffce56',
+        '#30c589',
+    ];
+
+    // https://stackoverflow.com/questions/11935175/sampling-a-random-subset-from-an-array
+    var shuffled = availableColors.slice(0), i = availableColors.length, temp, index;
+    while (i--) {
+        index = Math.floor((i + 1) * Math.random());
+        temp = shuffled[index];
+        shuffled[index] = shuffled[i];
+        shuffled[i] = temp;
+    }
+    return shuffled.slice(0, count);
+}
+
 Vue.component('pie-chart', {
     props: {
         title: String,
@@ -41,6 +61,7 @@ Vue.component('pie-chart', {
             chartConfig.options.title.text = this.title;
             chartConfig.data.labels = this.labels;
             chartConfig.data.datasets[0].data = this.values;
+            chartConfig.data.datasets[0].backgroundColor = getColors(this.values.length)
 
             const myChart = new Chart(ctx, chartConfig);
       }
