@@ -1,11 +1,9 @@
 FROM python:3.7-alpine
 
-RUN pip install flask
+RUN pip install flask gunicorn
 
 COPY . /logjam-ui
 
 WORKDIR /logjam-ui
 
-ENV FLASK_APP=hello.py
-
-CMD flask run -h 0.0.0.0
+CMD gunicorn hello:app -b 0.0.0.0:8080 --log-level DEBUG
