@@ -22,13 +22,13 @@
 
     <body>
         <div id="app">
-            <div id="logjam-form" class="container">
+            <div id="logjam-form" class="container form-group" v-bind:class="{ 'has-error': hasError }">
                 <h1>Welcome to Logjam</h1>
                 <div class="row">
 
-                    <div id="text-entry" class="col-sm-4">
+                    <div id="text-entry" class="col-sm-6">
                         <textarea name="log-text" placeholder="Enter log text to analyze"
-                                                     rows="5" v-model="logText"></textarea>
+                                                  rows="8" v-model="logText" class="form-control"></textarea>
                     </div>
 
                     <div id="options-col" class="col-sm-2">
@@ -45,21 +45,27 @@
                                 </option>
                             </select>
                             <input id="submit-btn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?" v-on:click="getOccurrences">
+
                         </div>
                     </div>
                 </div>
+                    <div v-if="errors.length" class="container">
+                        <div class="row" v-for="error in errors">
+                            <div class="col-sm-6 alert alert-danger">[[error]]</div>
+                        </div>
+                    </div>
             </div>
 
             <div class="container" id="charts">
-                    <div id="canvas-holder">
-                        <div class="col-sm-4" v-for="chart in charts">
-                            <pie-chart 
-                                   v-bind:title="chart.title"
-                                   v-bind:labels="chart.labels"
-                                   v-bind:values="chart.values">
-                            </pie-chart>
-                        </div>
+                <div id="canvas-holder">
+                    <div class="col-sm-4" v-for="chart in charts">
+                        <pie-chart 
+                                          v-bind:title="chart.title"
+                                          v-bind:labels="chart.labels"
+                                          v-bind:values="chart.values">
+                        </pie-chart>
                     </div>
+                </div>
             </div>
             <script src="static/js/vueModel.js"></script>
     </body>

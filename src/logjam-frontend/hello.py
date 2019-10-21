@@ -6,6 +6,23 @@ app = Flask(__name__)
 def index():
     return render_template("index.html")
 
+@app.route("/platforms", methods=["GET"])
+def get_platforms():
+    return jsonify([
+        {"text": "Platform A", "value": "a"},
+        {"text": "Platform B", "value": "b"},
+        {"text": "Platform C", "value": "c"},
+        {"text": "Platform D", "value": "d"},
+        ])
+
+@app.route("/versions", methods=["GET"])
+def get_versions():
+    return jsonify([
+        {"text": "1.0", "value": "1.0"},
+        {"text": "1.1.4", "value": "1.1.4"},
+        {"text": "2.3", "value": "2.3"},
+        ])
+
 @app.route("/occurrences", methods=["POST"])
 def get_occurrences():
     log_text = request.json["logText"]

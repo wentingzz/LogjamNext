@@ -33,13 +33,6 @@ Vue.component('pie-chart', {
                 data: {
                     datasets: [{
                         data: [],
-                        backgroundColor: [
-                            '#36a2eb',
-                            '#ff6384',
-                            '#cc65fe',
-                            '#ffce56',
-                            '#30c589',
-                        ]
                     }],
                     labels: []
                 },
@@ -79,21 +72,56 @@ var vm = new Vue({
     data: {
         platforms: [
             {text: "All Platforms", value: null},
-            {text: "Platform A", value: "A"},
-            {text: "Platform B", value: "B"},
-            {text: "Platform C", value: "C"}],
+        ],
         platform: null,
         versions: [
             {text: "All Versions", value: null},
-            {text: "1.0", value: "1.0"},
-            {text: "1.1.4", value: "1.1.4"},
-            {text: "2.3", value: "2.3"}],
+        ],
         sgVersion: null,
         logText: "",
+        hasError: false,
+        errors: [],
         charts: {}
     },
+    created: function () {
+        // Fetch versions from server
+        this.$http.get('/versions').then( response => {
+            response.body.forEach(function(version) {
+                this.versions.push(version);
+            }, this);
+        });
+
+        // Same for platform types
+        this.$http.get('/platforms').then( response => {
+            response.body.forEach(function(platform) {
+                this.platforms.push(platform);
+            }, this);
+        });
+    },
     methods: {
+        checkForm() {
+            this.errors = [];
+
+            if (!this.logText) {
+                this.errors.push("Log text is required");
+                this.errors.push("Another error!");
+            }
+
+            if (!this.errors.length) {
+                this.hasError = false;
+                return true;
+            }
+            else {
+                this.hasError = true;
+            }
+        },
         getOccurrences(event) {
+            this.checkForm();
+
+            if (this.errors.length) {
+                return;
+            }
+
             this.$http.post('/occurrences', {logText: this.logText}).then( response => {
                 this.charts = response.body;
             }, response => {
