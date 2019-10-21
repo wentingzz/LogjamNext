@@ -88,7 +88,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
             with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
                 while True:
                     data = in_fd.read(100000)
-                    if data == '':
+                    if data == b'' or data == None or not data:
                         break
                     out_fd.write(data)
         except Exception as e:
