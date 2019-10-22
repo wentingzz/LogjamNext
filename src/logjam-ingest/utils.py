@@ -61,6 +61,10 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     assert extension in recursive_unzip_file_types, "Invalid extension: "+src
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
+    if os.path.exists(dest):                    # file/dir already exists
+        logging.warning("This path was already unzipped: %s", dest)
+        return                                  # skip the unzip step
+    
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
