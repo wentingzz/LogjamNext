@@ -61,78 +61,72 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     assert extension in recursive_unzip_file_types, "Invalid extension: "+src
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
+    if os.path.exists(dest):                    # file/dir already exists
+        return                                  # skip the unzip step
+    
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
-        if not os.path.exists(dest):            # directory does not already exist...
-            os.makedirs(dest)                   # make dir to unpack file contents
-            
-            error_flag = False
-            try:                                # exception handling here only
-                conans.tools.unzip(src, dest, keep_permissions=False)
-            except Exception as e:
-                logging.critical("Error during Conan unzip: %s", e)
-                error_flag = True               # just log it and skip it
-            
-            if not error_flag:
-                recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-                #delete_directory(dest)         # no basic dir clean up, leave for caller
-            elif os.path.exists(dest):
-                delete_directory(dest)
-        else:                                   # directory does exist...
-            pass                                # skip the unzip step
+        os.makedirs(dest)                   # make dir to unpack file contents
+        
+        error_flag = False
+        try:                                # exception handling here only
+            conans.tools.unzip(src, dest, keep_permissions=False)
+        except Exception as e:
+            logging.critical("Error during Conan unzip: %s", e)
+            error_flag = True               # just log it and skip it
+        
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)         # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
         
     elif extension == ".gz":
         logging.debug("Decompressing: %s", src)
         
-        if not os.path.exists(dest):            # file/dir does not already exist...
-            error_flag = False
-            try:                                # exception handling here only
-                with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
-                    while True:
-                        data = in_fd.read(1000000)
-                        if data == b'' or data == None or not data:
-                            break
-                        out_fd.write(data)
-            except Exception as e:
-                logging.critical("Error during GZip unzip: %s", e)
-                error_flag = True               # just log it and skip it
-            
-            if not error_flag:
-                if os.path.splitext(dest)[1] in recursive_unzip_file_types:
-                    recursive_unzip(dest, os.path.dirname(dest), action)
-                    delete_file(dest)           # delete zip file, unzipped same location
-                else:
-                    action(dest)                # basic file, perform action
-                    #delete_file(dest)          # no basic file clean up, leave for caller
-            elif os.path.exists(dest):
-                if os.path.isdir(dest):
-                    delete_directory(dest)
-                else:
-                    delete_file(dest)
-        else:                                   # file/dir does exist...
-            pass                                # skip the unzip step
+        error_flag = False
+        try:                                # exception handling here only
+            with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
+                while True:
+                    data = in_fd.read(1000000)
+                    if data == b'' or data == None or not data:
+                        break
+                    out_fd.write(data)
+        except Exception as e:
+            logging.critical("Error during GZip unzip: %s", e)
+            error_flag = True               # just log it and skip it
+        
+        if not error_flag:
+            if os.path.splitext(dest)[1] in recursive_unzip_file_types:
+                recursive_unzip(dest, os.path.dirname(dest), action)
+                delete_file(dest)           # delete zip file, unzipped same location
+            else:
+                action(dest)                # basic file, perform action
+                #delete_file(dest)          # no basic file clean up, leave for caller
+        elif os.path.exists(dest):
+            if os.path.isdir(dest):
+                delete_directory(dest)
+            else:
+                delete_file(dest)
     
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", src)
         
-        if not os.path.exists(dest):            # directory does not already exist...
-            os.makedirs(dest)                   # make dir to unpack file contents
-            
-            error_flag = False
-            try:                                # exception handling here only
-                pyunpack.Archive(src).extractall(dest)
-            except Exception as e:
-                logging.critical("Error during pyunpack extraction: %s", e)
-                error_flag = True               # just log it and skip it
-            
-            if not error_flag:
-                recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-                #delete_directory(dest)         # no basic dir clean up, leave for caller
-            elif os.path.exists(dest):
-                delete_directory(dest)
-        else:                                   # directory does exist...
-            pass                                # skip the unzip step
+        os.makedirs(dest)                   # make dir to unpack file contents
+        
+        error_flag = False
+        try:                                # exception handling here only
+            pyunpack.Archive(src).extractall(dest)
+        except Exception as e:
+            logging.critical("Error during pyunpack extraction: %s", e)
+            error_flag = True               # just log it and skip it
+        
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)         # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
     
     else:
         logging.critical("This execution path should never be reached")
