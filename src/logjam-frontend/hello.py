@@ -41,17 +41,7 @@ def get_occurrences():
             "values": [22, 13, 44]
         },
         {
-            "title": "Third graph",
-            "labels": ["A", "B", "C"],
-            "values": [3, 4, 5]
-        },
-        {
-            "title": "Fourth graph",
-            "labels": ["A", "B", "C"],
-            "values": [3, 4, 50]
-        },
-        {
-            "title": "Fifth graph",
+            "title": "Occurrences by platform",
             "labels": ["A", "B", "C"],
             "values": [3, 4, 5]
         },
