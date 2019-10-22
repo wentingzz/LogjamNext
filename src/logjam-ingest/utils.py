@@ -67,18 +67,19 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
-        os.makedirs(dest)                   # make dir to unpack file contents
+        assert not os.path.exists(dest), "Directory should not already exist: "+dest
+        os.makedirs(dest)                       # make dir to unpack file contents
         
         error_flag = False
-        try:                                # exception handling here only
+        try:                                    # exception handling here only
             conans.tools.unzip(src, dest, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
-            error_flag = True               # just log it and skip it
+            error_flag = True                   # just log it and skip it
         
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-            #delete_directory(dest)         # no basic dir clean up, leave for caller
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
         elif os.path.exists(dest):
             delete_directory(dest)
         
@@ -86,7 +87,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         logging.debug("Decompressing: %s", src)
         
         error_flag = False
-        try:                                # exception handling here only
+        try:                                    # exception handling here only
             with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
                 while True:
                     data = in_fd.read(1000000)
@@ -95,15 +96,15 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
                     out_fd.write(data)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
-            error_flag = True               # just log it and skip it
+            error_flag = True                   # just log it and skip it
         
         if not error_flag:
             if os.path.splitext(dest)[1] in recursive_unzip_file_types:
                 recursive_unzip(dest, os.path.dirname(dest), action)
-                delete_file(dest)           # delete zip file, unzipped same location
+                delete_file(dest)               # delete zip file, unzipped same location
             else:
-                action(dest)                # basic file, perform action
-                #delete_file(dest)          # no basic file clean up, leave for caller
+                action(dest)                    # basic file, perform action
+                #delete_file(dest)              # no basic file clean up, leave for caller
         elif os.path.exists(dest):
             if os.path.isdir(dest):
                 delete_directory(dest)
@@ -113,18 +114,19 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", src)
         
-        os.makedirs(dest)                   # make dir to unpack file contents
+        assert not os.path.exists(dest), "Directory should not already exist: "+dest
+        os.makedirs(dest)                       # make dir to unpack file contents
         
         error_flag = False
-        try:                                # exception handling here only
+        try:                                    # exception handling here only
             pyunpack.Archive(src).extractall(dest)
         except Exception as e:
             logging.critical("Error during pyunpack extraction: %s", e)
-            error_flag = True               # just log it and skip it
+            error_flag = True                   # just log it and skip it
         
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-            #delete_directory(dest)         # no basic dir clean up, leave for caller
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
         elif os.path.exists(dest):
             delete_directory(dest)
     
