@@ -11,6 +11,7 @@ function getColors(count) {
         '#cc65fe',
         '#ffce56',
         '#30c589',
+        '#0053b5',
     ];
 
     // Shuffle the list of available, then return the first n
@@ -119,7 +120,6 @@ var vm = new Vue({
 
             if (!this.logText) {
                 this.errors.push("Log text is required");
-                this.errors.push("Another error!");
             }
 
             if (!this.errors.length) {
@@ -139,6 +139,8 @@ var vm = new Vue({
             if (!this.checkForm()) {
                 return;
             }
+
+            this.charts = [];
 
             this.$http.post('/occurrences', {logText: this.logText}).then( response => {
                 this.charts = response.body;
