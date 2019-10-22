@@ -213,9 +213,6 @@ class Scan:
         assert self.input_dir != None, "Scan was internally closed"
         assert os.path.exists(path), "Path should exist on system"
         
-        if os.path.isfile(path) and not self.should_consider_file(path):
-            return                              # do nothing if file outside period
-        
         self.last_path = path
         
         cur_time = int(time.time())

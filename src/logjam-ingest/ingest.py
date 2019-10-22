@@ -128,7 +128,12 @@ def ingest_log_files(input_root, output_root, scratch_space, history_file):
     
     scan = incremental.Scan(input_root, history_file)
     
-    for entity in sorted(os.listdir(input_root)):
+    entities = sorted(os.listdir(input_root))
+    for e in range(len(entities)):
+        if e+1 != len(entities) and os.path.join(input_root, entities[e+1]) < scan.last_path:
+            continue                                    # skip, haven't reached last_path
+        
+        entity = entities[e]
         full_path = os.path.join(input_root,entity)
         if os.path.isdir(full_path) and entity != ".DS_Store":
             searchAnInspectionDirectory(scan, full_path, output_root, scratch_space)
@@ -161,11 +166,17 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=N
     assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
 
     # Loop over each file in the current directory
-    for fileOrDir in os.listdir(os.path.join(start, depth)):
+    search_dir = os.path.join(start, depth)
+    entities = sorted(os.listdir(search_dir))
+    for e in range(len(entities)):
+        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
+            continue                                    # skip, haven't reached last_path
+        
+        fileOrDir = entities[e]
         # Check for the file type to make sure it's not compressed
         filename, extension = os.path.splitext(fileOrDir)
         # Get the file's path in inspection dir
-        inspecDirPath = os.path.join(start, depth, fileOrDir)
+        inspecDirPath = os.path.join(search_dir, fileOrDir)
         if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
         assert caseNum != "0", "Not a valid case number: "+caseNum
         # Get category
@@ -205,11 +216,11 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=N
             else:
                 # Invalid file, continue
                 logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
-            
-            scan.just_scanned_this_path(inspecDirPath)
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
+        
+        scan.just_scanned_this_path(inspecDirPath)
 
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
     """ Stashes file in ELK stack; checks if duplicate, computes important
