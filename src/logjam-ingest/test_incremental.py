@@ -1,5 +1,6 @@
 """
 @author Nathaniel Brooks
+
 Tests the functionality from the incremental.py file.
 """
 
@@ -14,8 +15,7 @@ import incremental
 
 
 class TimePeriodTestCase(unittest.TestCase):
-    """ Tests the TimePeriod class for its basic functionality.
-    """
+    """ Tests the TimePeriod class for its basic functionality. """
     
     def test_init(self):
         tmp = incremental.TimePeriod(0,1)
@@ -52,8 +52,7 @@ class TimePeriodTestCase(unittest.TestCase):
 
 
 class ScanRecordTestCase(unittest.TestCase):
-    """ Tests the ScanRecord class for its basic functionality.
-    """
+    """ Tests the ScanRecord class for its basic functionality. """
     
     def test_from_str(self):
         record = incremental.ScanRecord.from_str('100200 200300 "/path/to/input" "./relative/path"')
@@ -131,8 +130,7 @@ class ScanRecordTestCase(unittest.TestCase):
 
 
 class ScanTestCase(unittest.TestCase):
-    """ Tests the business logic of the Scan class.
-    """
+    """ Tests the business logic of the Scan class. """
     
     def tearDown(self):
         self.assertTrue(os.path.exists("./history.txt"))
