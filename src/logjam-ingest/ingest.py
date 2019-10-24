@@ -100,9 +100,9 @@ def main():
     history_file = os.path.join(intermediate_dir, "scan-history.txt")
 
     es = Elasticsearch(['http://localhost:9200/'], verify_certs = True)
-    #if not es.ping():
-    #    print("Unable to connect to Elasticsearch")
-    #    sys.exit(1)
+    if not es.ping():
+        print("Unable to connect to Elasticsearch")
+        sys.exit(1)
 
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
@@ -272,7 +272,7 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
         'platform':platform,
         'categorize_time': timestamp
     }
-    #es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+    es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
     
     logging.debug("Indexed %s to Elasticsearch", fullPath)
     
@@ -385,7 +385,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         'platform':'unknown',
         'categorize_time': timestamp
     }
-    #es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+    es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
     
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
