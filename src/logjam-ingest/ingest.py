@@ -228,10 +228,7 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, dep
             if 'tmp' in inspecDirPath:
                 scan.just_scanned_this_path(scan_dir)
             else:
-                print()
-                print(inspecDirPath)
                 scan.just_scanned_this_path(inspecDirPath)
-                time.sleep(2)
 
 def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
     """ Stashes a node in ELK stack; 
