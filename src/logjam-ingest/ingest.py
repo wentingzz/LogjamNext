@@ -3,8 +3,10 @@
 @author Josh Good
 @author Jeremy Schmidt
 @author Nathaniel Brooks
+
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
+
 Terminology:
   Input Directory       - the original directory ingest.py searches through, it should
                           be treated as read-only
