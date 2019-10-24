@@ -125,7 +125,9 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
-    """ 
+    """ Begins ingesting files from the specified directories. Assumes that
+    Logjam DOES NOT own `input_root` or `output_root` but also assumes that
+    Logjam DOES own `scratch_space`.
     """
     for entity in os.listdir(input_root):
         full_path = os.path.join(input_root,entity)
