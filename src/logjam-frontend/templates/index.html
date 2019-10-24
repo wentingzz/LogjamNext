@@ -51,8 +51,8 @@
                             </select>
 
                             <select id="sg-version" v-model="sgVersion">
-                                <option v-for="version in versions" v-bind:value="version.value">
-                                [[version.text]]
+                                <option v-for="version in versions" v-bind:value="version">
+                                [[version]]
                                 </option>
                             </select>
                             <input id="submit-btn" class="btn btn-lg btn-primary" type="submit" value="Is this normal?" v-on:click="getOccurrences">

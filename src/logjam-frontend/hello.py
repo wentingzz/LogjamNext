@@ -9,18 +9,16 @@ def index():
 @app.route("/platforms", methods=["GET"])
 def get_platforms():
     return jsonify([
-        {"text": "Platform A", "value": "a"},
-        {"text": "Platform B", "value": "b"},
-        {"text": "Platform C", "value": "c"},
-        {"text": "Platform D", "value": "d"},
+        {"text": "vSphere", "value": "vSphere"},
+        {"text": "Container", "value": "container"},
+        {"text": "StorageGRID Appliance", "value": "appliance"},
         ])
 
 @app.route("/versions", methods=["GET"])
 def get_versions():
     return jsonify([
-        {"text": "1.0", "value": "1.0"},
-        {"text": "1.1.4", "value": "1.1.4"},
-        {"text": "2.3", "value": "2.3"},
+        "Pre-10.2", "10.2", "10.3", "10.4", "11.0",
+        "11.1", "11.2", "11.3", "11.4",
         ])
 
 @app.route("/occurrences", methods=["POST"])
