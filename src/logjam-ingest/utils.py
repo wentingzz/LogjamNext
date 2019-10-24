@@ -1,11 +1,12 @@
 """
-@author Renata Ann Zeitler - Original authors of unzipping function
-@author Josh Good - Original authors of unzipping function
-@author Jeremy Schmidt - Updated to Python 3 2019-09-09
-@author Nathaniel Brooks - Treat unzipping as read-only 2019-09-08
+@author Renata Ann Zeitler
+@author Josh Good
+@author Jeremy Schmidt
+@author Nathaniel Brooks
 
 This script exposes a function that recursively unzips deeply nested
-directories into a specified file system location.
+directories into a specified file system location as well as additional
+helper functions.
 """
 
 
@@ -24,7 +25,8 @@ recursive_unzip_file_types = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
-    ''' Recursively unzips deeply nested directories into a provided location.
+    """
+    Recursively unzips deeply nested directories into a provided location.
     The original zip file will not be deleted. The fully unzipped directory will have
     no compressed files. If compressed files are encountered, they are unzipped in their
     respective locations and the temporary archive/zip file is deleted.
@@ -36,7 +38,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         action function to take on each file extracted
     return : string
         path to fully unzipped directory
-    '''
+    """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isfile(src), "Source should be a file: "+src
     src = os.path.abspath(src)
@@ -139,12 +141,13 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
 
 
 def recursive_walk(src, action):
-    ''' Recursively walks deeply nested directories performing actions on each file.
+    """
+    Recursively walks deeply nested directories performing actions on each file.
     src : string
         path to source directory
     action : function(file_abspath) -> return None
         action function to take on each file
-    '''
+    """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isdir(src), "Source should be a dir: "+src
     assert os.path.isabs(src), "Source path should be absolute: "+src
@@ -160,10 +163,11 @@ def recursive_walk(src, action):
 
 
 def delete_file(path):
-    ''' Attempts to delete a file. If there is a problem halt the program.
+    """
+    Attempts to delete a file. If there is a problem halt the program.
     path : string
         absolute path of the file to delete
-    '''
+    """
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     try:
@@ -197,17 +201,18 @@ def delete_file(path):
 
 
 def delete_directory(path):
-    ''' Attempts to delete a directory. If there is a problem halt the program.
+    """
+    Attempts to delete a directory. If there is a problem halt the program.
     path : string
         absolute path of the directory to delete
-    '''
+    """
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     def handle_errors(func, path, excinfo):
-        ''' Handles errors thrown by shutil.rmtree when trying to remove directories w/
+        """ Handles errors thrown by shutil.rmtree when trying to remove directories w/
         bad permissions. This elegant solution was originally found here:
         https://stackoverflow.com/questions/1889597/deleting-directory-in-python
-        '''
+        """
         (t,exc,traceback) = excinfo
         if isinstance(exc, OSError) and exc.errno == 13:
             if platform.system() != "Windows":
