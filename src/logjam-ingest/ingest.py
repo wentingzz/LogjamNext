@@ -202,7 +202,7 @@ def searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, depth=None,
                   # TODO: if is_storagegrid(path):
                   (name,ext) = os.path.splitext(path)
                   if ext in validExtensions or os.path.basename(name) in validFiles:
-                    stash_file_in_elk(path, os.path.basename(path), case_num, categ_root, True)
+                    stash_file_in_elk(path, os.path.basename(path), case_num, categ_dir, True)
                   else:
                     utils.delete_file(path)
                     logging.debug("Ignored non-StorageGRID file: %s", path)
