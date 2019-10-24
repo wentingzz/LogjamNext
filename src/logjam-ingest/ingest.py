@@ -266,7 +266,7 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
     fields = {
         'case': caseNum,
         'node_name': nodeName,
-        'category': category,
+        #'category': category,
         'storagegrid_version': storageGridVersion, 
         'message': files,
         'platform':platform,
@@ -379,7 +379,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     fields = {
         'case': caseNum,
         'node_name': 'unknown',
-        'category': category,
+        #'category': category,
         'storagegrid_version': 'unknown', 
         'message': files,
         'platform':'unknown',
