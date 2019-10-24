@@ -3,16 +3,19 @@
 @author Josh Good
 @author Jeremy Schmidt
 @author Nathaniel Brooks
+
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
+
 Terminology:
-  Inspection Directory - the original directory ingest.py searches through, it should
-                         be treated as read-only
-  Scratchspace Directory - a directory that ingest.py unzips compressed files into, owned
-                           by ingest.py (can R/W there)
-  Category Directory - the final directories where ingest.py copies/places files for
-                       Logstash to consume, owned by ingest.py (can R/W there)
+  Input Directory       - the original directory ingest.py searches through, it should
+                          be treated as read-only
+  Scratch Directory     - a directory that ingest.py unzips compressed files into, owned
+                          by ingest.py (can R/W there)
+  Category Directory    - the final directories where ingest.py copies/places files for
+                          Logstash to consume, owned by ingest.py (can R/W there)
 """
+
 
 import argparse
 import gzip
@@ -30,6 +33,7 @@ from pyunpack import Archive
 
 import incremental
 import utils
+
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
@@ -56,15 +60,15 @@ validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 graceful_abort = False
 
 
-'''
-Recursively walks the directories of the inspection
-directory, copying relevant files into Logjam controlled
-filespace for further processing by Logstash. Unzips compressed
-files into Logjam controlled scratchspace, then moves relevant files
-for further processing by Logstash.
-'''
-
 def main():
+    """
+    Recursively walks the directories of the inspection
+    directory, copying relevant files into Logjam controlled
+    filespace for further processing by Logstash. Unzips compressed
+    files into Logjam controlled scratchspace, then moves relevant files
+    for further processing by Logstash. This function validates parameters, then
+    starts the main business logic by calling `ingest_log_files`.
+    """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
@@ -120,7 +124,8 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space, history_file):
-    """ Begins ingesting files from the specified directories. Assumes that
+    """
+    Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_root` or `output_root` but also assumes that
     Logjam DOES own `scratch_space` and `history_file`.
     """
@@ -148,15 +153,15 @@ def ingest_log_files(input_root, output_root, scratch_space, history_file):
     return
 
 
-"""
-Recursively go through directories to find log files. If compressed, then we need
-to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
-start : string
-    the start of the file path to traverse
-depth : string
-    the sub-directories and sub-files associated with this directory
-"""
 def searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=None, caseNum=None):
+    """
+    Recursively go through directories to find log files. If compressed, then we need
+    to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
+    start : string
+        the start of the file path to traverse
+    depth : string
+        the sub-directories and sub-files associated with this directory
+    """
     if graceful_abort:
         return
 
@@ -222,8 +227,10 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=N
         
         scan.just_scanned_this_path(inspecDirPath)
 
+
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
-    """ Stashes file in ELK stack; checks if duplicate, computes important
+    """
+    Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
     fullPath : string
         absolute path of the file
@@ -287,14 +294,14 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     return
 
 
-"""
-Gets the category for this file based on path
-path : string
-    the path for which to get a category
-filename : string
-    the file's name
-"""
 def getCategory(path):
+    """
+    Gets the category for this file based on path
+    path : string
+        the path for which to get a category
+    filename : string
+        the file's name
+    """
     # Split the path by sub-directories
     splitPath = path.replace('\\','/').split("/")
     start = splitPath[len(splitPath) - 1]
@@ -310,14 +317,15 @@ def getCategory(path):
     # Unrecognized file, so return "other"
     return "other"
 
-'''
-Extracts the relevant StorageGRID case number from the file's path.
-path : string
-    the path to search for case number
-return : string
-    the case number found in the path
-'''
+
 def getCaseNumber(path):
+    """
+    Extracts the relevant StorageGRID case number from the file's path.
+    path : string
+        the path to search for case number
+    return : string
+        the case number found in the path
+    """
     caseNum = re.search(r"(\d{10})", path)
     if caseNum is None:
         caseNum = "0"
@@ -328,3 +336,4 @@ def getCaseNumber(path):
 
 if __name__ == "__main__":
     main()
+
