@@ -6,13 +6,14 @@
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
 Terminology:
-  Inspection Directory - the original directory ingest.py searches through, it should
-                         be treated as read-only
-  Scratchspace Directory - a directory that ingest.py unzips compressed files into, owned
-                           by ingest.py (can R/W there)
-  Category Directory - the final directories where ingest.py copies/places files for
-                       Logstash to consume, owned by ingest.py (can R/W there)
+  Input Directory       - the original directory ingest.py searches through, it should
+                          be treated as read-only
+  Scratch Directory     - a directory that ingest.py unzips compressed files into, owned
+                          by ingest.py (can R/W there)
+  Category Directory    - the final directories where ingest.py copies/places files for
+                          Logstash to consume, owned by ingest.py (can R/W there)
 """
+
 
 import argparse
 import gzip
@@ -29,6 +30,7 @@ from conans import tools
 from pyunpack import Archive
 
 import utils
+
 
 # Database connection path
 database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
@@ -58,15 +60,14 @@ validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 graceful_abort = False
 
 
-'''
-Recursively walks the directories of the inspection
-directory, copying relevant files into Logjam controlled
-filespace for further processing by Logstash. Unzips compressed
-files into Logjam controlled scratchspace, then moves relevant files
-for further processing by Logstash.
-'''
-
 def main():
+    """ Recursively walks the directories of the inspection
+    directory, copying relevant files into Logjam controlled
+    filespace for further processing by Logstash. Unzips compressed
+    files into Logjam controlled scratchspace, then moves relevant files
+    for further processing by Logstash. This function validates parameters, then
+    starts the main business logic by calling `ingest_log_files`.
+    """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
@@ -124,6 +125,8 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
+    """ 
+    """
     for entity in os.listdir(input_root):
         full_path = os.path.join(input_root,entity)
         if os.path.isdir(full_path) and entity != ".DS_Store":
@@ -132,15 +135,14 @@ def ingest_log_files(input_root, output_root, scratch_space):
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
 
 
-"""
-Recursively go through directories to find log files. If compressed, then we need
-to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
-start : string
-    the start of the file path to traverse
-depth : string
-    the sub-directories and sub-files associated with this directory
-"""
 def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
+    """ Recursively go through directories to find log files. If compressed, then we need
+    to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
+    start : string
+        the start of the file path to traverse
+    depth : string
+        the sub-directories and sub-files associated with this directory
+    """
     if graceful_abort:
         return
 
@@ -201,6 +203,7 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", inspecDirPath)
+
 
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
     """ Stashes file in ELK stack; checks if duplicate, computes important
@@ -269,24 +272,23 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     return
 
 
-"""
-Updates a previously logged entry to have an error flag
-path : string
-    the file path to update in the database
-"""
 def updateToErrorFlag(path):
+    """ Updates a previously logged entry to have an error flag
+    path : string
+        the file path to update in the database
+    """
     cursor.execute(''' UPDATE paths SET flag = ? WHERE path = ?''', (1, path,))
     connection.commit()
     logging.debug("Flagging " + path)
 
-"""
-Gets the category for this file based on path
-path : string
-    the path for which to get a category
-filename : string
-    the file's name
-"""
+
 def getCategory(path):
+    """ Gets the category for this file based on path
+    path : string
+        the path for which to get a category
+    filename : string
+        the file's name
+    """
     # Split the path by sub-directories
     splitPath = path.split("/")
     start = splitPath[len(splitPath) - 1]
@@ -302,14 +304,14 @@ def getCategory(path):
     # Unrecognized file, so return "other"
     return "other"
 
-'''
-Extracts the relevant StorageGRID case number from the file's path.
-path : string
-    the path to search for case number
-return : string
-    the case number found in the path
-'''
+
 def getCaseNumber(path):
+    """ Extracts the relevant StorageGRID case number from the file's path.
+    path : string
+        the path to search for case number
+    return : string
+        the case number found in the path
+    """
     caseNum = re.search(r"(\d{10})", path)
     if caseNum is None:
         caseNum = "0"
@@ -317,10 +319,9 @@ def getCaseNumber(path):
         caseNum = caseNum.group()
     return caseNum
 
-'''
-Creates and initializes database for storing filepaths to prevent duplicates
-'''
+
 def initDatabase(db_file):
+    """ Creates and initializes database for storing filepaths to prevent duplicates """
     global connection
     global cursor
 
@@ -339,5 +340,7 @@ def initDatabase(db_file):
         logging.critical(str(e))
         raise e
 
+
 if __name__ == "__main__":
     main()
+
