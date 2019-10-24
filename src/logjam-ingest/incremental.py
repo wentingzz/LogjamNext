@@ -1,5 +1,6 @@
 """
 @author Nathaniel Brooks
+
 Utility file for incremental scanning.
 """
 
@@ -13,53 +14,49 @@ seconds_between_automatic_history_updates = 10
 
 
 class TimePeriod:
-    """ Represents a period in time defined by a start and stop time. These start
+    """
+    Represents a period in time defined by a start and stop time. These start
     and stop times are measured in integer seconds since the 'epoch'. On Unix this
     is 1970, 00:00:00 (UTC). Designed to be immutable.
     """
 
     def __init__(self, start, stop):
-        """ Construct TimePeriod with designated start & stop time.
-        """
+        """ Construct TimePeriod with designated start & stop time. """
         assert start < stop, "Start time must be before stop time"
 
         self._start = int(start)
         self._stop = int(stop)
 
     def __eq__(self, other):
-        """ Returns whether two TimePeriods are equal.
-        """
+        """ Returns whether two TimePeriods are equal. """
         if not isinstance(other, TimePeriod):
             raise NotImplementedError("Can only compare TimePeriod")
 
         return self._start == other._start and self._stop == other._stop
 
     def __str__(self):
-        """ Returns a readable string representation of this object.
-        """
+        """ Returns a readable string representation of this object. """
         return ' '.join([str(self._start), str(self._stop)])
 
     def __contains__(self, new_time):
-        """ Checks if new time is in the period [start, stop).
-        """
+        """ Checks if new time is in the period [start, stop). """
         new_time = int(new_time)
         return self._start <= new_time and new_time < self._stop
 
     @property
     def start(self):
-        """ Getter property for start
-        """
+        """ Getter property for start """
         return self._start
 
     @property
     def stop(self):
-        """ Getter property for stop
-        """
+        """ Getter property for stop """
         return self._stop
 
     @classmethod
     def ancient_history(cls):
-        """ Returns a timestamp in ancient history, which for the purposes of
+        """
+        Returns a timestamp in ancient history, which for the purposes of
         this program is the date 1900-01-01
         """
         seconds_in_minute = 60
@@ -70,13 +67,15 @@ class TimePeriod:
 
 
 class ScanRecord:
-    """ Simple record for storing the scan's time period (start + stop), input
+    """
+    Simple record for storing the scan's time period (start + stop), input
     directory, and last searched path. Designed to be immutable.
     """
 
     @classmethod
     def from_str(cls, line):
-        """ Builds a ScanRecord from a string representation of a ScanRecord.
+        """
+        Builds a ScanRecord from a string representation of a ScanRecord.
         This operation is the opposite of the `__str__` method.
         """
         assert isinstance(line, str)
@@ -99,8 +98,7 @@ class ScanRecord:
         return ScanRecord(start, stop, input_dir, last_path)
 
     def __init__(self, start, stop, input_dir, last_path):
-        """
-        """
+        """ Constructs a ScanRecord by just copying parameters given """
         assert isinstance(input_dir, str)
         assert isinstance(last_path, str)
 
@@ -109,8 +107,7 @@ class ScanRecord:
         self._last_path = last_path
 
     def __eq__(self, other):
-        """ Returns whether two ScanRecords are equal.
-        """
+        """ Returns whether two ScanRecords are equal. """
         if not isinstance(other, ScanRecord):
             raise NotImplementedError("Can only compare ScanRecord")
 
@@ -119,7 +116,8 @@ class ScanRecord:
             self._last_path == other._last_path
 
     def __str__(self):
-        """ Returns a string representation of the ScanRecord. Each field is
+        """
+        Returns a string representation of the ScanRecord. Each field is
         separated by a single space.
         """
         time = str(self._time_period)
@@ -128,37 +126,33 @@ class ScanRecord:
         return ' '.join([time, input, last])
 
     def is_complete(self):
-        """ Checks to see if this record represents a complete scan. A complete
+        """
+        Checks to see if this record represents a complete scan. A complete
         scan is denoted by a scan with no last path.
         """
         return len(self._last_path) == 0
 
     @property
     def time_period(self):
-        """ Getter property for time_period
-        """
+        """ Getter property for time_period """
         return self._time_period
 
     @property
     def input_dir(self):
-        """ Getter property for input_dir
-        """
+        """ Getter property for input_dir """
         return self._input_dir
 
     @property
     def last_path(self):
-        """ Getter property for last_path
-        """
+        """ Getter property for last_path """
         return self._last_path
 
 
 class Scan:
-    """ Represents an active scan of the input directory.
-    """
+    """ Represents an active scan of the input directory. """
 
     def __init__(self, input_dir, history_file):
-        """ Constructs a Scan which operates on the given input directory.
-        """
+        """ Constructs a Scan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
         self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
@@ -179,6 +173,11 @@ class Scan:
 
     def update_from_scan_record(self, scan_record):
         """
+        Updates the Scan by inspecting the last ScanRecord. If the ScanRecord
+        was not completed, adopt the old ScanRecord's time period. If the ScanRecord
+        did complete, new period is from the stop of the last ScanRecord to the
+        closest safe time (defined as 6 minutes before the current time, to allow
+        for safe updates of the modification time on directories).
         """
         assert self.input_dir != None, "Scan was internally closed"
         assert scan_record.input_dir == self.input_dir, "Input directories must match"
@@ -195,8 +194,7 @@ class Scan:
         assert self.time_period.stop <= self.safe_time, "Must remain within safe time"
 
     def to_scan_record(self):
-        """ Returns a ScanRecord representing this Scan at a moment in time
-        """
+        """ Returns a ScanRecord representing this Scan at a moment in time """
         assert self.input_dir != None, "Scan was internally closed"
 
         return ScanRecord(
@@ -206,7 +204,8 @@ class Scan:
             self.last_path)
 
     def just_scanned_this_path(self, path):
-        """ Caller just scanned the given path, so update the internal last
+        """
+        Caller just scanned the given path, so update the internal last
         scanned path variable and possibly write the file to our history file if
         enough time has passed.
         """
@@ -228,7 +227,8 @@ class Scan:
             self.last_history_update = cur_time
 
     def should_consider_file(self, path):
-        """ Checks to see if the file denoted by path would be considered for this
+        """
+        Checks to see if the file denoted by path would be considered for this
         scan over the given time period.
         """
         assert self.input_dir != None, "Scan was internally closed"
@@ -239,7 +239,8 @@ class Scan:
         return modification_time in self.time_period
 
     def complete_scan(self):
-        """ Completes the scan, writing out information to the history file
+        """
+        Completes the scan, writing out information to the history file
         to show that the scan was completed.
         """
         assert self.input_dir != None, "Scan was internally closed"
@@ -257,7 +258,8 @@ class Scan:
         self.input_dir = None                   # internally close the Scan
 
     def premature_exit(self):
-        """ Program needs to halt the scan prematurely. Write out information
+        """
+        Program needs to halt the scan prematurely. Write out information
         to history file so that it can hopefully be picked up next time.
         """
         assert self.input_dir != None, "Scan was internally closed"
@@ -278,7 +280,8 @@ class Scan:
 
 
 def extract_last_scan_record(history_file):
-    """ Reads the last successful scan information from the scan history
+    """
+    Reads the last successful scan information from the scan history
     file denoted by the path and returns the information in a ScanRecord.
     """
     assert os.path.exists(history_file), "File path should exist"
@@ -290,7 +293,8 @@ def extract_last_scan_record(history_file):
 
 
 def append_scan_record(history_file, scan_record):
-    """ Writes successful scan information to the scan history file denoted by
+    """
+    Writes successful scan information to the scan history file denoted by
     the path. The scan time period (start & stop), input directory, and last searched
     path are written as a single line to the file.
     """
@@ -299,3 +303,4 @@ def append_scan_record(history_file, scan_record):
 
     with open(history_file, "a") as file:
         file.write(str(scan_record)+"\n")
+
