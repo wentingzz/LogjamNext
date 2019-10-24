@@ -197,11 +197,10 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, dep
             
             if os.path.isdir(inspecDirPath):
                 # Detected a directory, continue
-                searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, os.path.join(depth, fileOrDir), caseNum, inspecDirPath)
+                searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, os.path.join(depth, fileOrDir), caseNum, scan_dir)
             elif os.path.isfile(inspecDirPath) and scan.should_consider_file(inspecDirPath):
                 if (extension in validExtensions or filename in validFiles) and is_storagegrid(inspecDirPath, ''):
                     stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False, es)
-                    scan_dir = inspecDirPath
                 elif extension in validZips:
                     # TODO: Choose unique folder names per Logjam worker instance
                     # TODO: new_scratch_dir = new_unique_scratch_folder()
@@ -215,7 +214,6 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, dep
                     elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and is_storagegrid(unzip_folder, ''):
 #                         random_files.append(unzip_folder)
                         stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), caseNum, output_root, True, es)
-                        scan_dir = inspecDirPath
                     assert os.path.exists(inspecDirPath), "Should still exist"
                     assert os.path.exists(new_scratch_dir), "Should still exist"
                     utils.delete_directory(new_scratch_dir)
@@ -227,8 +225,13 @@ def searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, dep
             else:
                 # Previously ingested, continue
                 logging.debug("Already ingested %s", inspecDirPath)
-                
-            scan.just_scanned_this_path(scan_dir)
+            if 'tmp' in inspecDirPath:
+                scan.just_scanned_this_path(scan_dir)
+            else:
+                print()
+                print(inspecDirPath)
+                scan.just_scanned_this_path(inspecDirPath)
+                time.sleep(2)
 
 def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
     """ Stashes a node in ELK stack; 
