@@ -163,23 +163,23 @@ def searchAnInspectionDirectory(start, categ_root, scratch_dir, depth=None, case
         # Check for the file type to make sure it's not compressed
         filename, extension = os.path.splitext(entity)
         # Get the file's path in inspection dir
-        inspecDirPath = os.path.join(start, depth, entity)
-        if case_num == None: case_num = getCaseNumber(inspecDirPath)
+        entity_path = os.path.join(start, depth, entity)
+        if case_num == None: case_num = getCaseNumber(entity_path)
         assert case_num != "0", "Not a valid case number: "+case_num
         # Get category
-        category = getCategory(inspecDirPath.lower())
+        category = getCategory(entity_path.lower())
         # Check if this file has been previously ingested into our database
-        logging.debug("Checking if duplicate: %s", inspecDirPath)
-        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))
+        logging.debug("Checking if duplicate: %s", entity_path)
+        cursor.execute("SELECT path FROM paths WHERE path=?", (entity_path,))
         result = cursor.fetchone()
         if (result == None):
-            if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                stash_file_in_elk(inspecDirPath, entity, case_num, categ_root, False)
-            elif os.path.isdir(inspecDirPath):
+            if os.path.isfile(entity_path) and (extension in validExtensions or filename in validFiles):
+                stash_file_in_elk(entity_path, entity, case_num, categ_root, False)
+            elif os.path.isdir(entity_path):
                 # Detected a directory, continue
                 searchAnInspectionDirectory(start, categ_root, scratch_dir, depth=os.path.join(depth, entity), case_num=case_num)
             elif extension in validZips:
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
+                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (entity_path, 0, category)) 
                 connection.commit()
                 
                 def handle_unzipped_file(path):
@@ -197,22 +197,22 @@ def searchAnInspectionDirectory(start, categ_root, scratch_dir, depth=None, case
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
                 new_scratch_dir = os.path.join(scratch_dir, "tmp")
                 os.makedirs(new_scratch_dir)
-                utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
-                assert os.path.exists(inspecDirPath), "Should still exist"
+                utils.recursive_unzip(entity_path, new_scratch_dir, handle_unzipped_file)
+                assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
                 utils.delete_directory(new_scratch_dir)
                 
-                logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
+                logging.debug("Added compressed archive to DB & ELK: %s", entity_path)
             else:
                 # Invalid file, flag as an error in database and continue
-                updateToErrorFlag(inspecDirPath)
-                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
+                updateToErrorFlag(entity_path)
+                logging.debug("Assumming incorrect filetype: %s", entity_path)
         else:
             # Previously ingested, continue
-            logging.debug("Already ingested %s", inspecDirPath)
+            logging.debug("Already ingested %s", entity_path)
 
 
-def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
+def stash_file_in_elk(fullPath, filenameAndExtension, case_num, categ_dir, is_owned):
     """
     Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
@@ -220,9 +220,9 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         absolute path of the file
     filenameAndExtension : string
         filename + extension of the file, precomputed before function call
-    caseNum : string
+    case_num : string
         StorageGRID case number for this file
-    categDirRoot : string
+    categ_dir : string
         directory to stash the file into for Logstash
     is_owned : boolean
         indicates whether the Logjam system owns this file (i.e. can move/delete it)
@@ -233,21 +233,21 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
 
     # Log in the database and copy to the appropriate logjam category
-    if caseNum == None: caseNum = getCaseNumber(fullPath)
-    assert caseNum != None, "Null reference"
-    assert caseNum != "0", "Not a valid case number: "+caseNum
+    if case_num == None: case_num = getCaseNumber(fullPath)
+    assert case_num != None, "Null reference"
+    assert case_num != "0", "Not a valid case number: "+case_num
 
     category = getCategory(fullPath.lower())
     assert category != None, "Null reference"
 
-    if not os.path.exists(categDirRoot):
-        os.makedirs(categDirRoot)
+    if not os.path.exists(categ_dir):
+        os.makedirs(categ_dir)
 
-    category_dir = os.path.join(categDirRoot, category)
+    category_dir = os.path.join(categ_dir, category)
     if not os.path.exists(category_dir):
         os.makedirs(category_dir)
 
-    categDirPath = os.path.join(categDirRoot, category, filenameAndExtension)
+    categDirPath = os.path.join(categ_dir, category, filenameAndExtension)
 
     if is_owned:
         try:
@@ -263,8 +263,8 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
             raise e
 
     timestamp = "%.20f" % time.time()
-    basename = "-".join([caseNum, filenameAndExtension, timestamp])
-    categDirPathWithTimestamp = os.path.join(categDirRoot, category, basename)
+    basename = "-".join([case_num, filenameAndExtension, timestamp])
+    categDirPathWithTimestamp = os.path.join(categ_dir, category, basename)
 
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
