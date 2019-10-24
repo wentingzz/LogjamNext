@@ -3,6 +3,7 @@
 @author Josh Good
 @author Jeremy Schmidt
 @author Nathaniel Brooks
+@author Wenting Zheng
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
 Terminology:
@@ -25,6 +26,7 @@ import sys
 import time
 import signal
 
+from elasticsearch import Elasticsearch, helpers
 from conans import tools
 from pyunpack import Archive
 
@@ -97,6 +99,11 @@ def main():
     categDirRoot = os.path.join(intermediate_dir, "logjam-categories")
     history_file = os.path.join(intermediate_dir, "scan-history.txt")
 
+    es = Elasticsearch(['http://localhost:9200/'], verify_certs = True)
+    #if not es.ping():
+    #    print("Unable to connect to Elasticsearch")
+    #    sys.exit(1)
+
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
@@ -109,7 +116,7 @@ def main():
 
     # Ingest the directories
     logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot, history_file)
+    ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot, history_file, es)
     if graceful_abort:
         logging.info("Graceful abort successful")
     else:
@@ -119,7 +126,7 @@ def main():
     utils.delete_directory(scratchDirRoot)
 
 
-def ingest_log_files(input_root, output_root, scratch_space, history_file):
+def ingest_log_files(input_root, output_root, scratch_space, history_file, es):
     """ Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_root` or `output_root` but also assumes that
     Logjam DOES own `scratch_space` and `history_file`.
@@ -136,7 +143,7 @@ def ingest_log_files(input_root, output_root, scratch_space, history_file):
         entity = entities[e]
         full_path = os.path.join(input_root,entity)
         if os.path.isdir(full_path) and entity != ".DS_Store":
-            searchAnInspectionDirectory(scan, full_path, output_root, scratch_space)
+            searchAnInspectionDirectory(scan, full_path, output_root, scratch_space, es)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
     
@@ -156,73 +163,157 @@ start : string
 depth : string
     the sub-directories and sub-files associated with this directory
 """
-def searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=None, caseNum=None):
+def searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, depth=None, caseNum=None, scan_dir=None):
     if graceful_abort:
         return
 
     if not depth:
         depth = ""
+    
+    if not scan_dir:
+        scan_dir = start
 
     assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
 
-    # Loop over each file in the current directory
-    search_dir = os.path.join(start, depth)
-    entities = sorted(os.listdir(search_dir))
-    for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
-            continue                                    # skip, haven't reached last_path
-        
-        fileOrDir = entities[e]
-        # Check for the file type to make sure it's not compressed
-        filename, extension = os.path.splitext(fileOrDir)
-        # Get the file's path in inspection dir
-        inspecDirPath = os.path.join(search_dir, fileOrDir)
-        if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
+    if os.path.isfile(os.path.join(start, depth, 'lumberjack.log')):
+        stash_node_in_elk(os.path.join(start,depth) , caseNum, output_root, False, es)
+    else:
+    # Loop over each file in the current directory\
+        search_dir = os.path.join(start, depth)
+        entities = sorted(os.listdir(search_dir))
+        if caseNum == None: caseNum = getCaseNumber(search_dir)
         assert caseNum != "0", "Not a valid case number: "+caseNum
-        # Get category
-        category = getCategory(inspecDirPath.lower())
-          
-        if os.path.isdir(inspecDirPath):
-            # Detected a directory, continue
-            searchAnInspectionDirectory(scan, start, output_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
-        
-        elif os.path.isfile(inspecDirPath) and scan.should_consider_file(inspecDirPath):    
-            if extension in validExtensions or filename in validFiles:
-                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False)
-            
-            elif extension in validZips:
-                def handle_unzipped_file(path):
-                  # TODO: Change to conditional function
-                  # TODO: if is_storagegrid(path):
-                  (name,ext) = os.path.splitext(path)
-                  if ext in validExtensions or os.path.basename(name) in validFiles:
-                    stash_file_in_elk(path, os.path.basename(path), caseNum, output_root, True)
-                  else:
-                    utils.delete_file(path)
-                    logging.debug("Ignored non-StorageGRID file: %s", path)
-                  return
+        for e in range(len(entities)):
+            if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
+                continue                                    # skip, haven't reached last_path
                 
-                # TODO: Choose unique folder names per Logjam worker instance
-                # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scratch_space, "tmp")
-                os.makedirs(new_scratch_dir)
-                utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
-                assert os.path.exists(inspecDirPath), "Should still exist"
-                assert os.path.exists(new_scratch_dir), "Should still exist"
-                utils.delete_directory(new_scratch_dir)
-                
-                logging.debug("Added compressed archive to ELK: %s", inspecDirPath)
+            fileOrDir = entities[e]
+            # Check for the file type to make sure it's not compressed
+            filename, extension = os.path.splitext(fileOrDir)
+            # Get the file's path in inspection dir
+            inspecDirPath = os.path.join(search_dir, fileOrDir)
+            # Get category
+            category = getCategory(inspecDirPath.lower()) 
             
-            else:
-                # Invalid file, continue
-                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
-        else:
-            # Previously ingested, continue
-            logging.debug("Already ingested %s", inspecDirPath)
-        
-        scan.just_scanned_this_path(inspecDirPath)
+            if os.path.isdir(inspecDirPath):
+                # Detected a directory, continue
+                searchAnInspectionDirectory(scan, start, output_root, scratch_space, es, os.path.join(depth, fileOrDir), caseNum, start)
+            elif os.path.isfile(inspecDirPath) and scan.should_consider_file(inspecDirPath):
+                if (extension in validExtensions or filename in validFiles) and is_storagegrid(inspecDirPath, ''):
+                    stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False, es)
+                elif extension in validZips:
+                    # TODO: Choose unique folder names per Logjam worker instance
+                    # TODO: new_scratch_dir = new_unique_scratch_folder()
+                    new_scratch_dir = os.path.join(scratch_space, "tmp")
+                    os.makedirs(new_scratch_dir)
+                    utils.recursive_unzip(inspecDirPath, new_scratch_dir)
+                    f, e = os.path.splitext(fileOrDir)
+                    unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
+                    if os.path.isdir(unzip_folder):
+                        searchAnInspectionDirectory(scan, unzip_folder, output_root, scratch_space, es, None, caseNum, inspecDirPath)
+                    elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and is_storagegrid(unzip_folder, ''):
+#                         random_files.append(unzip_folder)
+                        stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), caseNum, output_root, True, es)
+                    assert os.path.exists(inspecDirPath), "Should still exist"
+                    assert os.path.exists(new_scratch_dir), "Should still exist"
+                    utils.delete_directory(new_scratch_dir)
 
-def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
+                    logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
+                else:
+                    # Invalid file, continue
+                    logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
+            else:
+                # Previously ingested, continue
+                logging.debug("Already ingested %s", inspecDirPath)
+                
+            scan.just_scanned_this_path(scan_dir)
+
+def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
+    """ Stashes a node in ELK stack; 
+    fullPath : string
+        absolute path of the node
+    caseNum : string
+        StorageGRID case number for this file
+    categDirRoot : string
+        directory to stash the file into for Logstash
+    is_owned : boolean
+        indicates whether the Logjam system owns this file (i.e. can move/delete it)
+    es: Elasticsearch
+        Elasticsearch instance
+    """
+    if caseNum == None: caseNum = getCaseNumber(fullPath)
+    assert caseNum != None, "Null reference"
+    assert caseNum != "0", "Not a valid case number: "+caseNum
+    timespan = os.path.basename(fullPath)
+    nodeName = os.path.basename(os.path.dirname(fullPath))
+    gridId = os.path.basename(os.path.dirname(os.path.dirname(fullPath)))
+    storageGridVersion = get_storage_grid_version(os.path.join(fullPath, 'system_commands'))
+    category = getCategory(fullPath.lower())
+    assert category != None, "Null reference"
+    #TODO platform type
+    platform = get_platform(None)
+    if not os.path.exists(categDirRoot):
+        os.makedirs(categDirRoot)
+    timestamp = "%.20f" % time.time()
+    basename = "-".join([caseNum, nodeName, timespan, storageGridVersion, timestamp])
+    node_dir = os.path.join(categDirRoot, basename)
+    if not os.path.exists(node_dir):
+        os.makedirs(node_dir)
+    files = process_files_in_node(fullPath, node_dir, is_owned, [])
+    
+    fields = {
+        'case': caseNum,
+        'node_name': nodeName,
+        'category': category,
+        'storagegrid_version': storageGridVersion, 
+        'message': files,
+        'platform':platform,
+        'categorize_time': timestamp
+    }
+    #es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+    
+    logging.debug("Indexed %s to Elasticsearch", fullPath)
+    
+#     helpers.bulk(es, actions)
+
+def process_files_in_node(src, des, is_owned, file_list):
+    """ Finds all the files in the node; returns all the content as a array
+    src : string
+        absolute path of the node
+    des : string
+        will remove. absolute path of the logjam_categories folder
+    is_owned : boolean
+        indicates whether the Logjam system owns this file (i.e. can move/delete it)
+    file_list: array of string
+        array of the content. Each element is the content of a file in the node
+    """
+    for fileOrDir in os.listdir(src):
+        fullFileOrDirPath = os.path.join(src, fileOrDir)
+        filename, extension = os.path.splitext(fileOrDir)
+        if os.path.isfile(fullFileOrDirPath) and (extension in validExtensions or filename in validFiles) and is_storagegrid(src, fileOrDir):
+            # TODO: delete move/copy2
+            if is_owned:
+                try:
+                    shutil.move(fullFileOrDirPath, os.path.join(des, filename))     # mv scratch space -> categ folder
+                except (IOError) as e:
+                    logging.critical("Unable to move file: %s", e)
+                    raise e
+            else:
+                try:
+                    shutil.copy2(fullFileOrDirPath, os.path.join(des, filename))    # cp input dir -> categ folder
+                except (IOError) as e:
+                    logging.critical("Unable to copy file: %s", e)
+                    raise e
+            with open(fullFileOrDirPath, 'rb') as fp:
+                data = fp.read()
+                data = data.decode('utf-8', errors='ignore')
+                file_list.append(data)
+        elif os.path.isdir(fullFileOrDirPath):
+            process_files_in_node(fullFileOrDirPath, des, is_owned, file_list)
+    return file_list
+
+
+def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned, es):
     """ Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
     fullPath : string
@@ -235,6 +326,8 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         directory to stash the file into for Logstash
     is_owned : boolean
         indicates whether the Logjam system owns this file (i.e. can move/delete it)
+    es: Elasticsearch
+        Elasticsearch instance
     """
 
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
@@ -249,14 +342,20 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     category = getCategory(fullPath.lower())
     assert category != None, "Null reference"
 
+    files = []
+    with open(fullPath, 'rb') as fp:
+        data = fp.read()
+        data = data.decode('utf-8', errors='ignore')
+        files.append(data)
+
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
-
-    category_dir = os.path.join(categDirRoot, category)
-    if not os.path.exists(category_dir):
-        os.makedirs(category_dir)
-
-    categDirPath = os.path.join(categDirRoot, category, filenameAndExtension)
+    
+    case_dir = os.path.join(categDirRoot, caseNum)
+    if not os.path.exists(case_dir):
+        os.makedirs(case_dir)
+    
+    categDirPath = os.path.join(categDirRoot, caseNum, filenameAndExtension)
 
     if is_owned:
         try:
@@ -272,9 +371,20 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
             raise e
 
     timestamp = "%.20f" % time.time()
-    basename = "-".join([caseNum, filenameAndExtension, timestamp])
-    categDirPathWithTimestamp = os.path.join(categDirRoot, category, basename)
+    basename = "-".join([filenameAndExtension, timestamp])
+    categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
 
+    fields = {
+        'case': caseNum,
+        'node_name': 'unknown',
+        'category': category,
+        'storagegrid_version': 'unknown', 
+        'message': files,
+        'platform':'unknown',
+        'categorize_time': timestamp
+    }
+    #es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+    
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
@@ -282,9 +392,52 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         raise e
 
     logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    logging.debug("Adding %s to Logstash", fullPath)
+    logging.debug("Indexed %s to Elasticsearch", fullPath)
 
     return
+
+
+"""
+Check if a file is StorageGRID file
+"""
+def is_storagegrid(fullpath, path):
+    if 'bycast' in path or 'bycast' in fullpath:
+        return True
+    else:
+        try:
+            searchfile = open(os.path.join(fullpath,path), "r")
+        except:
+            searchfile = open(fullpath, "r")
+        for line in searchfile:
+            if "bycast" in line:
+                searchfile.close()
+                return True
+        searchfile.close()
+    return False
+#         open(path, 'r').read().find('bycast')
+
+# TODO: implementation
+def get_platform(path):
+    return 'unknown'
+
+"""
+Gets the version of the node from specified file
+path: string
+    the path of the specified file (usually the system_command file)
+return: string
+    the version if found. Otherwise, returns 'unknown'
+"""
+def get_storage_grid_version(path):
+    try:
+        searchfile = open(path, "r")
+        for line in searchfile:
+            if "storage-grid-release-" in line:
+                searchfile.close()
+                return line[21: -1]
+        searchfile.close()
+        return 'unknown'
+    except:
+        return 'unknown'
 
 
 """
