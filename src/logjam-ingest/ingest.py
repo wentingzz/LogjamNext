@@ -63,7 +63,8 @@ graceful_abort = False
 
 
 def main():
-    """ Recursively walks the directories of the inspection
+    """
+    Recursively walks the directories of the inspection
     directory, copying relevant files into Logjam controlled
     filespace for further processing by Logstash. Unzips compressed
     files into Logjam controlled scratchspace, then moves relevant files
@@ -127,7 +128,8 @@ def main():
 
 
 def ingest_log_files(input_root, output_root, scratch_space):
-    """ Begins ingesting files from the specified directories. Assumes that
+    """
+    Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_root` or `output_root` but also assumes that
     Logjam DOES own `scratch_space`.
     """
@@ -140,7 +142,8 @@ def ingest_log_files(input_root, output_root, scratch_space):
 
 
 def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
-    """ Recursively go through directories to find log files. If compressed, then we need
+    """
+    Recursively go through directories to find log files. If compressed, then we need
     to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
     start : string
         the start of the file path to traverse
@@ -210,7 +213,8 @@ def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, c
 
 
 def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
-    """ Stashes file in ELK stack; checks if duplicate, computes important
+    """
+    Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
     fullPath : string
         absolute path of the file
@@ -277,7 +281,8 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
 
 
 def updateToErrorFlag(path):
-    """ Updates a previously logged entry to have an error flag
+    """
+    Updates a previously logged entry to have an error flag
     path : string
         the file path to update in the database
     """
@@ -287,7 +292,8 @@ def updateToErrorFlag(path):
 
 
 def getCategory(path):
-    """ Gets the category for this file based on path
+    """
+    Gets the category for this file based on path
     path : string
         the path for which to get a category
     filename : string
@@ -310,7 +316,8 @@ def getCategory(path):
 
 
 def getCaseNumber(path):
-    """ Extracts the relevant StorageGRID case number from the file's path.
+    """
+    Extracts the relevant StorageGRID case number from the file's path.
     path : string
         the path to search for case number
     return : string

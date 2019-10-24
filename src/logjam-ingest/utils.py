@@ -25,7 +25,8 @@ recursive_unzip_file_types = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
-    """ Recursively unzips deeply nested directories into a provided location.
+    """
+    Recursively unzips deeply nested directories into a provided location.
     The original zip file will not be deleted. The fully unzipped directory will have
     no compressed files. If compressed files are encountered, they are unzipped in their
     respective locations and the temporary archive/zip file is deleted.
@@ -140,7 +141,8 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
 
 
 def recursive_walk(src, action):
-    """ Recursively walks deeply nested directories performing actions on each file.
+    """
+    Recursively walks deeply nested directories performing actions on each file.
     src : string
         path to source directory
     action : function(file_abspath) -> return None
@@ -161,7 +163,8 @@ def recursive_walk(src, action):
 
 
 def delete_file(path):
-    """ Attempts to delete a file. If there is a problem halt the program.
+    """
+    Attempts to delete a file. If there is a problem halt the program.
     path : string
         absolute path of the file to delete
     """
@@ -198,7 +201,8 @@ def delete_file(path):
 
 
 def delete_directory(path):
-    """ Attempts to delete a directory. If there is a problem halt the program.
+    """
+    Attempts to delete a directory. If there is a problem halt the program.
     path : string
         absolute path of the directory to delete
     """
