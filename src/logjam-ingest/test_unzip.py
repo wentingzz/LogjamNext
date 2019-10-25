@@ -31,6 +31,12 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         # Prepare compressed data for each test gz tgz
         # (zip, gz, tar.gz, 7z, tar) plus multiple layer versions
 
+        # Prepare a corrupt tar.gz
+        with open(os.path.join(cls.tmpdir, "corrupt.tar.gz"), "wb") as corrupt_file:
+            for _ in range(1000):
+                corrupt_file.write(os.urandom(1000))
+
+
     def test_targz(self):
         # Call recursive unzip
         utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
@@ -59,6 +65,11 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def test_gz(self):
         utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_gz')))
+
+    def test_corrupt_tgz(self):
+        utils.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
+        # Should have an error but handle gracefully. Output file should not exist.
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'corrupt')))
 
     @classmethod
     def tearDownClass(cls):
