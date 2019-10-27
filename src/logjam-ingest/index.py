@@ -16,7 +16,7 @@ validExtensions = [".txt", ".log"]
 validFiles = ["syslog", "messages", "system_commands"]
 
 
-def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
+def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     """ Stashes a node in ELK stack; 
     fullPath : string
         absolute path of the node
@@ -55,7 +55,7 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es):
         'platform':platform,
         'categorize_time': timestamp
     }
-    if not es:
+    if es:
         es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
         logging.debug("Indexed %s to Elasticsearch", fullPath)
     
@@ -98,7 +98,7 @@ def process_files_in_node(src, des, is_owned, file_list):
     return file_list
 
 
-def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned, es):
+def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned, es = None):
     """ Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
     fullPath : string
@@ -116,7 +116,6 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     """
 
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.basename(fullPath) == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
 
     # Log in the database and copy to the appropriate logjam category
@@ -164,7 +163,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         'platform':'unknown',
         'categorize_time': timestamp
     }
-    if not es:
+    if es:
         es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
         logging.debug("Indexed %s to Elasticsearch", fullPath)
     
