@@ -116,16 +116,21 @@ def main():
             graceful_abort = True
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Ingest the directories
-    logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir)
-    if graceful_abort:
-        logging.info("Graceful abort successful")
-    else:
-        logging.info("Finished ingesting")
+    try:
+        # Ingest the directories
+        logging.debug("Ingesting %s", args.ingestion_directory)
+        ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir)
+        if graceful_abort:
+            logging.info("Graceful abort successful")
+        else:
+            logging.info("Finished ingesting")
     
-    logging.info("Cleaning up scratch space")
-    utils.delete_directory(scratch_dir)
+    except Exception as e:
+        raise e
+    
+    finally:
+        logging.info("Cleaning up scratch space")
+        utils.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
 def ingest_log_files(input_dir, categ_dir, scratch_dir):
