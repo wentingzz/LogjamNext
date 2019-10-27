@@ -87,10 +87,11 @@ def main():
         print('ingestion_directory is not a directory')
         sys.exit(1)
 
+    tmp_scratch_folder = '-'.join(["scratch-space",str(int(time.time()))])+'/'
     if args.scratch_space is not None:
-        scratch_dir = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
+        scratch_dir = os.path.join(os.path.abspath(args.scratch_space), tmp_scratch_folder)
     else:
-        scratch_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch-space/")
+        scratch_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), tmp_scratch_folder)
 
     if not os.path.exists(scratch_dir):
         os.makedirs(scratch_dir)
