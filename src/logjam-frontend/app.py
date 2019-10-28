@@ -18,7 +18,13 @@ for hit in res['hits']['hits']:
         print(hit['_score'])
         count = count + 1
 
+
+resc=es.count(index='logjam', body={"query": { "bool": { "must": [
+        {"match": {"message": "Mar 19 11:25:51 vhacllimmgwp01 ADE: |20502835 32126 612199 HSTR %DED 2014-03-19T11:25:51.030415| NOTICE   0367 HSTR: Finished transferring successfully: bytesTransferred 430"}},
+ ]}}})
+
 print(count)
+print(resc)
 
 
 #@app.route("/")
@@ -28,47 +34,45 @@ print(count)
 @app.route("/platforms", methods=['GET'])
 def get_platforms():
     return jsonify([
-        {"text": "Platform A", "value": "a"},
-        {"text": "Platform B", "value": "b"},
-        {"text": "Platform C", "value": "c"},
+        {"text": "vSphere", "value": "vSphere"},
+        {"text": "Container Only", "value": "Container Only"},
+        {"text": "StorageGRID appliance", "value": "StorageGRID appliance"},
         ])
 
 @app.route("/versions", methods=['GET'])
 def get_versions():
     return jsonify([
-        {"text": "1.0", "value": "1.0"},
-        {"text": "2.0", "value": "2.0"},
-        {"text": "3.0", "value": "3.0"},
+        {"text": "Pre-10.2", "value": "Pre-10.2"},
+        {"text": "10.2", "value": "10.2"},
+        {"text": "10.3", "value": "10.3"},
+        {"text": "10.4", "value": "10.4"},
+        {"text": "11.0", "value": "11.0"},
+        {"text": "11.1", "value": "11.1"},
+        {"text": "11.2", "value": "11.2"},
+        {"text": "11.3", "value": "11.3"},
+        {"text": "11.4", "value": "11.4"},
         ])
 
 
-@app.route("/charts", methods=['POST'])
+@app.route("/matchData", methods=['POST'])
 def get_query():
     count = 0
 
     if not request.json or not 'body' in request.json:
         abort(400)
     message = request.json['body']
-    platform = "None"
-    version = "None"
 
-    if 'platform' in request.json:
-        platform = request.json['platform']
+    platform = request.json.get('platform')
     
-    if 'version' in request.json:
-        version = request.json['version']
+    version = request.json.get('storagegrid_version')
 
-    res=es.search(index='logjam-test', body={"query": { "bool": { "must": [
+    res=es.count(index='logjam', body={"query": { "bool": { "must": [
                                                                             {"match": {"message": message}},
-                                                                            {"match": {"version": version}},
+                                                                            {"match": {"storagegrid_version": version}},
                                                                             {"match": {"platform": platform}},
                                                                             ]}}})
    
-    for hit in res['hits']['hits']:
-            if hit['_score'] > 10:
-                print(hit['_score'])
-                count = count + 1
-
+    print(res)
     print(count)
 
 #if __name__ == "__main__":
