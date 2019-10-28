@@ -155,7 +155,7 @@ def ingest_log_files(input_dir, categ_dir, scratch_dir, history_file, es = None)
         
         entity = entities[e]
         full_path = os.path.join(input_dir,entity)
-        if os.path.isdir(full_path) and entity != ".DS_Store":
+        if os.path.isdir(full_path) and re.match(r"^\d{10}$",entity) != None:
             searchAnInspectionDirectory(scan, full_path, categ_dir, scratch_dir, es)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
