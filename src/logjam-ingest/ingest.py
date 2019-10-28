@@ -102,6 +102,8 @@ def main():
     categDirRoot = os.path.join(intermediate_dir, "logjam-categories")
     history_file = os.path.join(intermediate_dir, "scan-history.txt")
 
+    es_logger = logging.getLogger('elasticsearch')
+    es_logger.setLevel(logging.WARNING)
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
         logging.critical("Unable to connect to Elasticsearch")

@@ -206,17 +206,19 @@ def get_platform(path):
 Check if a file is StorageGRID file
 """
 def is_storagegrid(fullpath, path):
+    """
+    Check if a file is StorageGRID file
+    """
     if 'bycast' in path or 'bycast' in fullpath:
         return True
-    else:
-        try:
-            searchfile = open(os.path.join(fullpath,path), "r")
-        except:
-            searchfile = open(fullpath, "r")
-        for line in searchfile:
-            if "bycast" in line:
-                searchfile.close()
-                return True
-        searchfile.close()
+
+    try:
+        with open(os.path.join(fullpath, path)) as searchfile:
+            for line in searchfile:
+                if "bycast" in line:
+                    return True
+    except Exception as e:
+        logging.warning(str(e))
     return False
 #         open(path, 'r').read().find('bycast')
+
