@@ -1,11 +1,12 @@
 """
-@author Renata Ann Zeitler - Original authors of unzipping function
-@author Josh Good - Original authors of unzipping function
-@author Jeremy Schmidt - Updated to Python 3 2019-09-09
-@author Nathaniel Brooks - Treat unzipping as read-only 2019-09-08
+@author Renata Ann Zeitler
+@author Josh Good
+@author Jeremy Schmidt
+@author Nathaniel Brooks
 
 This script exposes a function that recursively unzips deeply nested
-directories into a specified file system location.
+directories into a specified file system location as well as additional
+helper functions.
 """
 
 
@@ -24,7 +25,8 @@ recursive_unzip_file_types = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
-    ''' Recursively unzips deeply nested directories into a provided location.
+    """
+    Recursively unzips deeply nested directories into a provided location.
     The original zip file will not be deleted. The fully unzipped directory will have
     no compressed files. If compressed files are encountered, they are unzipped in their
     respective locations and the temporary archive/zip file is deleted.
@@ -36,7 +38,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         action function to take on each file extracted
     return : string
         path to fully unzipped directory
-    '''
+    """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isfile(src), "Source should be a file: "+src
     src = os.path.abspath(src)
@@ -61,37 +63,56 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     assert extension in recursive_unzip_file_types, "Invalid extension: "+src
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
+    if os.path.exists(dest):                    # file/dir already exists
+        logging.warning("This path was already unzipped: %s", dest)
+        return                                  # skip the unzip step
+    
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
+        error_flag = False
         try:                                    # exception handling here only
             conans.tools.unzip(src, dest, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-        #delete_directory(dest)                 # no basic dir clean up, leave for caller
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
         
     elif extension == ".gz":
         logging.debug("Decompressing: %s", src)
         
+        error_flag = False
         try:                                    # exception handling here only
-            decompressed_file_data = gzip.GzipFile(src, "rb").read()
-            open(dest, "wb").write(decompressed_file_data)
+            with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
+                while True:
+                    data = in_fd.read(1000000)
+                    if data == b'' or data == None or not data:
+                        break
+                    out_fd.write(data)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        if os.path.splitext(dest)[1] in recursive_unzip_file_types:
-            recursive_unzip(dest, os.path.dirname(dest), action)
-            delete_file(dest)                   # delete zip file, unzipped same location
-        else:
-            action(dest)                        # basic file, perform action
-            #delete_file(dest)                  # no basic file clean up, leave for caller
+        if not error_flag:
+            if os.path.splitext(dest)[1] in recursive_unzip_file_types:
+                recursive_unzip(dest, os.path.dirname(dest), action)
+                delete_file(dest)               # delete zip file, unzipped same location
+            else:
+                action(dest)                    # basic file, perform action
+                #delete_file(dest)              # no basic file clean up, leave for caller
+        elif os.path.exists(dest):
+            if os.path.isdir(dest):
+                delete_directory(dest)
+            else:
+                delete_file(dest)
     
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", src)
@@ -99,14 +120,18 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
+        error_flag = False
         try:                                    # exception handling here only
             pyunpack.Archive(src).extractall(dest)
         except Exception as e:
             logging.critical("Error during pyunpack extraction: %s", e)
-            raise e                             # expand as exceptions are discovered
+            error_flag = True                   # just log it and skip it
         
-        recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-        #delete_directory(dest)                 # no basic dir clean up, leave for caller
+        if not error_flag:
+            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
+            #delete_directory(dest)             # no basic dir clean up, leave for caller
+        elif os.path.exists(dest):
+            delete_directory(dest)
     
     else:
         logging.critical("This execution path should never be reached")
@@ -116,12 +141,13 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
 
 
 def recursive_walk(src, action):
-    ''' Recursively walks deeply nested directories performing actions on each file.
+    """
+    Recursively walks deeply nested directories performing actions on each file.
     src : string
         path to source directory
     action : function(file_abspath) -> return None
         action function to take on each file
-    '''
+    """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isdir(src), "Source should be a dir: "+src
     assert os.path.isabs(src), "Source path should be absolute: "+src
@@ -137,10 +163,11 @@ def recursive_walk(src, action):
 
 
 def delete_file(path):
-    ''' Attempts to delete a file. If there is a problem halt the program.
+    """
+    Attempts to delete a file. If there is a problem halt the program.
     path : string
         absolute path of the file to delete
-    '''
+    """
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     try:
@@ -174,17 +201,18 @@ def delete_file(path):
 
 
 def delete_directory(path):
-    ''' Attempts to delete a directory. If there is a problem halt the program.
+    """
+    Attempts to delete a directory. If there is a problem halt the program.
     path : string
         absolute path of the directory to delete
-    '''
+    """
     assert os.path.isabs(path), "Path should be absolute: "+path
     
     def handle_errors(func, path, excinfo):
-        ''' Handles errors thrown by shutil.rmtree when trying to remove directories w/
+        """ Handles errors thrown by shutil.rmtree when trying to remove directories w/
         bad permissions. This elegant solution was originally found here:
         https://stackoverflow.com/questions/1889597/deleting-directory-in-python
-        '''
+        """
         (t,exc,traceback) = excinfo
         if isinstance(exc, OSError) and exc.errno == 13:
             if platform.system() != "Windows":
