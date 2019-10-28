@@ -85,10 +85,11 @@ def main():
         print('ingestion_directory is not a directory')
         sys.exit(1)
 
+    tmp_scratch_folder = '-'.join(["scratch-space",str(int(time.time()))])+'/'
     if args.scratch_space is not None:
-        scratch_dir = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
+        scratch_dir = os.path.join(os.path.abspath(args.scratch_space), tmp_scratch_folder)
     else:
-        scratch_dir = os.path.join(intermediate_dir, "scratch-space/")
+        scratch_dir = os.path.join(intermediate_dir, tmp_scratch_folder)
 
     if not os.path.exists(scratch_dir):
         os.makedirs(scratch_dir)
@@ -111,16 +112,21 @@ def main():
             graceful_abort = True
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Ingest the directories
-    logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir, history_file)
-    if graceful_abort:
-        logging.info("Graceful abort successful")
-    else:
-        logging.info("Finished ingesting")
+    try:
+        # Ingest the directories
+        logging.debug("Ingesting %s", args.ingestion_directory)
+        ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir, history_file)
+        if graceful_abort:
+            logging.info("Graceful abort successful")
+        else:
+            logging.info("Finished ingesting")
     
-    logging.info("Cleaning up scratch space")
-    utils.delete_directory(scratch_dir)
+    except Exception as e:
+        raise e
+    
+    finally:
+        logging.info("Cleaning up scratch space")
+        utils.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
 def ingest_log_files(input_dir, categ_dir, scratch_dir, history_file):
