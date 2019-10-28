@@ -7,6 +7,7 @@ import time
 import shutil
 import logging
 
+import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
 
@@ -56,8 +57,11 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
         'categorize_time': timestamp
     }
     if es:
-        es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
-        logging.debug("Indexed %s to Elasticsearch", fullPath)
+        try:
+            es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+            logging.debug("Indexed %s to Elasticsearch", fullPath)
+        except elasticsearch.exceptions.ConnectionError:
+            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     
 #     helpers.bulk(es, actions)
 
@@ -164,8 +168,11 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         'categorize_time': timestamp
     }
     if es:
-        es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
-        logging.debug("Indexed %s to Elasticsearch", fullPath)
+        try:
+            es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
+            logging.debug("Indexed %s to Elasticsearch", fullPath)
+        except elasticsearch.exceptions.ConnectionError:
+            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
