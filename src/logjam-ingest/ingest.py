@@ -251,11 +251,6 @@ def searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, depth=N
             scan.just_scanned_this_path(entity_path)
 
 
-# TODO: implementation
-def get_platform(path):
-    return 'unknown'
-
-
 def getCategory(path):
     """
     Gets the category for this file based on path
