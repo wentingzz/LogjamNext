@@ -52,7 +52,7 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
         for file in files:
             with open(file, 'rb') as fp:
                 try:
-                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, time), index=INDEX_NAME, doc_type='_doc')
+                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
                     logging.debug("Indexed %s to Elasticsearch", fullPath)
                 except elasticsearch.exceptions.ConnectionError:
                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
