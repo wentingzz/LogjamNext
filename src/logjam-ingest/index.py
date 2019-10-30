@@ -79,7 +79,7 @@ def process_files_in_node(src, des, is_owned, file_list):
     for fileOrDir in os.listdir(src):
         fullFileOrDirPath = os.path.join(src, fileOrDir)
         filename, extension = os.path.splitext(fileOrDir)
-        if os.path.isfile(fullFileOrDirPath) and (extension in validExtensions or filename in validFiles) and is_storagegrid(src, fileOrDir):
+        if os.path.isfile(fullFileOrDirPath) and (extension in validExtensions or filename in validFiles) and is_storagegrid(fullFileOrDirPath):
             # TODO: delete move/copy2
             if is_owned:
                 try:
@@ -212,20 +212,20 @@ def get_platform(path):
 """
 Check if a file is StorageGRID file
 """
-def is_storagegrid(fullpath, path):
+def is_storagegrid(full_path):
     """
     Check if a file is StorageGRID file
     """
-    if 'bycast' in path or 'bycast' in fullpath:
+    if "bycast" in full_path:
         return True
 
     try:
-        with open(os.path.join(fullpath, path)) as searchfile:
+        with open(full_path) as searchfile:
             for line in searchfile:
                 if "bycast" in line:
                     return True
     except Exception as e:
-        logging.warning(str(e))
+        logging.warning('Error during "bycast" search: %s', str(e))
+    
     return False
-#         open(path, 'r').read().find('bycast')
 
