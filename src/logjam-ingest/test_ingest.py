@@ -110,6 +110,8 @@ class TestIngest(unittest.TestCase):
         def is_correct_structure(dir_path, dct):
             ans = True
             
+            self.assertEqual(len(dct), len(os.listdir(dir_path))    # match count in dir
+            
             for entity in os.listdir(dir_path):                     # each entity in dir
                 token = next((t for t in dct if t in entity), None) # token within entity
                 self.assertTrue(token != None)
