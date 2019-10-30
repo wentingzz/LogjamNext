@@ -11,6 +11,8 @@ import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
 
+INDEX_NAME = "logjam"
+
 # Valid extensions to ingest
 validExtensions = [".txt", ".log"]
 # Valid extentionless files used in special cases
@@ -40,8 +42,8 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     platform = get_platform(None)
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
-    timestamp = "%.20f" % time.time()
-    basename = "-".join([caseNum, nodeName, timespan, storageGridVersion, timestamp])
+    timestamp = int(round(time.time() * 1000))  # Epoch milliseconds
+    basename = "-".join([caseNum, nodeName, timespan, storageGridVersion, str(timestamp)])
     node_dir = os.path.join(categDirRoot, basename)
     if not os.path.exists(node_dir):
         os.makedirs(node_dir)
@@ -50,17 +52,15 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
         for file in files:
             with open(file, 'rb') as fp:
                 try:
-                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, time))
+                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, time), index=INDEX_NAME, doc_type='_doc')
                     logging.debug("Indexed %s to Elasticsearch", fullPath)
                 except elasticsearch.exceptions.ConnectionError:
                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
 #                 try:
-#                     es.index(index='logjam', doc_type='_doc', body = fields)
+#                     es.index(index=INDEX_NAME, doc_type='_doc', body = fields)
 #                     logging.debug("Indexed %s to Elasticsearch", fullPath)
 #                 except elasticsearch.exceptions.ConnectionError:
 #                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-    
-    
     
 #     helpers.bulk(es, actions)
 
@@ -68,8 +68,6 @@ def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
     for line in open(file_path):
         line = line.decode('utf-8', errors='ignore')
         yield {
-            '_index': 'logjam',
-            '_type': '_doc',
             '_source': {
                 'case': caseNum,
                 'node_name': nodeName,
@@ -161,15 +159,14 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
             logging.critical("Unable to copy file: %s", e)
             raise e
 
-    timestamp = "%.20f" % time.time()
-    basename = "-".join([filenameAndExtension, timestamp])
+    timestamp = int(round(time.time() * 1000))
+    basename = "-".join([filenameAndExtension, str(timestamp)])
     categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
-
     
     if es:
         with open(fullPath, 'rb') as fp:
             try:
-                success, _ = bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp))
+                success, _ = bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
                 logging.debug("Indexed %s to Elasticsearch", fullPath)
             except elasticsearch.exceptions.ConnectionError:
                 logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)

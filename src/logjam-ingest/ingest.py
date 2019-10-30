@@ -41,6 +41,8 @@ import index
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
 
+mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
+
 # List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
               "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
@@ -103,6 +105,9 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
+    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
+
     # Should not allow configuration of intermediate directory
     categ_dir = os.path.join(intermediate_dir, "logjam-categories")
     history_file = os.path.join(intermediate_dir, "scan-history.txt")
@@ -113,9 +118,12 @@ def main():
     if not es.ping():
         logging.critical("Unable to connect to Elasticsearch")
         es = None
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
 
-    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
