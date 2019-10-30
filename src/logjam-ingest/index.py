@@ -46,22 +46,26 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     if not os.path.exists(node_dir):
         os.makedirs(node_dir)
     files = process_files_in_node(fullPath, node_dir, is_owned, [])
-    
-    fields = {
-        'case': caseNum,
-        'node_name': nodeName,
-        #'category': category,
-        'storagegrid_version': storageGridVersion, 
-        'message': files,
-        'platform':platform,
-        'categorize_time': timestamp
-    }
     if es:
-        try:
-            es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
-            logging.debug("Indexed %s to Elasticsearch", fullPath)
-        except elasticsearch.exceptions.ConnectionError:
-            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+        for file in files:
+            with open(file, 'rb') as fp:
+                for line in fp:
+                    line = line.decode('utf-8', errors='ignore')
+                    fields = {
+                        'case': caseNum,
+                        'node_name': nodeName,
+                        'storagegrid_version': storageGridVersion, 
+                        'message': line,
+                        'platform':platform,
+                        'categorize_time': timestamp
+                    }
+                    try:
+                        es.index(index='logjam', doc_type='_doc', body = fields)
+                        logging.debug("Indexed %s to Elasticsearch", fullPath)
+                    except elasticsearch.exceptions.ConnectionError:
+                        logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+    
+    
     
 #     helpers.bulk(es, actions)
 
@@ -93,10 +97,7 @@ def process_files_in_node(src, des, is_owned, file_list):
                 except (IOError) as e:
                     logging.critical("Unable to copy file: %s", e)
                     raise e
-            with open(fullFileOrDirPath, 'rb') as fp:
-                data = fp.read()
-                data = data.decode('utf-8', errors='ignore')
-                file_list.append(data)
+            file_list.append(fullFileOrDirPath)
         elif os.path.isdir(fullFileOrDirPath):
             process_files_in_node(fullFileOrDirPath, des, is_owned, file_list)
     return file_list
@@ -126,12 +127,6 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
 
-    files = []
-    with open(fullPath, 'rb') as fp:
-        data = fp.read()
-        data = data.decode('utf-8', errors='ignore')
-        files.append(data)
-
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
     
@@ -158,22 +153,24 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     basename = "-".join([filenameAndExtension, timestamp])
     categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
 
-    fields = {
-        'case': caseNum,
-        'node_name': 'unknown',
-        #'category': category,
-        'storagegrid_version': 'unknown', 
-        'message': files,
-        'platform':'unknown',
-        'categorize_time': timestamp
-    }
-    if es:
-        try:
-            es.index(index='logjam', doc_type='_doc', body = fields, id=fullPath)
-            logging.debug("Indexed %s to Elasticsearch", fullPath)
-        except elasticsearch.exceptions.ConnectionError:
-            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     
+    if es:
+        with open(fullPath, 'rb') as fp:
+            for line in fp:
+                line = line.decode('utf-8', errors='ignore')
+                fields = {
+                    'case': caseNum,
+                    'node_name': 'unknown',
+                    'storagegrid_version': 'unknown', 
+                    'message': line,
+                    'platform':'unknown',
+                    'categorize_time': timestamp
+                }
+                try:
+                    es.index(index='logjam', doc_type='_doc', body = fields)
+                    logging.debug("Indexed %s to Elasticsearch", fullPath)
+                except elasticsearch.exceptions.ConnectionError:
+                    logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
