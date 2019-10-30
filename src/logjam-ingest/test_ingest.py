@@ -1,15 +1,21 @@
 """
-Unit tests for top-level ingestion script
 @author Jeremy Schmidt
+@author Nathaniel Brooks
+
+Unit tests for top-level ingestion script
 """
+
+
 import os
 import shutil
 import time
 import unittest
 import sqlite3
 
-
 import ingest
+
+
+code_src_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestIngest(unittest.TestCase):
@@ -17,16 +23,15 @@ class TestIngest(unittest.TestCase):
     Test case class for ingest unit tests
     """
 
-    data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test-data")
+    data_dir = os.path.join(code_src_dir, "test-data")
 
     def setUp(self):
-        dirname = os.path.dirname(os.path.realpath(__file__))
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmpdir = os.path.join(dirname, tmp_name)
-        os.mkdir(self.tmpdir)
+        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        os.mkdir(self.tmp_dir)
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir)
+        shutil.rmtree(self.tmp_dir)
 
 
     def test_match_category(self):
@@ -80,23 +85,40 @@ class TestIngest(unittest.TestCase):
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """
         # Establish paths under the test's temp directory
-        input_dir = os.path.join(self.data_dir, "StandardFiles")
-        categ_dir = os.path.join(self.tmpdir, "categories")
-        scratch_dir = os.path.join(self.tmpdir, "scratch")
-        history_file = os.path.join(self.tmpdir, "history.txt")
+        input_dir = os.path.join(self.data_dir, "TestInputDir01")
+        categ_dir = os.path.join(self.tmp_dir, "categories")
+        scratch_dir = os.path.join(self.tmp_dir, "scratch")
+        history_file = os.path.join(self.tmp_dir, "history.txt")
 
         # Run ingest on sample data
         ingest.ingest_log_files(input_dir, categ_dir, scratch_dir, history_file)
+        
+        expected_structure = {
+            "2001872931" :
+            {
+                "lumberjack",
+                "servermanager",
+                "system_commands"
+            },
+            
+            "2001901245" :
+            {
+                "bycast.log"
+            }
+        }   
+        
+        def is_correct_structure(dir_path, dct):
+            ans = True
+            
+            for entity in os.listdir(dir_path):                     # each entity in dir
+                token = next((t for t in dct if t in entity), None) # token within entity
+                self.assertTrue(token != None)
+                
+                full_path = os.path.join(dir_path, entity)
+                if os.path.isdir(full_path):
+                    ans = is_correct_structure(full_path, dct[token]) and ans
+            
+            return ans                                              # recurse backwards
+        
+        self.assertTrue(is_correct_structure(categ_dir, expected_structure))
 
-        expected_files = [("audit", 1), ("bycast", 1), ("dmesg", 1), ("gdu_server", 1),
-                          ("init_sg", 1), ("install", 1), ("kern", 1), ("messages", 1),
-                          ("other", 8), ("pge_image_updater", 1), ("server_manager", 1),
-                          ("sg_fw_update", 1), ("syslog", 1), ("system_commands", 1),
-                          ("upgrade", 1)]
-
-        for category, count in expected_files:
-            category_path = os.path.join(categ_dir, category)
-            category_files = os.listdir(category_path)
-
-            # Make sure we got the right number of files per category
-            self.assertEqual(len(category_files), count)
