@@ -227,7 +227,7 @@ def is_storagegrid(fullpath, path):
                 if "bycast" in line:
                     return True
     except Exception as e:
-        logging.warning("Error reading file to determine relevance: %s", str(e))
+        logging.warning(str(e))
     return False
 #         open(path, 'r').read().find('bycast')
 
