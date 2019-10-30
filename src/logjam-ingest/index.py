@@ -50,12 +50,11 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     files = process_files_in_node(fullPath, node_dir, is_owned, [])
     if es:
         for file in files:
-            with open(file, 'rb') as fp:
-                try:
-                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
-                    logging.debug("Indexed %s to Elasticsearch", fullPath)
-                except elasticsearch.exceptions.ConnectionError:
-                    logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+            try:
+                success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
+                logging.debug("Indexed %s to Elasticsearch", fullPath)
+            except elasticsearch.exceptions.ConnectionError:
+                logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
 #                 try:
 #                     es.index(index=INDEX_NAME, doc_type='_doc', body = fields)
 #                     logging.debug("Indexed %s to Elasticsearch", fullPath)
@@ -164,12 +163,11 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
     
     if es:
-        with open(fullPath, 'rb') as fp:
-            try:
-                success, _ = bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
-                logging.debug("Indexed %s to Elasticsearch", fullPath)
-            except elasticsearch.exceptions.ConnectionError:
-                logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+        try:
+            success, _ = helpers.bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
+            logging.debug("Indexed %s to Elasticsearch", fullPath)
+        except elasticsearch.exceptions.ConnectionError:
+            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
 #         with open(, 'rb') as fp:
 #             for line in fp:
 #                 line = line.decode('utf-8', errors='ignore')
