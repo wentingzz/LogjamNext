@@ -49,26 +49,38 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     if es:
         for file in files:
             with open(file, 'rb') as fp:
-                for line in fp:
-                    line = line.decode('utf-8', errors='ignore')
-                    fields = {
-                        'case': caseNum,
-                        'node_name': nodeName,
-                        'storagegrid_version': storageGridVersion, 
-                        'message': line,
-                        'platform':platform,
-                        'categorize_time': timestamp
-                    }
-                    try:
-                        es.index(index='logjam', doc_type='_doc', body = fields)
-                        logging.debug("Indexed %s to Elasticsearch", fullPath)
-                    except elasticsearch.exceptions.ConnectionError:
-                        logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+                try:
+                    success, _ = bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, time))
+                    logging.debug("Indexed %s to Elasticsearch", fullPath)
+                except elasticsearch.exceptions.ConnectionError:
+                    logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+#                 try:
+#                     es.index(index='logjam', doc_type='_doc', body = fields)
+#                     logging.debug("Indexed %s to Elasticsearch", fullPath)
+#                 except elasticsearch.exceptions.ConnectionError:
+#                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     
     
     
 #     helpers.bulk(es, actions)
 
+def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
+    for line in open(file_path):
+        line = line.decode('utf-8', errors='ignore')
+        yield {
+            '_index': 'logjam',
+            '_type': '_doc',
+            '_source': {
+                'case': caseNum,
+                'node_name': nodeName,
+                'storagegrid_version': storageGridVersion, 
+                'message': line,
+                'platform':platform,
+                'categorize_time': time
+            }
+        }
+    
+    
 def process_files_in_node(src, des, is_owned, file_list):
     """ Finds all the files in the node; returns all the content as a array
     src : string
@@ -156,21 +168,27 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     
     if es:
         with open(fullPath, 'rb') as fp:
-            for line in fp:
-                line = line.decode('utf-8', errors='ignore')
-                fields = {
-                    'case': caseNum,
-                    'node_name': 'unknown',
-                    'storagegrid_version': 'unknown', 
-                    'message': line,
-                    'platform':'unknown',
-                    'categorize_time': timestamp
-                }
-                try:
-                    es.index(index='logjam', doc_type='_doc', body = fields)
-                    logging.debug("Indexed %s to Elasticsearch", fullPath)
-                except elasticsearch.exceptions.ConnectionError:
-                    logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+            try:
+                success, _ = bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp))
+                logging.debug("Indexed %s to Elasticsearch", fullPath)
+            except elasticsearch.exceptions.ConnectionError:
+                logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+#         with open(, 'rb') as fp:
+#             for line in fp:
+#                 line = line.decode('utf-8', errors='ignore')
+#                 fields = {
+#                     'case': caseNum,
+#                     'node_name': 'unknown',
+#                     'storagegrid_version': 'unknown', 
+#                     'message': line,
+#                     'platform':'unknown',
+#                     'categorize_time': timestamp
+#                 }
+#                 try:
+#                     es.index(index='logjam', doc_type='_doc', body = fields)
+#                     logging.debug("Indexed %s to Elasticsearch", fullPath)
+#                 except elasticsearch.exceptions.ConnectionError:
+#                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
