@@ -3,16 +3,20 @@
 @author Josh Good
 @author Jeremy Schmidt
 @author Nathaniel Brooks
+@author Wenting Zheng
+
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
+
 Terminology:
-  Inspection Directory - the original directory ingest.py searches through, it should
-                         be treated as read-only
-  Scratchspace Directory - a directory that ingest.py unzips compressed files into, owned
-                           by ingest.py (can R/W there)
-  Category Directory - the final directories where ingest.py copies/places files for
-                       Logstash to consume, owned by ingest.py (can R/W there)
+  Input Directory       - the original directory ingest.py searches through, it should
+                          be treated as read-only
+  Scratch Directory     - a directory that ingest.py unzips compressed files into, owned
+                          by ingest.py (can R/W there)
+  Category Directory    - the final directories where ingest.py copies/places files for
+                          Logstash to consume, owned by ingest.py (can R/W there)
 """
+
 
 import argparse
 import gzip
@@ -25,16 +29,19 @@ import sys
 import time
 import signal
 
+from elasticsearch import Elasticsearch, helpers
 from conans import tools
 from pyunpack import Archive
 
+import incremental
 import utils
+import index
 
-# Database connection path
-database = os.path.realpath(__file__).replace("ingest.py", "duplicates.db")
 
-connection = None  # will remove later, no SQL database
-cursor = None      # will remove later, no need for SQL database
+code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
+intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+
+mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
 # List of all categories to sort log files by
 categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
@@ -56,17 +63,19 @@ validFiles = ["syslog", "messages", "system_commands"]
 validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
 graceful_abort = False
+#elasticsearch host
+es_host = 'http://localhost:9200/'
 
-
-'''
-Recursively walks the directories of the inspection
-directory, copying relevant files into Logjam controlled
-filespace for further processing by Logstash. Unzips compressed
-files into Logjam controlled scratchspace, then moves relevant files
-for further processing by Logstash.
-'''
 
 def main():
+    """
+    Recursively walks the directories of the inspection
+    directory, copying relevant files into Logjam controlled
+    filespace for further processing by Logstash. Unzips compressed
+    files into Logjam controlled scratchspace, then moves relevant files
+    for further processing by Logstash. This function validates parameters, then
+    starts the main business logic by calling `ingest_log_files`.
+    """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
@@ -83,26 +92,38 @@ def main():
         print('ingestion_directory is not a directory')
         sys.exit(1)
 
+    tmp_scratch_folder = '-'.join(["scratch-space",str(int(time.time()))])+'/'
     if args.scratch_space is not None:
-        scratchDirRoot = os.path.join(os.path.abspath(args.scratch_space),"scratch-space/")
+        scratch_dir = os.path.join(os.path.abspath(args.scratch_space), tmp_scratch_folder)
     else:
-        scratchDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scratch-space/")
+        scratch_dir = os.path.join(intermediate_dir, tmp_scratch_folder)
 
-    if not os.path.exists(scratchDirRoot):
-        os.makedirs(scratchDirRoot)
-    elif not os.path.isdir(scratchDirRoot):
+    if not os.path.exists(scratch_dir):
+        os.makedirs(scratch_dir)
+    elif not os.path.isdir(scratch_dir):
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
 
-    # Should not allow configuration of intermediate directory
-    categDirRoot = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "data", "logjam-categories")
-
     log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
-    # Create database in the cwd
-    initDatabase(database)
+    # Should not allow configuration of intermediate directory
+    categ_dir = os.path.join(intermediate_dir, "logjam-categories")
+    history_file = os.path.join(intermediate_dir, "scan-history.txt")
+
+    es_logger = logging.getLogger('elasticsearch')
+    es_logger.setLevel(logging.WARNING)
+    es = Elasticsearch([es_host], verify_certs = True)
+    if not es.ping():
+        logging.critical("Unable to connect to Elasticsearch")
+        es = None
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
+
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
@@ -111,184 +132,143 @@ def main():
             graceful_abort = True
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Ingest the directories
-    logging.debug("Ingesting %s", args.ingestion_directory)
-    ingest_log_files(args.ingestion_directory, categDirRoot, scratchDirRoot)
-    if graceful_abort:
-        logging.info("Graceful abort successful")
-    else:
-        logging.info("Finished ingesting")
+    try:
+        # Ingest the directories
+        logging.debug("Ingesting %s", args.ingestion_directory)
+        ingest_log_files(args.ingestion_directory, categ_dir, scratch_dir, history_file, es)
+        if graceful_abort:
+            logging.info("Graceful abort successful")
+        else:
+            logging.info("Finished ingesting")
     
-    logging.info("Cleaning up scratch space")
-    utils.delete_directory(scratchDirRoot)
+    except Exception as e:
+        raise e
+    
+    finally:
+        logging.info("Cleaning up scratch space")
+        utils.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
-def ingest_log_files(input_root, output_root, scratch_space):
-    for entity in os.listdir(input_root):
-        full_path = os.path.join(input_root,entity)
-        if os.path.isdir(full_path) and entity != ".DS_Store":
-            searchAnInspectionDirectory(full_path, output_root, scratch_space)
+def ingest_log_files(input_dir, categ_dir, scratch_dir, history_file, es = None):
+    """
+    Begins ingesting files from the specified directories. Assumes that
+    Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
+    Logjam DOES own `scratch_dir` and `history_file`.
+    """
+    assert os.path.isdir(input_dir), "Input must exist & be a directory"
+    
+    scan = incremental.Scan(input_dir, history_file)
+    
+    entities = sorted(os.listdir(input_dir))
+    for e in range(len(entities)):
+        if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+            continue                                    # skip, haven't reached last_path
+        
+        entity = entities[e]
+        full_path = os.path.join(input_dir,entity)
+        if os.path.isdir(full_path) and re.match(r"^\d{10}$",entity) != None:
+            searchAnInspectionDirectory(scan, full_path, categ_dir, scratch_dir, es)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
+    
+    if graceful_abort:
+        scan.premature_exit()
+    else:
+        scan.complete_scan()
+        
+    return
 
 
-"""
-Recursively go through directories to find log files. If compressed, then we need
-to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
-start : string
-    the start of the file path to traverse
-depth : string
-    the sub-directories and sub-files associated with this directory
-"""
-def searchAnInspectionDirectory(start, output_root, scratch_space, depth=None, caseNum=None):
+def searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, depth=None, case_num=None, scan_dir=None):
+    """
+    Recursively go through directories to find log files. If compressed, then we need
+    to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
+    start : string
+        the start of the file path to traverse
+    depth : string
+        the sub-directories and sub-files associated with this directory
+    """
     if graceful_abort:
         return
 
     if not depth:
         depth = ""
+    
+    if not scan_dir:
+        scan_dir = start
 
     assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
+    
+    # Loop over each file in the current directory\
+    search_dir = os.path.join(start, depth)
+    entities = sorted(os.listdir(search_dir))
+    if case_num == None: case_num = getCaseNumber(search_dir)
+    assert case_num != "0", "Not a valid case number: "+case_num
+    for e in range(len(entities)):
+        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
+            continue                                    # skip, haven't reached last_path
 
-    # Loop over each file in the current directory
-    for fileOrDir in os.listdir(os.path.join(start, depth)):
+        entity = entities[e]
+        
         # Check for the file type to make sure it's not compressed
-        filename, extension = os.path.splitext(fileOrDir)
+        filename, extension = os.path.splitext(entity)
         # Get the file's path in inspection dir
-        inspecDirPath = os.path.join(start, depth, fileOrDir)
-        if caseNum == None: caseNum = getCaseNumber(inspecDirPath)
-        assert caseNum != "0", "Not a valid case number: "+caseNum
+        entity_path = os.path.join(search_dir, entity)
         # Get category
-        category = getCategory(inspecDirPath.lower())
-        # Check if this file has been previously ingested into our database
-        logging.debug("Checking if duplicate: %s", inspecDirPath)
-        cursor.execute("SELECT path FROM paths WHERE path=?", (inspecDirPath,))
-        result = cursor.fetchone()
-        if (result == None):
-            if os.path.isfile(inspecDirPath) and (extension in validExtensions or filename in validFiles):
-                stash_file_in_elk(inspecDirPath, fileOrDir, caseNum, output_root, False)
-            elif os.path.isdir(inspecDirPath):
+        category = getCategory(entity_path.lower())
+
+        if os.path.isdir(entity_path):
+            if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
+                index.stash_node_in_elk(entity_path , case_num, categ_dir, False, es)
+            else:
                 # Detected a directory, continue
-                searchAnInspectionDirectory(start, output_root, scratch_space, depth=os.path.join(depth, fileOrDir), caseNum=caseNum)
+                searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, os.path.join(depth, entity), case_num, scan_dir)
+        
+        elif os.path.isfile(entity_path) and scan.should_consider_file(entity_path):
+            if (extension in validExtensions or filename in validFiles) and index.is_storagegrid(entity_path):
+                index.stash_file_in_elk(entity_path, entity, case_num, categ_dir, False, es)
             elif extension in validZips:
-                cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (inspecDirPath, 0, category)) 
-                connection.commit()
-                
-                def handle_unzipped_file(path):
-                  # TODO: Change to conditional function
-                  # TODO: if is_storagegrid(path):
-                  (name,ext) = os.path.splitext(path)
-                  if ext in validExtensions or os.path.basename(name) in validFiles:
-                    stash_file_in_elk(path, os.path.basename(path), caseNum, output_root, True)
-                  else:
-                    utils.delete_file(path)
-                    logging.debug("Ignored non-StorageGRID file: %s", path)
-                  return
-                
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scratch_space, "tmp")
+                new_scratch_dir = os.path.join(scratch_dir, "tmp")
                 os.makedirs(new_scratch_dir)
-                utils.recursive_unzip(inspecDirPath, new_scratch_dir, handle_unzipped_file)
-                assert os.path.exists(inspecDirPath), "Should still exist"
+                utils.recursive_unzip(entity_path, new_scratch_dir)
+                f, e = os.path.splitext(entity)
+                unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
+                if os.path.isdir(unzip_folder):
+                    searchAnInspectionDirectory(scan, unzip_folder, categ_dir, scratch_dir, es, None, case_num, entity_path)
+                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
+#                         random_files.append(unzip_folder)
+                    index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, categ_dir, True, es)
+                
+                assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
                 utils.delete_directory(new_scratch_dir)
-                
-                logging.debug("Added compressed archive to DB & ELK: %s", inspecDirPath)
+
+                logging.debug("Added compressed archive to ELK: %s", entity_path)
             else:
-                # Invalid file, flag as an error in database and continue
-                updateToErrorFlag(inspecDirPath)
-                logging.debug("Assumming incorrect filetype: %s", inspecDirPath)
+                # Invalid file, continue
+                logging.debug("Assumming incorrect filetype: %s", entity_path)
         else:
             # Previously ingested, continue
-            logging.debug("Already ingested %s", inspecDirPath)
-
-def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_owned):
-    """ Stashes file in ELK stack; checks if duplicate, computes important
-    fields like log category, and prepares for ingest by Logstash.
-    fullPath : string
-        absolute path of the file
-    filenameAndExtension : string
-        filename + extension of the file, precomputed before function call
-    caseNum : string
-        StorageGRID case number for this file
-    categDirRoot : string
-        directory to stash the file into for Logstash
-    is_owned : boolean
-        indicates whether the Logjam system owns this file (i.e. can move/delete it)
-    """
-
-    assert os.path.isfile(fullPath), "This is not a file: "+fullPath
-    assert os.path.basename(fullPath) == filenameAndExtension, "Computed filename+extension doesn't match '"+filename+"' - '"+fullPath+"'"
-    assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
-
-    # Log in the database and copy to the appropriate logjam category
-    if caseNum == None: caseNum = getCaseNumber(fullPath)
-    assert caseNum != None, "Null reference"
-    assert caseNum != "0", "Not a valid case number: "+caseNum
-
-    category = getCategory(fullPath.lower())
-    assert category != None, "Null reference"
-
-    if not os.path.exists(categDirRoot):
-        os.makedirs(categDirRoot)
-
-    category_dir = os.path.join(categDirRoot, category)
-    if not os.path.exists(category_dir):
-        os.makedirs(category_dir)
-
-    categDirPath = os.path.join(categDirRoot, category, filenameAndExtension)
-
-    if is_owned:
-        try:
-            shutil.move(fullPath, categDirPath)     # mv scratch space -> categ folder
-        except (IOError) as e:
-            logging.critical("Unable to move file: %s", e)
-            raise e
-    else:
-        try:
-            shutil.copy2(fullPath, categDirPath)    # cp input dir -> categ folder
-        except (IOError) as e:
-            logging.critical("Unable to copy file: %s", e)
-            raise e
-
-    timestamp = "%.20f" % time.time()
-    basename = "-".join([caseNum, filenameAndExtension, timestamp])
-    categDirPathWithTimestamp = os.path.join(categDirRoot, category, basename)
-
-    try:
-        os.rename(categDirPath, categDirPathWithTimestamp)
-    except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
-        logging.critical("Unable to rename file: %s", e)
-        raise e
-
-    logging.debug("Renamed %s/%s to %s", category, filenameAndExtension, categDirPathWithTimestamp)
-    cursor.execute("INSERT INTO paths(path, flag, category) VALUES(?, ?, ?)", (fullPath, 0, category))
-    connection.commit()
-    logging.debug("Adding %s to db and Logstash", fullPath)
-
-    return
+            logging.debug("Already ingested %s", entity_path)
+        
+        if 'tmp' in entity_path:
+            scan.just_scanned_this_path(scan_dir)
+        else:
+            scan.just_scanned_this_path(entity_path)
 
 
-"""
-Updates a previously logged entry to have an error flag
-path : string
-    the file path to update in the database
-"""
-def updateToErrorFlag(path):
-    cursor.execute(''' UPDATE paths SET flag = ? WHERE path = ?''', (1, path,))
-    connection.commit()
-    logging.debug("Flagging " + path)
-
-"""
-Gets the category for this file based on path
-path : string
-    the path for which to get a category
-filename : string
-    the file's name
-"""
 def getCategory(path):
+    """
+    Gets the category for this file based on path
+    path : string
+        the path for which to get a category
+    filename : string
+        the file's name
+    """
     # Split the path by sub-directories
-    splitPath = path.split("/")
+    splitPath = path.replace('\\','/').split("/")
     start = splitPath[len(splitPath) - 1]
     splitPath.pop()
     # For each part in this path, run each category regex expression
@@ -302,14 +282,15 @@ def getCategory(path):
     # Unrecognized file, so return "other"
     return "other"
 
-'''
-Extracts the relevant StorageGRID case number from the file's path.
-path : string
-    the path to search for case number
-return : string
-    the case number found in the path
-'''
+
 def getCaseNumber(path):
+    """
+    Extracts the relevant StorageGRID case number from the file's path.
+    path : string
+        the path to search for case number
+    return : string
+        the case number found in the path
+    """
     caseNum = re.search(r"(\d{10})", path)
     if caseNum is None:
         caseNum = "0"
@@ -317,27 +298,7 @@ def getCaseNumber(path):
         caseNum = caseNum.group()
     return caseNum
 
-'''
-Creates and initializes database for storing filepaths to prevent duplicates
-'''
-def initDatabase(db_file):
-    global connection
-    global cursor
-
-    sql_table = """ CREATE TABLE IF NOT EXISTS paths (
-                           path text,
-                           flag integer,
-                           category text,
-                           timestamp float
-                        ); """
-
-    try:
-        connection = sqlite3.connect(db_file)
-        cursor = connection.cursor()
-        cursor.execute(sql_table)
-    except Error as e:
-        logging.critical(str(e))
-        raise e
 
 if __name__ == "__main__":
     main()
+
