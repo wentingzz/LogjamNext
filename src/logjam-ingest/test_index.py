@@ -24,40 +24,40 @@ class ProcessFilesTestCase(unittest.TestCase):
     def test_get_version(self):
         try:
             version = index.get_storage_grid_version(os.path.join(self.datadir,'1234567890', 'system_commands.txt'))
-            self.assertEquals(version, 'unknown')
+            self.assertEqual(version, 'unknown')
         except Exception as exc:
             self.fail(exc)
         
         try:
             version = index.get_storage_grid_version(os.path.join(self.datadir,'123', 'system_commands'))
-            self.assertEquals(version, '100.100.100-12345678.0224.asdfg12345')
+            self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
         except Exception as exc:
             self.fail(exc)
             
         try:
             version = index.get_storage_grid_version(os.path.join(self.datadir,'null', 'system_commands.txt'))
-            self.assertEquals(version, 'unknown')
+            self.assertEqual(version, 'unknown')
         except Exception as exc:
             self.fail(exc)
 
     def test_is_storagegrid(self):
         try:
-            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'bycast.log'), ''))
+            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
         
         try:
-            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890'), 'bycast.log'))
+            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
             
         try:
-            self.assertFalse(index.is_storagegrid(os.path.join(self.datadir,'1234567890'), 'system_commands.txt'))
+            self.assertFalse(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'system_commands.txt')))
         except Exception as exc:
             self.fail(exc)
         
         try:
-            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'bycast.log'), 'bycast.log'))
+            self.assertTrue(index.is_storagegrid(os.path.join(self.datadir,'1234567890', 'bycast.log', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
         
@@ -65,7 +65,7 @@ class ProcessFilesTestCase(unittest.TestCase):
     def test_process_files(self):
         try:
             files = index.process_files_in_node(os.path.join(self.datadir, '123'), self.tmpdir, False, [])
-            self.assertEquals(3, len(files))
+            self.assertEqual(3, len(files))
             self.assertTrue(u'bycast lumberjack\n' in files)
             self.assertTrue(u'servermanager bycast\n' in files)
             self.assertTrue(u'bycast system-commands.txt file\nstorage-grid-release-100.100.100-12345678.0224.asdfg12345\nthis is random text\n' in files)

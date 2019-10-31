@@ -227,7 +227,7 @@ def searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, depth=N
                 searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, os.path.join(depth, entity), case_num, scan_dir)
         
         elif os.path.isfile(entity_path) and scan.should_consider_file(entity_path):
-            if (extension in validExtensions or filename in validFiles) and index.is_storagegrid(entity_path, ''):
+            if (extension in validExtensions or filename in validFiles) and index.is_storagegrid(entity_path):
                 index.stash_file_in_elk(entity_path, entity, case_num, categ_dir, False, es)
             elif extension in validZips:
                 # TODO: Choose unique folder names per Logjam worker instance
@@ -239,7 +239,7 @@ def searchAnInspectionDirectory(scan, start, categ_dir, scratch_dir, es, depth=N
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
                     searchAnInspectionDirectory(scan, unzip_folder, categ_dir, scratch_dir, es, None, case_num, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder, ''):
+                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
                     index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, categ_dir, True, es)
                 
