@@ -2,6 +2,9 @@ version: "3.3"
 services:
   elasticsearch:
     image: elasticsearch:7.3.2
+    volumes:
+     - "/usr/share/elasticsearch/data/:/usr/share/elasticsearch/data/"
+     - "./src/elasticsearch/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml"
     ports:
       - "9200:9200"
       - "9300:9300"

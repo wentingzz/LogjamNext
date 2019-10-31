@@ -31,6 +31,11 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         # Prepare compressed data for each test gz tgz
         # (zip, gz, tar.gz, 7z, tar) plus multiple layer versions
 
+        # Prepare a corrupt tar.gz
+        with open(os.path.join(cls.tmpdir, "corrupt.tar.gz"), "wb") as corrupt_file:
+            for _ in range(1000):
+                corrupt_file.write(os.urandom(1000))
+
     def test_targz(self):
         # Call recursive unzip
         utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
@@ -59,6 +64,42 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def test_gz(self):
         utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_gz')))
+
+    def test_corrupt_tgz(self):
+        utils.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
+        # Should have an error but handle gracefully. Output file should not exist.
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'corrupt')))
+
+    def test_folder_exists(self):
+        """
+        Folder exists. Zip it. Remove file inside folder. Unzip.
+        Unzipping should be skipped and file should not be present.
+        """
+        existing_path = os.path.join(self.tmpdir, "existing_folder")
+        os.mkdir(existing_path)
+
+        existing_file = os.path.join(existing_path, "file1.txt")
+        with open(existing_file, "w") as filep:
+            filep.write("hello")
+
+        assert os.path.isfile(existing_file)
+
+        shutil.make_archive(existing_path, "zip", existing_path)
+        archive_path = os.path.join(self.tmpdir, "existing_folder.zip")
+
+        assert os.path.isfile(archive_path)
+
+        os.remove(existing_file)
+        assert not os.path.isfile(existing_file)
+
+        utils.recursive_unzip(archive_path, self.tmpdir)
+
+        assert not os.path.isfile(existing_file)
+
+
+
+
+
 
     @classmethod
     def tearDownClass(cls):
