@@ -9,9 +9,12 @@ import unittest
 import os
 import time
 import stat
-
+import shutil
 
 import incremental
+
+
+code_src_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class TimePeriodTestCase(unittest.TestCase):
@@ -188,4 +191,49 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(".", record.input_dir)
         self.assertEqual("./log.txt", record.last_path)
         self.assertFalse(record.is_complete())
+
+
+class ScanHelperFuncTestCase(unittest.TestCase):
+    """ Tests the basic helper functions used by the Scan class """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        os.mkdir(self.tmp_dir)
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+    
+    def test_overwrite_scan_record(self):
+        record = incremental.ScanRecord.from_str('0 10 "/nfs" ""')
+        active_file = os.path.join(self.tmp_dir, "active.txt")
+        
+        open(active_file, "a").close()
+        self.assertTrue(os.path.isfile(active_file))
+        
+        incremental.overwrite_scan_record(active_file, record)
+        with open(active_file, "r") as f:
+            self.assertEqual(str(record)+"\n", f.read())
+    
+    def test_append_scan_record(self):
+        record = incremental.ScanRecord.from_str('0 10 "/nfs" ""')
+        history_file = os.path.join(self.tmp_dir, "history.txt")
+        
+        open(history_file, "a").close()
+        self.assertTrue(os.path.isfile(history_file))
+        
+        incremental.append_scan_record(history_file, record)
+        incremental.append_scan_record(history_file, record)
+        incremental.append_scan_record(history_file, record)
+        with open(history_file, "r") as f:
+            self.assertEqual((str(record)+"\n")*3, f.read())
+    
+    def test_extract_last_scan_record(self):
+        record = incremental.ScanRecord.from_str('0 10 "/nfs" ""')
+        active_file = os.path.join(self.tmp_dir, "active.txt")
+        
+        with open(active_file, "a") as f:
+            f.write(str(record) + "\n")
+        
+        self.assertEqual(record, incremental.extract_last_scan_record(active_file))
 
