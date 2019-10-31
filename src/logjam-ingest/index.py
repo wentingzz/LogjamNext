@@ -20,7 +20,7 @@ validFiles = ["syslog", "messages", "system_commands"]
 
 
 def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
-    """ Stashes a node in ELK stack; 
+    """ Stashes a node in ELK stack;
     fullPath : string
         absolute path of the node
     caseNum : string
@@ -60,24 +60,29 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
 #                     logging.debug("Indexed %s to Elasticsearch", fullPath)
 #                 except elasticsearch.exceptions.ConnectionError:
 #                     logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-    
+
 #     helpers.bulk(es, actions)
 
 def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
-    for line in open(file_path):
-        line = line.decode('utf-8', errors='ignore')
-        yield {
-            '_source': {
-                'case': caseNum,
-                'node_name': nodeName,
-                'storagegrid_version': storageGridVersion, 
-                'message': line,
-                'platform':platform,
-                'categorize_time': time
-            }
-        }
-    
-    
+    with open(file_path) as log_file:
+        try:
+            for line in log_file:
+                yield {
+                    '_source': {
+                        'case': caseNum,
+                        'node_name': nodeName,
+                        'storagegrid_version': storageGridVersion,
+                        'message': line,
+                        'platform':platform,
+                        'categorize_time': time
+                    }
+                }
+        except UnicodeDecodeError:
+            # Only supporting utf-8 for now. Skip others.
+            logging.warning("Error reading %s. Non utf-8 encoding?", file_path)
+            return
+
+
 def process_files_in_node(src, des, is_owned, file_list):
     """ Finds all the files in the node; returns all the content as a array
     src : string
@@ -138,11 +143,11 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
 
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
-    
+
     case_dir = os.path.join(categDirRoot, caseNum)
     if not os.path.exists(case_dir):
         os.makedirs(case_dir)
-    
+
     categDirPath = os.path.join(categDirRoot, caseNum, filenameAndExtension)
 
     if is_owned:
@@ -161,7 +166,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     timestamp = int(round(time.time() * 1000))
     basename = "-".join([filenameAndExtension, str(timestamp)])
     categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
-    
+
     if es:
         try:
             success, _ = helpers.bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
@@ -174,7 +179,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
 #                 fields = {
 #                     'case': caseNum,
 #                     'node_name': 'unknown',
-#                     'storagegrid_version': 'unknown', 
+#                     'storagegrid_version': 'unknown',
 #                     'message': line,
 #                     'platform':'unknown',
 #                     'categorize_time': timestamp
@@ -191,7 +196,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         raise e
 
     logging.debug("Renamed %s to %s", filenameAndExtension, categDirPathWithTimestamp)
-    
+
 
     return
 
