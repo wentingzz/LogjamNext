@@ -9,7 +9,7 @@ import os
 import time
 
 
-seconds_between_automatic_history_updates = 1
+seconds_between_automatic_history_updates = 120
 
 
 class TimePeriod:
