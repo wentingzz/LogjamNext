@@ -114,6 +114,8 @@ def main():
 
     es_logger = logging.getLogger('elasticsearch')
     es_logger.setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
         logging.critical("Unable to connect to Elasticsearch")
