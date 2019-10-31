@@ -88,10 +88,10 @@ class TestIngest(unittest.TestCase):
         input_dir = os.path.join(self.data_dir, "TestInputDir01")
         categ_dir = os.path.join(self.tmp_dir, "categories")
         scratch_dir = os.path.join(self.tmp_dir, "scratch")
-        history_file = os.path.join(self.tmp_dir, "history.txt")
+        history_dir = os.path.join(self.tmp_dir, "history")
 
         # Run ingest on sample data
-        ingest.ingest_log_files(input_dir, categ_dir, scratch_dir, history_file)
+        ingest.ingest_log_files(input_dir, categ_dir, scratch_dir, history_dir)
         
         expected_structure = {
             "2001872931" :
