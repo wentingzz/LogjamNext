@@ -20,7 +20,7 @@ validFiles = ["syslog", "messages", "system_commands"]
 
 
 def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
-    """ Stashes a node in ELK stack; 
+    """ Stashes a node in ELK stack;
     fullPath : string
         absolute path of the node
     caseNum : string
@@ -48,24 +48,35 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
     if not os.path.exists(node_dir):
         os.makedirs(node_dir)
     files = process_files_in_node(fullPath, node_dir, is_owned, [])
-    
-    fields = {
-        'case': caseNum,
-        'node_name': nodeName,
-        #'category': category,
-        'storagegrid_version': storageGridVersion, 
-        'message': files,
-        'platform':platform,
-        'categorize_time': timestamp
-    }
     if es:
+        for file in files:
+            try:
+                success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
+                logging.debug("Indexed %s to Elasticsearch", fullPath)
+            except elasticsearch.exceptions.ConnectionError:
+                logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+            except UnicodeDecodeError:
+                logging.warning("Error reading %s. Non utf-8 encoding?", file)
+
+def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
+    with open(file_path) as log_file:
         try:
-            es.index(index=INDEX_NAME, doc_type='_doc', body = fields, id=fullPath)
-            logging.debug("Indexed %s to Elasticsearch", fullPath)
-        except elasticsearch.exceptions.ConnectionError:
-            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-    
-#     helpers.bulk(es, actions)
+            for line in log_file:
+                yield {
+                    '_source': {
+                        'case': caseNum,
+                        'node_name': nodeName,
+                        'storagegrid_version': storageGridVersion,
+                        'message': line,
+                        'platform':platform,
+                        'categorize_time': time
+                    }
+                }
+        except UnicodeDecodeError:
+            # Only supporting utf-8 for now. Skip others.
+            logging.warning("Error reading %s. Non utf-8 encoding?", file_path)
+            return
+
 
 def process_files_in_node(src, des, is_owned, file_list):
     """ Finds all the files in the node; returns all the content as a array
@@ -95,10 +106,7 @@ def process_files_in_node(src, des, is_owned, file_list):
                 except (IOError) as e:
                     logging.critical("Unable to copy file: %s", e)
                     raise e
-            with open(fullFileOrDirPath, 'rb') as fp:
-                data = fp.read()
-                data = data.decode('utf-8', errors='ignore')
-                file_list.append(data)
+            file_list.append(fullFileOrDirPath)
         elif os.path.isdir(fullFileOrDirPath):
             process_files_in_node(fullFileOrDirPath, des, is_owned, file_list)
     return file_list
@@ -128,19 +136,13 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
 
-    files = []
-    with open(fullPath, 'rb') as fp:
-        data = fp.read()
-        data = data.decode('utf-8', errors='ignore')
-        files.append(data)
-
     if not os.path.exists(categDirRoot):
         os.makedirs(categDirRoot)
-    
+
     case_dir = os.path.join(categDirRoot, caseNum)
     if not os.path.exists(case_dir):
         os.makedirs(case_dir)
-    
+
     categDirPath = os.path.join(categDirRoot, caseNum, filenameAndExtension)
 
     if is_owned:
@@ -160,22 +162,14 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
     basename = "-".join([filenameAndExtension, str(timestamp)])
     categDirPathWithTimestamp = os.path.join(categDirRoot, caseNum, basename)
 
-    fields = {
-        'case': caseNum,
-        'node_name': 'unknown',
-        #'category': category,
-        'storagegrid_version': 'unknown', 
-        'message': files,
-        'platform':'unknown',
-        'categorize_time': timestamp
-    }
     if es:
         try:
-            es.index(index=INDEX_NAME, doc_type='_doc', body = fields, id=fullPath)
+            success, _ = helpers.bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
             logging.debug("Indexed %s to Elasticsearch", fullPath)
         except elasticsearch.exceptions.ConnectionError:
-            logging.warn("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-    
+            logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+        except UnicodeDecodeError:
+            logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
@@ -183,7 +177,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         raise e
 
     logging.debug("Renamed %s to %s", filenameAndExtension, categDirPathWithTimestamp)
-    
+
 
     return
 
