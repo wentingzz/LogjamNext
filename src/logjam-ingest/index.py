@@ -96,13 +96,13 @@ def process_files_in_node(src, des, is_owned, file_list):
             # TODO: delete move/copy2
             if is_owned:
                 try:
-                    shutil.move(fullFileOrDirPath, os.path.join(des, filename))     # mv scratch space -> categ folder
+                    pass
                 except (IOError) as e:
                     logging.critical("Unable to move file: %s", e)
                     raise e
             else:
                 try:
-                    shutil.copy2(fullFileOrDirPath, os.path.join(des, filename))    # cp input dir -> categ folder
+                    pass
                 except (IOError) as e:
                     logging.critical("Unable to copy file: %s", e)
                     raise e
@@ -147,13 +147,13 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
 
     if is_owned:
         try:
-            shutil.move(fullPath, categDirPath)     # mv scratch space -> categ folder
+            pass
         except (IOError) as e:
             logging.critical("Unable to move file: %s", e)
             raise e
     else:
         try:
-            shutil.copy2(fullPath, categDirPath)    # cp input dir -> categ folder
+            pass
         except (IOError) as e:
             logging.critical("Unable to copy file: %s", e)
             raise e
@@ -171,7 +171,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
         except UnicodeDecodeError:
             logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
     try:
-        os.rename(categDirPath, categDirPathWithTimestamp)
+        pass
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
         logging.critical("Unable to rename file: %s", e)
         raise e
