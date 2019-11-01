@@ -99,7 +99,7 @@ class ScanRecord:
 
     def __init__(self, start, stop, input_dir, last_path):
         """ Constructs a ScanRecord by just copying parameters given """
-        assert isinstance(input_dir, str)
+        assert len(input_dir) > 0, "Input directory cannot be empty"
         assert isinstance(last_path, str)
 
         self._time_period = TimePeriod(start, stop)
@@ -276,28 +276,39 @@ class Scan:
         self.input_dir = None                   # internally close the Scan
 
 
-def extract_last_scan_record(history_file):
+def extract_last_scan_record(path):
     """
     Reads the last successful scan information from the scan history
     file denoted by the path and returns the information in a ScanRecord.
     """
-    assert os.path.exists(history_file), "File path should exist"
-    assert os.stat(history_file).st_size > 0, "File must contain at least one record"
+    assert os.path.exists(path), "File path should exist"
+    assert os.stat(path).st_size > 0, "File must contain at least one record"
 
-    with open(history_file, "r") as file_stream:
+    with open(path, "r") as file_stream:
         last_line = file_stream.readlines()[-1]
         return ScanRecord.from_str(last_line)
 
 
-def append_scan_record(history_file, scan_record):
+def overwrite_scan_record(path, scan_record):
+    """
+    Overwrites the file denoted by path and records the the new scan in the
+    file. The scan time period (start & stop), input directory, and last searched
+    path are written as a single line to the file.
+    """
+    assert os.path.exists(path), "File path should exist"
+    
+    with open(path, "w") as file:
+        file.write(str(scan_record)+"\n")
+
+
+def append_scan_record(path, scan_record):
     """
     Writes successful scan information to the scan history file denoted by
     the path. The scan time period (start & stop), input directory, and last searched
     path are written as a single line to the file.
     """
-    assert os.path.exists(history_file), "File path should exist"
-    assert len(scan_record.input_dir) > 0, "Input directory should be given"
+    assert os.path.exists(path), "File path should exist"
 
-    with open(history_file, "a") as file:
+    with open(path, "a") as file:
         file.write(str(scan_record)+"\n")
 
