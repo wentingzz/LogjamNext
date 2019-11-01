@@ -55,6 +55,8 @@ def stash_node_in_elk(fullPath, caseNum, categDirRoot, is_owned, es = None):
                 logging.debug("Indexed %s to Elasticsearch", fullPath)
             except elasticsearch.exceptions.ConnectionError:
                 logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+            except UnicodeDecodeError:
+                logging.warning("Error reading %s. Non utf-8 encoding?", file)
 
 def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
     with open(file_path) as log_file:
@@ -166,6 +168,8 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, categDirRoot, is_
             logging.debug("Indexed %s to Elasticsearch", fullPath)
         except elasticsearch.exceptions.ConnectionError:
             logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+        except UnicodeDecodeError:
+            logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
     try:
         os.rename(categDirPath, categDirPathWithTimestamp)
     except (OSError, FileExistsError, IsADirectoryError, NotADirectoryError) as e:
