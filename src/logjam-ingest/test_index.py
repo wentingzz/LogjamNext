@@ -66,9 +66,9 @@ class ProcessFilesTestCase(unittest.TestCase):
         try:
             files = index.process_files_in_node(os.path.join(self.datadir, '123'), self.tmpdir, False, [])
             self.assertEqual(3, len(files))
-            self.assertTrue(u'bycast lumberjack\n' in files)
-            self.assertTrue(u'servermanager bycast\n' in files)
-            self.assertTrue(u'bycast system-commands.txt file\nstorage-grid-release-100.100.100-12345678.0224.asdfg12345\nthis is random text\n' in files)
+            self.assertTrue(next((True for f in files if "system_commands" in f), False))
+            self.assertTrue(next((True for f in files if "lumberjack.log" in f), False))
+            self.assertTrue(next((True for f in files if "servermanager.log" in f), False))
         except Exception as exc:
             self.fail(exc)
 
