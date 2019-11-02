@@ -170,7 +170,6 @@ def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
         if os.path.isdir(full_path):
             case_num = extract_case_number(entity)
             if case_num != None:
-                print(es)
                 search_case_directory(scan, full_path, scratch_dir, es, case_num)
             else:
                 logging.debug("Ignored non-StorageGRID directory: %s", full_path)
