@@ -70,7 +70,7 @@ class TestIngest(unittest.TestCase):
             "2004913956",
             ]
         for path in valid_paths:
-            case_num = ingest.extract_case_number(path)
+            case_num = ingest.get_case_number(path)
             self.assertNotEqual(None, case_num, "Should have found case number %s" % path)
 
         invalid_paths = [
@@ -83,7 +83,7 @@ class TestIngest(unittest.TestCase):
             "/mnt/nfs/12345",
             ]
         for path in invalid_paths:
-            case_num = ingest.extract_case_number(path)
+            case_num = ingest.get_case_number(path)
             self.assertEqual(None, case_num, "Shouldn't have found case number %s" % path)
 
     def test_basic_ingest(self):

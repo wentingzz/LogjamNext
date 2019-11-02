@@ -168,7 +168,7 @@ def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
         entity = entities[e]
         full_path = os.path.join(input_dir,entity)
         if os.path.isdir(full_path):
-            case_num = extract_case_number(entity)
+            case_num = get_case_number(entity)
             if case_num != None:
                 search_case_directory(scan, full_path, scratch_dir, es, case_num)
             else:
@@ -299,7 +299,7 @@ def getCategory(path):
     return "other"
 
 
-def extract_case_number(dir_name):
+def get_case_number(dir_name):
     """
     Extracts the StorageGRID case number from a directory name.
     dir_name : string
