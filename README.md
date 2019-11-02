@@ -6,7 +6,8 @@ git clone https://github.ncsu.edu/engr-csc-sdc/2019FallTeam20.git
 
 All commands are from the root of the git repository.
 
-## Starting Elastic Search
+
+## Installing Dependencies
 
 Install docker, docker-compose, & python3-venv:
 ```bash
@@ -18,6 +19,14 @@ Add your user to the docker group (or else run all docker commands as root which
 sudo usermod -aG docker $(whoami)
 ```
 You may need to re-log for this to take effect.
+
+
+## Start ElasticSearch and LogJam UI
+Build logjam-ui container:
+```
+docker-compose build
+```
+This will download external JavaScript files which become part of the built image.
 
 Start services (run from project root folder):
 ```bash
