@@ -1,5 +1,6 @@
 """
 @author Wenting Zheng
+
 This file is to process, and index files to Elasticsearch
 """
 import os
@@ -47,6 +48,7 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
                 logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
             except UnicodeDecodeError:
                 logging.warning("Error reading %s. Non utf-8 encoding?", file)
+
 
 def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
     with open(file_path) as log_file:
@@ -115,14 +117,15 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, es = None):
             logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
     return
 
-"""
-Gets the version of the node from specified file
-path: string
-    the path of the specified file (usually the system_command file)
-return: string
-    the version if found. Otherwise, returns 'unknown'
-"""
+
 def get_storage_grid_version(path):
+    """
+    Gets the version of the node from specified file
+    path: string
+        the path of the specified file (usually the system_command file)
+    return: string
+        the version if found. Otherwise, returns 'unknown'
+    """
     try:
         searchfile = open(path, "r")
         for line in searchfile:
@@ -139,9 +142,7 @@ def get_storage_grid_version(path):
 def get_platform(path):
     return 'unknown'
 
-"""
-Check if a file is StorageGRID file
-"""
+
 def is_storagegrid(full_path):
     """
     Check if a file is StorageGRID file

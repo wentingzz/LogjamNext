@@ -1,3 +1,10 @@
+"""
+@author Wenting Zheng
+
+Tests the features found in the index.py file.
+"""
+
+
 import unittest
 import os
 import time
@@ -71,8 +78,6 @@ class ProcessFilesTestCase(unittest.TestCase):
             self.fail(exc)
 
 
-# coverage report: 150-170
-
 class StashFilesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -123,3 +128,4 @@ class StashFilesTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

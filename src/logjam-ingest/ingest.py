@@ -43,18 +43,6 @@ intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eve
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
-# List of all categories to sort log files by
-categories = {"audit" : r".*audit.*", "base_os_commands" : r".*base[/_-]*os[/_-]*.*command.*",
-              "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
-              "cassandra_gc" : r".*cassandra[/_-]*gc.*",
-              "cassandra_system" : r".*cassandra[/_-]*system.*", "dmesg" : r".*dmesg.*",
-              "gdu_server" : r".*gdu[/_-]*server.*", "init_sg": r".*init[/_-]*sg.*", "install": r".*install.*",
-              "kern" : r".*kern.*", "messages": r".*messages.*", "pge_image_updater": r".*pge[/_-]*image[/_-]*updater.*",
-              "pge_mgmt_api" : r".*pge[/_-]*mgmt[/_-]*api.*", "server_manager" : r".*server[/_-]*manager.*",
-              "sg_fw_update" : r".*sg[/_-]*fw[/_-]*update.*", "storagegrid_daemon" : r".*storagegrid.*daemon.*",
-              "storagegrid_node" : r".*storagegrid.*node.*", "syslog" : ".*syslog.*",
-              "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*" }
-
 # Valid extensions to ingest
 validExtensions = [".txt", ".log"]
 # Valid extentionless files used in special cases
@@ -193,6 +181,7 @@ def search_case_directory(scan_obj, search_dir, scratch_dir, es_obj, case_num):
     """
     return recursive_search(scan_obj, search_dir, scratch_dir, es_obj, case_num)
 
+
 def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_dir=None):
     """
     Recursively go through directories to find log files. If compressed, then we need
@@ -230,8 +219,6 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
         filename, extension = os.path.splitext(entity)
         # Get the file's path in inspection dir
         entity_path = os.path.join(search_dir, entity)
-        # Get category
-        category = getCategory(entity_path.lower())
 
         if os.path.isdir(entity_path):
             if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
@@ -273,30 +260,6 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
             scan.just_scanned_this_path(scan_dir)
         else:
             scan.just_scanned_this_path(entity_path)
-
-
-def getCategory(path):
-    """
-    Gets the category for this file based on path
-    path : string
-        the path for which to get a category
-    filename : string
-        the file's name
-    """
-    # Split the path by sub-directories
-    splitPath = path.replace('\\','/').split("/")
-    start = splitPath[len(splitPath) - 1]
-    splitPath.pop()
-    # For each part in this path, run each category regex expression
-    # and return the first match
-    for part in reversed(splitPath):
-        for cat, regex in categories.items():
-            if re.search(regex, start):
-                return cat
-        start = os.path.join(part, start)
-
-    # Unrecognized file, so return "other"
-    return "other"
 
 
 def extract_case_number(dir_name):
