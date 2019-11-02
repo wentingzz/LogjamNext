@@ -95,7 +95,7 @@ class TestIngest(unittest.TestCase):
                 os.utime(os.path.join(basepath,file), times=(time.time(),0))
 
         # Run ingest on sample data
-        ingest.ingest_log_files(input_dir, categ_dir, scratch_dir, history_file)
+        ingest.ingest_log_files(input_dir, scratch_dir, history_file)
         
         expected_structure = {
             "2001872931" :
