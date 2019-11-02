@@ -32,7 +32,7 @@ Start services (run from project root folder):
 ```bash
 docker-compose up -d
 ```
-This will create a network with two containers: one for elasticsearch, and one for our frontend: logjam-ui.
+This will create a network with two containers: one for elasticsearch, and one for our frontend: logjam-ui. The containers will run in the background and can be stopped at any time by running `docker-compose down` from the same directory. Stopping them this way will also cleanup docker resources (such as network interfaces) which are no longer needed. Alternatively, plain `docker` commands (ps, run, stop) can be used to control the containers if desired.
 
 
 ## Running `ingest.py` on host machine
