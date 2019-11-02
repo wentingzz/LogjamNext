@@ -64,7 +64,7 @@ class ProcessFilesTestCase(unittest.TestCase):
             
     def test_process_files(self):
         try:
-            files = index.process_files_in_node(os.path.join(self.datadir, '123'), self.tmpdir, False, [])
+            files = index.process_files_in_node(os.path.join(self.datadir, '123'), [])
             self.assertEqual(3, len(files))
             self.assertTrue(next((True for f in files if "system_commands" in f), False))
             self.assertTrue(next((True for f in files if "lumberjack.log" in f), False))
@@ -98,34 +98,34 @@ class StashFilesTestCase(unittest.TestCase):
         
         try:
             if os.path.exists(self.tmpdir):
-                index.stash_node_in_elk(os.path.join(self.datadir,'1234567890'), None, os.path.join(self.tmpdir,'test'), False)
+                index.stash_node_in_elk(os.path.join(self.datadir,'1234567890'), None)
             else:
-                index.stash_node_in_elk(os.path.join(self.datadir,'1234567890'), None, self.tmpdir, False)
+                index.stash_node_in_elk(os.path.join(self.datadir,'1234567890'), None)
             self.fail(exc)
         except Exception as exc:
             pass
         
         try:
-            index.stash_node_in_elk(os.path.join(self.datadir,'123'), '123', self.tmpdir, False)
+            index.stash_node_in_elk(os.path.join(self.datadir,'123'), '123')
         except Exception as exc:
             self.fail(exc)
         
             
     def test_files_node(self):
         try:
-            index.stash_file_in_elk(self.datadir, 'txt', None, self.tmpdir, False)
+            index.stash_file_in_elk(self.datadir, 'txt', None)
             self.fail(exc)
         except Exception as exc:
             pass
         
         try:
-            index.stash_file_in_elk(os.path.join(self.datadir,'1234567890'), 'txt', None, self.tmpdir, False)
+            index.stash_file_in_elk(os.path.join(self.datadir,'1234567890'), 'txt', None)
             self.fail(exc)
         except Exception as exc:
             pass
         
         try:
-            index.stash_file_in_elk(os.path.join(self.datadir,'123', 'system_commands'), 'system_commands', '123', self.tmpdir, False)
+            index.stash_file_in_elk(os.path.join(self.datadir,'123', 'system_commands'), 'system_commands', '123')
         except Exception as exc:
             self.fail(exc)
        
