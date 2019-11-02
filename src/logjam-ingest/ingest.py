@@ -167,8 +167,13 @@ def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
         
         entity = entities[e]
         full_path = os.path.join(input_dir,entity)
-        if os.path.isdir(full_path) and re.match(r"^\d{10}$",entity) != None:
-            searchAnInspectionDirectory(scan, full_path, scratch_dir, es)
+        if os.path.isdir(full_path):
+            case_num = extract_case_number(entity)
+            if case_num != None:
+                print(es)
+                search_case_directory(scan, full_path, scratch_dir, es, case_num)
+            else:
+                logging.debug("Ignored non-StorageGRID directory: %s", full_path)
         else:
             logging.debug("Ignored non-StorageGRID file: %s", full_path)
     
@@ -180,7 +185,16 @@ def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
     return
 
 
-def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_num=None, scan_dir=None):
+def search_case_directory(scan_obj, search_dir, scratch_dir, es_obj, case_num):
+    """
+    Searches the specified case directory for StorageGRID log files which have not
+    been indexed by the Logjam system. Uses the Scan object's time period window to
+    determine if a file has been previously indexed. Upon finding valid files, will
+    send them to a running Elastissearch service via the Elastisearch object `es_obj`.
+    """
+    return recursive_search(scan_obj, search_dir, scratch_dir, es_obj, case_num)
+
+def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_dir=None):
     """
     Recursively go through directories to find log files. If compressed, then we need
     to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
@@ -188,7 +202,11 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
         the start of the file path to traverse
     depth : string
         the sub-directories and sub-files associated with this directory
+    case_num : string
+        string for the case number of this case directory
     """
+    assert case_num != None, "Case number must be provided"
+    
     if graceful_abort:
         return
 
@@ -203,8 +221,6 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
     # Loop over each file in the current directory\
     search_dir = os.path.join(start, depth)
     entities = sorted(os.listdir(search_dir))
-    if case_num == None: case_num = getCaseNumber(search_dir)
-    assert case_num != "0", "Not a valid case number: "+case_num
     for e in range(len(entities)):
         if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
             continue                                    # skip, haven't reached last_path
@@ -223,7 +239,7 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
                 index.stash_node_in_elk(entity_path , case_num, es)
             else:
                 # Detected a directory, continue
-                searchAnInspectionDirectory(scan, start, scratch_dir, es, os.path.join(depth, entity), case_num, scan_dir)
+                recursive_search(scan, start, scratch_dir, es, case_num, os.path.join(depth, entity), scan_dir)
         
         elif os.path.isfile(entity_path) and scan.should_consider_file(entity_path):
             if (extension in validExtensions or filename in validFiles) and index.is_storagegrid(entity_path):
@@ -237,7 +253,7 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
                 f, e = os.path.splitext(entity)
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
-                    searchAnInspectionDirectory(scan, unzip_folder, scratch_dir, es, None, case_num, entity_path)
+                    recursive_search(scan, unzip_folder, scratch_dir, es, case_num, None, entity_path)
                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
                     index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, es)
@@ -284,20 +300,19 @@ def getCategory(path):
     return "other"
 
 
-def getCaseNumber(path):
+def extract_case_number(dir_name):
     """
-    Extracts the relevant StorageGRID case number from the file's path.
-    path : string
-        the path to search for case number
+    Extracts the StorageGRID case number from a directory name.
+    dir_name : string
+        the directory name to search for case number
     return : string
-        the case number found in the path
+        the case number that was found or None is nothing was found
     """
-    caseNum = re.search(r"(\d{10})", path)
-    if caseNum is None:
-        caseNum = "0"
+    match_obj = re.match(r"^(\d{10})$", dir_name)
+    if match_obj is None:
+        return None
     else:
-        caseNum = caseNum.group()
-    return caseNum
+        return match_obj.group()
 
 
 if __name__ == "__main__":

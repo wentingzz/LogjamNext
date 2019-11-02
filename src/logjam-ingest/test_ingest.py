@@ -61,26 +61,30 @@ class TestIngest(unittest.TestCase):
             self.assertEqual(ingest.getCategory(path), correct_category)
 
     def test_identify_casenum(self):
-        """ Test that we can properly identify directories with 10-digit case numbers """
+        """ Tests that we can properly identify directories with 10-digit case numbers """
 
         # Dummy paths based on real inputs. These are not read or written to.
         valid_paths = [
-            "/mnt/nfs/storagegrid-01/2004144146",
-            "/mnt/nfs/01/2004436294",
-            "/mnt/nfs/2004913956",
+            "2004144146",
+            "2004436294",
+            "2004913956",
             ]
         for path in valid_paths:
-            case_num = ingest.getCaseNumber(path)
-            self.assertNotEqual(case_num, "0", "Case number was zero for valid path %s" % path)
+            case_num = ingest.extract_case_number(path)
+            self.assertNotEqual(None, case_num, "Should have found case number %s" % path)
 
         invalid_paths = [
+            "/mnt",
+            "/mnt/nfs",
+            "/mnt/nfs/2001392039",
+            "/2004920192",
             "asdfasdf",
             "/",
             "/mnt/nfs/12345",
             ]
         for path in invalid_paths:
-            case_num = ingest.getCaseNumber(path)
-            self.assertEqual(case_num, "0", "Case number provided for bad folder path %s" % path)
+            case_num = ingest.extract_case_number(path)
+            self.assertEqual(None, case_num, "Shouldn't have found case number %s" % path)
 
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """

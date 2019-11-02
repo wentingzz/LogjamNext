@@ -28,6 +28,7 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
     es: Elasticsearch
         Elasticsearch instance
     """
+    print(es)
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
     timespan = os.path.basename(fullPath)
