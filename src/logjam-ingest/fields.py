@@ -49,3 +49,43 @@ def get_category(path):
     # Unrecognized file, so return "other"
     return "other"
 
+
+def get_case_number(dir_name):
+    """
+    Extracts the StorageGRID case number from a directory name.
+    dir_name : string
+        the directory name to search for case number
+    return : string
+        the case number that was found or None is nothing was found
+    """
+    match_obj = re.match(r"^(\d{10})$", dir_name)
+    if match_obj is None:
+        return None
+    else:
+        return match_obj.group()
+
+
+def get_storage_grid_version(path):
+    """
+    Gets the version of the node from specified file
+    path: string
+        the path of the specified file (usually the system_command file)
+    return: string
+        the version if found. Otherwise, returns 'unknown'
+    """
+    try:
+        searchfile = open(path, "r")
+        for line in searchfile:
+            if "storage-grid-release-" in line:
+                searchfile.close()
+                return line[21: -1]
+        searchfile.close()
+        return 'unknown'
+    except:
+        return 'unknown'
+
+
+# TODO: implementation
+def get_platform(path):
+    return 'unknown'
+

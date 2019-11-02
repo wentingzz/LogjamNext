@@ -19,9 +19,7 @@ code_src_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestIngest(unittest.TestCase):
-    """
-    Test case class for ingest unit tests
-    """
+    """ Test case class for ingest unit tests """
 
     data_dir = os.path.join(code_src_dir, "test-data")
 
@@ -33,32 +31,6 @@ class TestIngest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
 
-
-    def test_identify_casenum(self):
-        """ Tests that we can properly identify directories with 10-digit case numbers """
-
-        # Dummy paths based on real inputs. These are not read or written to.
-        valid_paths = [
-            "2004144146",
-            "2004436294",
-            "2004913956",
-            ]
-        for path in valid_paths:
-            case_num = ingest.extract_case_number(path)
-            self.assertNotEqual(None, case_num, "Should have found case number %s" % path)
-
-        invalid_paths = [
-            "/mnt",
-            "/mnt/nfs",
-            "/mnt/nfs/2001392039",
-            "/2004920192",
-            "asdfasdf",
-            "/",
-            "/mnt/nfs/12345",
-            ]
-        for path in invalid_paths:
-            case_num = ingest.extract_case_number(path)
-            self.assertEqual(None, case_num, "Shouldn't have found case number %s" % path)
 
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """

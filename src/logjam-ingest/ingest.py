@@ -36,6 +36,7 @@ from pyunpack import Archive
 import incremental
 import utils
 import index
+import fields
 
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
@@ -156,7 +157,7 @@ def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
         entity = entities[e]
         full_path = os.path.join(input_dir,entity)
         if os.path.isdir(full_path):
-            case_num = extract_case_number(entity)
+            case_num = fields.get_case_number(entity)
             if case_num != None:
                 search_case_directory(scan, full_path, scratch_dir, es, case_num)
             else:
@@ -260,21 +261,6 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
             scan.just_scanned_this_path(scan_dir)
         else:
             scan.just_scanned_this_path(entity_path)
-
-
-def extract_case_number(dir_name):
-    """
-    Extracts the StorageGRID case number from a directory name.
-    dir_name : string
-        the directory name to search for case number
-    return : string
-        the case number that was found or None is nothing was found
-    """
-    match_obj = re.match(r"^(\d{10})$", dir_name)
-    if match_obj is None:
-        return None
-    else:
-        return match_obj.group()
 
 
 if __name__ == "__main__":
