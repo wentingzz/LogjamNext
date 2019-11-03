@@ -14,16 +14,7 @@ function getColors(count) {
         '#0053b5',
     ];
 
-    // Shuffle the list of available, then return the first n
-    // https://stackoverflow.com/questions/11935175/sampling-a-random-subset-from-an-array
-    var shuffled = availableColors.slice(0), i = availableColors.length, temp, index;
-    while (i--) {
-        index = Math.floor((i + 1) * Math.random());
-        temp = shuffled[index];
-        shuffled[index] = shuffled[i];
-        shuffled[i] = temp;
-    }
-    return shuffled.slice(0, count);
+    return availableColors.slice(0, count);
 }
 
 Vue.component('pie-chart', {
@@ -142,7 +133,7 @@ var vm = new Vue({
 
             this.charts = [];
 
-            this.$http.post('/occurrences', {logText: this.logText}).then( response => {
+            this.$http.post('/matchData', {logText: this.logText}).then( response => {
                 this.charts = response.body;
             }, response => {
                 alert("Error getting occurrences: " + response.status + "\n" + response.json());

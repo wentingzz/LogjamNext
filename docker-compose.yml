@@ -26,3 +26,6 @@ services:
     image: logjam-ui
     ports:
       - "80:8080"
+    environment:
+      "ELASTICSEARCH_HOST": "sd-vm24.csc.ncsu.edu"
+      "ELASTICSEARCH_PORT": 9200
