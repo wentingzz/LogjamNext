@@ -87,7 +87,6 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "max_score": "10.0",
                 "aggs": {"cases": {"terms": {"field": "node_name"}}},
                 "query": {
                     "bool": {
@@ -106,6 +105,8 @@ def get_query():
                 total_no_hits += hits["doc_count"]
             else:
                 total_no_hits += 1
+        
+        total_no_hits -= total_hits
 
     else:
         total_hits_q = es.search(
@@ -131,28 +132,29 @@ def get_query():
             else:
                 total_hits += 1
 
-    total_no_hits_q = es.search(
-        index="logjam",
-        _source="false",
-        body={
-            "max_score": "10.0",
-            "aggs": {"cases": {"terms": {"field": "node_name"}}},
-            "query": {
-                "bool": {
-                    "should": [
-                        {"match": {"message": message}},
-                        # {"match": {"platform": platform}},
-                    ]
-                }
+        total_no_hits_q = es.search(
+            index="logjam",
+            _source="false",
+            body={
+                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "query": {
+                    "bool": {
+                        "should": [
+                            {"match": {"message": message}},
+                            # {"match": {"platform": platform}},
+                        ]
+                    }
+                },
             },
-        },
-    )
+        )
 
     for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
         if hits["key"] == "unknown":
             total_no_hits += hits["doc_count"]
         else:
             total_no_hits += 1
+    
+    total_no_hits -= total_hits
 
     return jsonify(
         [
