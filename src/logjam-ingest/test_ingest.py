@@ -93,7 +93,7 @@ class TestIngest(unittest.TestCase):
         for (basepath, dirs, files) in os.walk(input_dir):          # make files old
             for file in files:
                 os.utime(os.path.join(basepath,file), times=(time.time(),0))
-        
+
         # Run ingest on sample data
         ingest.ingest_log_files(input_dir, scratch_dir, history_dir)
 
