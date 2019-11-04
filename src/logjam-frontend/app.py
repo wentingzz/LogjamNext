@@ -148,11 +148,11 @@ def get_query():
             },
         )
 
-    for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-        if hits["key"] == "unknown":
-            total_no_hits += hits["doc_count"]
-        else:
-            total_no_hits += 1
+        for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
+            if hits["key"] == "unknown":
+                total_no_hits += hits["doc_count"]
+            else:
+                total_no_hits += 1
     
     total_no_hits -= total_hits
 
