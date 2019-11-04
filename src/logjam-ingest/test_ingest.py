@@ -1,15 +1,21 @@
 """
-Unit tests for top-level ingestion script
 @author Jeremy Schmidt
+@author Nathaniel Brooks
+
+Unit tests for top-level ingestion script
 """
+
+
 import os
 import shutil
 import time
 import unittest
 import sqlite3
 
-
 import ingest
+
+
+code_src_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestIngest(unittest.TestCase):
@@ -17,16 +23,15 @@ class TestIngest(unittest.TestCase):
     Test case class for ingest unit tests
     """
 
-    data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test-data")
+    data_dir = os.path.join(code_src_dir, "test-data")
 
     def setUp(self):
-        dirname = os.path.dirname(os.path.realpath(__file__))
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmpdir = os.path.join(dirname, tmp_name)
-        os.mkdir(self.tmpdir)
+        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        os.mkdir(self.tmp_dir)
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir)
+        shutil.rmtree(self.tmp_dir)
 
 
     def test_match_category(self):
@@ -77,40 +82,19 @@ class TestIngest(unittest.TestCase):
             case_num = ingest.getCaseNumber(path)
             self.assertEqual(case_num, "0", "Case number provided for bad folder path %s" % path)
 
-    def test_init_db(self):
-        """ Test that db and table are created """
-        db_name = os.path.join(self.tmpdir, 'test.db')
-        ingest.initDatabase(db_name)
-        self.assertTrue(os.path.exists(db_name))
-
-        conn = sqlite3.connect(db_name)
-        cursor = conn.cursor()
-
-        # Make sure the table exists by querying it
-        cursor.execute("SELECT * from paths")
-
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """
         # Establish paths under the test's temp directory
-        sample_input = os.path.join(self.data_dir, "StandardFiles")
-        output_dir = os.path.join(self.tmpdir, "categories")
-        scratch_dir = os.path.join(self.tmpdir, "scratch")
-
-        # Initialize a database in the test directory instead of the default
-        ingest.initDatabase(os.path.join(self.tmpdir, "duplicates.db"))
+        input_dir = os.path.join(self.data_dir, "TestInputDir01")
+        categ_dir = os.path.join(self.tmp_dir, "categories")
+        scratch_dir = os.path.join(self.tmp_dir, "scratch")
+        history_file = os.path.join(self.tmp_dir, "history.txt")
+        
+        for (basepath, dirs, files) in os.walk(input_dir):          # make files old
+            for file in files:
+                os.utime(os.path.join(basepath,file), times=(time.time(),0))
 
         # Run ingest on sample data
-        ingest.ingest_log_files(sample_input, output_dir, scratch_dir)
+        ingest.ingest_log_files(input_dir, scratch_dir, history_file)
 
-        expected_files = [("audit", 1), ("bycast", 1), ("dmesg", 1), ("gdu_server", 1),
-                          ("init_sg", 1), ("install", 1), ("kern", 1), ("messages", 1),
-                          ("other", 8), ("pge_image_updater", 1), ("server_manager", 1),
-                          ("sg_fw_update", 1), ("syslog", 1), ("system_commands", 1),
-                          ("upgrade", 1)]
-
-        for category, count in expected_files:
-            category_path = os.path.join(output_dir, category)
-            category_files = os.listdir(category_path)
-
-            # Make sure we got the right number of files per category
-            self.assertEqual(len(category_files), count)
+        # TODO: Verify ingest worked now that category folders are gone
