@@ -17,3 +17,13 @@ services:
       - "9300:9300"
     environment:
       "discovery.type": "single-node"
+
+  logjam-ui:
+    build:
+      context: ./src/logjam-frontend
+    image: logjam-ui
+    ports:
+      - "80:8080"
+    environment:
+      "ELASTICSEARCH_HOST": "sd-vm24.csc.ncsu.edu"
+      "ELASTICSEARCH_PORT": 9200
