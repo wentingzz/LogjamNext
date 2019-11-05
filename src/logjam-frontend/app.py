@@ -30,15 +30,9 @@ def get_platforms():
 def get_versions():
     return jsonify(
         [
-            {"text": "Pre-10.2", "value": "Pre-10.2"},
-            {"text": "10.2", "value": "10.2"},
-            {"text": "10.3", "value": "10.3"},
-            {"text": "10.4", "value": "10.4"},
-            {"text": "11.0", "value": "11.0"},
-            {"text": "11.1", "value": "11.1"},
-            {"text": "11.2", "value": "11.2"},
-            {"text": "11.3", "value": "11.3"},
-            {"text": "11.4", "value": "11.4"},
+            "Pre-10.2", "10.2", "10.3", "10.4", "11.0",
+            "11.1", "11.2", "11.3", "11.4",
+
         ]
     )
 
