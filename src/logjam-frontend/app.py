@@ -137,14 +137,6 @@ def get_query():
             _source="false",
             body={
                 "aggs": {"cases": {"terms": {"field": "node_name"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            # {"match": {"platform": platform}},
-                        ]
-                    }
-                },
             },
         )
 
