@@ -1,24 +1,22 @@
+# Starts running Logjam's services, Elasticsearch & our Web Host
+
 version: "3.3"
+
 services:
   elasticsearch:
     image: elasticsearch:7.3.2
     volumes:
+       # Maps the Elasticsearch index onto the host rather than inside the container
      - "/usr/share/elasticsearch/data/:/usr/share/elasticsearch/data/"
+       # Use Logjam's Elasticsearch configuration YAML file during setup
      - "./src/elasticsearch/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml"
     ports:
+        # Elasticsearch's REST APIs
       - "9200:9200"
+        # Elasticsearch node communication inside a cluster
       - "9300:9300"
     environment:
       "discovery.type": "single-node"
-
-  logstash:
-    image: docker.elastic.co/logstash/logstash:7.3.2
-    volumes:
-      - "./src:/logjam/src"
-      - "./data:/logjam/data"
-      - "./src/logstash/:/usr/share/logstash/pipeline/"
-    environment:
-      XPACK_MONITORING_ENABLED: "false"
 
   logjam-ui:
     build:
