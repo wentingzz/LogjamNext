@@ -9,7 +9,6 @@ ELASTICSEARCH_PORT = os.environ.get("ELASTICSEARCH_PORT", 9200)
 app = Flask(__name__)
 es = Elasticsearch([{"host": ELASTICSEARCH_HOST, "port": ELASTICSEARCH_PORT}])
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -39,8 +38,6 @@ def get_versions():
 
 @app.route("/matchData", methods=["POST"])
 def get_query():
-    count = 0
-
     if not request.json or not "logText" in request.json:
         abort(400)
     message = request.json["logText"]
@@ -72,10 +69,7 @@ def get_query():
         )
 
         for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_hits += hits["doc_count"]
-            else:
-                total_hits += 1
+            total_hits += 1
 
         total_no_hits_q = es.search(
             index="logjam",
@@ -95,10 +89,7 @@ def get_query():
         )
 
         for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_no_hits += hits["doc_count"]
-            else:
-                total_no_hits += 1
+            total_no_hits += 1
         
         total_no_hits -= total_hits
 
@@ -107,13 +98,12 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "min_score": "10.0",
+                "min_score": "40.0",
                 "aggs": {"cases": {"terms": {"field": "node_name"}}},
                 "query": {
                     "bool": {
                         "should": [
                             {"match": {"message": message}},
-                            # {"match": {"platform": platform}},
                         ]
                     }
                 },
@@ -121,26 +111,20 @@ def get_query():
         )
 
         for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_hits += hits["doc_count"]
-            else:
-                total_hits += 1
+            total_hits += 1
 
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
             body={
                 "aggs": {"cases": {"terms": {"field": "node_name"}}},
-            },
+            }
         )
 
         for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_no_hits += hits["doc_count"]
-            else:
-                total_no_hits += 1
+            total_no_hits += 1
     
-    total_no_hits -= total_hits
+        total_no_hits -= total_hits
 
     return jsonify(
         [
