@@ -47,11 +47,14 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
         for file in files:
             try:
                 #success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
-                for success, info in parallel_bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc'):
-                    if success:
-                        logging.debug("Indexed %s to Elasticsearch", fullPath)
-                    else:
-                        logging.debug("Unable to index %s to Elasticsearch", fullPath)
+                error = False
+                for success, info in helpers.parallel_bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc'):
+                    if not success:
+                        error = True
+                if error:
+                    logging.debug("Unable to index %s to Elasticsearch", fullPath)
+                else:
+                    logging.debug("Indexed %s to Elasticsearch", fullPath)
             except elasticsearch.exceptions.ConnectionError:
                 logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
             except UnicodeDecodeError:
@@ -118,11 +121,14 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, es = None):
     if es:
         try:
             #success, _ = helpers.bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
-            for success, info in parallel_bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc'):
-                if success:
-                    logging.debug("Indexed %s to Elasticsearch", fullPath)
-                else:
-                    logging.debug("Unable to index %s to Elasticsearch", fullPath)
+            error = False
+            for success, info in helpers.parallel_bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc'):
+                if not success:
+                    error = True
+            if error:
+                logging.debug("Unable to index %s to Elasticsearch", fullPath)
+            else:
+                logging.debug("Indexed %s to Elasticsearch", fullPath)
         except elasticsearch.exceptions.ConnectionError:
             logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
         except UnicodeDecodeError:
