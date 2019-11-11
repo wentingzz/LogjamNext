@@ -164,14 +164,11 @@ class Scan:
         self.last_history_update = TimePeriod.ancient_history()
 
         self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
-
-        if not os.path.exists(self.history_dir):
-            pass                                    # no history dir, will make one
-        elif not os.path.exists(self.history_active_file):
-            pass                                    # no active file, will make one
-        elif os.stat(self.history_active_file).st_size == 0:
-            pass                                    # no previous scans, keep defaults
-        else:
+        
+        dir_exists = os.path.exists(self.history_dir)
+        file_exists = os.path.exists(self.history_active_file)
+        file_not_empty = os.stat(self.history_active_file).st_size != 0
+        if dir_exists and file_exists and file_not_empty:
             last_scan = extract_last_scan_record(self.history_active_file)
             self._update_from_scan_record(last_scan)# update from previous scans
         
