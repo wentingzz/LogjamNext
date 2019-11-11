@@ -88,13 +88,13 @@ class TestIngest(unittest.TestCase):
         input_dir = os.path.join(self.data_dir, "TestInputDir01")
         categ_dir = os.path.join(self.tmp_dir, "categories")
         scratch_dir = os.path.join(self.tmp_dir, "scratch")
-        history_file = os.path.join(self.tmp_dir, "history.txt")
-        
+        history_dir = os.path.join(self.tmp_dir, "history")
+
         for (basepath, dirs, files) in os.walk(input_dir):          # make files old
             for file in files:
                 os.utime(os.path.join(basepath,file), times=(time.time(),0))
 
         # Run ingest on sample data
-        ingest.ingest_log_files(input_dir, scratch_dir, history_file)
+        ingest.ingest_log_files(input_dir, scratch_dir, history_dir)
 
         # TODO: Verify ingest worked now that category folders are gone
