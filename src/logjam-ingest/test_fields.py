@@ -124,6 +124,16 @@ class SGFieldsTestCase(unittest.TestCase):
 class ExtractFieldsTestCase(unittest.TestCase):
     """ Test case for extracting different kinds of fields """
 
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+
     def test_get_category(self):
         """ Test that expected categories are matched from file paths """
         # Map sample paths to their "correct" answer
@@ -202,4 +212,29 @@ class ExtractFieldsTestCase(unittest.TestCase):
             self.assertEqual(fields.MISSING_PLATFORM, platform)
         except Exception as exc:
             self.fail(exc)
+    
+    def test_extract_fields_only_version(self):
+        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "timespan_2015-2017")
+        os.makedirs(lumber_dir)
+        self.assertTrue(os.path.isdir(lumber_dir))
+        
+        lumber_file = os.path.join(lumber_dir, "lumberjack.log")
+        with open(lumber_file, "w") as fd:
+            fd.write("lumberjack.log file!"+"\n")
+        self.assertTrue(os.path.isfile(lumber_file))
+            
+        sys_file = os.path.join(lumber_dir, "system_commands")
+        with open(sys_file, "w") as fd:
+            fd.write("storage-grid-release-100.100.100-12345678.0224.asdfg12345"+"\n")
+            fd.write("random garbage text")
+        self.assertTrue(os.path.isfile(sys_file))
+        
+        old_f = fields.SGFields(case_num="2001399485")
+        self.assertEqual("2001399485", old_f.case_num)
+        
+        new_f = fields.extract_fields(lumber_dir, inherit_from=old_f)
+        self.assertEqual("2001399485", new_f.case_num)
+        self.assertEqual("100.100.100-12345678.0224.asdfg12345", new_f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
+        self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
 
