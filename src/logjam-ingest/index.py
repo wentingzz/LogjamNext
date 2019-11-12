@@ -38,9 +38,9 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
     timespan = os.path.basename(fullPath)
     nodeName = os.path.basename(os.path.dirname(fullPath))
     gridId = os.path.basename(os.path.dirname(os.path.dirname(fullPath)))
-    storageGridVersion = fields.get_storage_grid_version(os.path.join(fullPath, 'system_commands'))
+    storageGridVersion = fields.get_storage_grid_version(fullPath)
     #TODO platform type
-    platform = fields.get_platform(None)
+    platform = fields.get_platform(fullPath)
     timestamp = int(round(time.time() * 1000))  # Epoch milliseconds
     files = process_files_in_node(fullPath, [])
     if es:

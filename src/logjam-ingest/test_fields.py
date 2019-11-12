@@ -18,13 +18,111 @@ import subprocess
 import fields
 
 
-code_src_dir = os.path.dirname(os.path.realpath(__file__))
+CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Fields")
 
+
+class SGFieldsTestCase(unittest.TestCase):
+    """ Test case for the SGFields object """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+    
+    def test_from_lumberjack_only_verion(self):
+        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "timespan_2015-2017")
+        os.makedirs(lumber_dir)
+        self.assertTrue(os.path.isdir(lumber_dir))
+        
+        lumber_file = os.path.join(lumber_dir, "lumberjack.log")
+        with open(lumber_file, "w") as fd:
+            fd.write("lumberjack.log file!"+"\n")
+        self.assertTrue(os.path.isfile(lumber_file))
+            
+        sys_file = os.path.join(lumber_dir, "system_commands")
+        with open(sys_file, "w") as fd:
+            fd.write("storage-grid-release-100.100.100-12345678.0224.asdfg12345"+"\n")
+            fd.write("random garbage text")
+        self.assertTrue(os.path.isfile(sys_file))
+        
+        f = fields.SGFields.from_lumberjack_dir(lumber_dir)
+        self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
+        self.assertEqual("100.100.100-12345678.0224.asdfg12345", f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, f.platform)
+        self.assertEqual(fields.MISSING_CATEGORY, f.category)
+    
+    def test_init_none(self):
+        f = fields.SGFields()
+        self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
+        self.assertEqual(fields.MISSING_SG_VER, f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, f.platform)
+        self.assertEqual(fields.MISSING_CATEGORY, f.category)
+    
+    def test_init_partial(self):
+        f = fields.SGFields(sg_ver="2.3.2-85qvk", category="bycast")
+        self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
+        self.assertEqual("2.3.2-85qvk", f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, f.platform)
+        self.assertEqual("bycast", f.category)
+
+    def test_init_all(self):
+        f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        self.assertEqual("2001293881", f.case_num)
+        self.assertEqual("2.3.2", f.sg_ver)
+        self.assertEqual("Sandhawk", f.platform)
+        self.assertEqual("bycast", f.category)
+    
+    def test_inherit_missing_none(self):
+        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.SGFields(case_num="2001293900", sg_ver="2.5.1", platform="Titan", category="system")
+        self.assertEqual("2001293900", new_f.case_num)
+        self.assertEqual("2.5.1", new_f.sg_ver)
+        self.assertEqual("Titan", new_f.platform)
+        self.assertEqual("system", new_f.category)
+        
+        new_f.inherit_missing_from(old_f)
+        self.assertEqual("2001293900", new_f.case_num)
+        self.assertEqual("2.5.1", new_f.sg_ver)
+        self.assertEqual("Titan", new_f.platform)
+        self.assertEqual("system", new_f.category)
+    
+    def test_inherit_missing_partial(self):
+        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.SGFields(sg_ver="2.5.1", category="system")
+        self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
+        self.assertEqual("2.5.1", new_f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
+        self.assertEqual("system", new_f.category)
+        
+        new_f.inherit_missing_from(old_f)
+        self.assertEqual("2001293881", new_f.case_num)
+        self.assertEqual("2.5.1", new_f.sg_ver)
+        self.assertEqual("Sandhawk", new_f.platform)
+        self.assertEqual("system", new_f.category)
+    
+    def test_inherit_missing_all(self):
+        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.SGFields()
+        self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
+        self.assertEqual(fields.MISSING_SG_VER, new_f.sg_ver)
+        self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
+        self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
+        
+        new_f.inherit_missing_from(old_f)
+        self.assertEqual("2001293881", new_f.case_num)
+        self.assertEqual("2.3.2", new_f.sg_ver)
+        self.assertEqual("Sandhawk", new_f.platform)
+        self.assertEqual("bycast", new_f.category)
+        
 
 class ExtractFieldsTestCase(unittest.TestCase):
     """ Test case for extracting different kinds of fields """
-    
-    data_dir = os.path.join(code_src_dir, "test-data")
 
     def test_get_category(self):
         """ Test that expected categories are matched from file paths """
@@ -41,9 +139,9 @@ class ExtractFieldsTestCase(unittest.TestCase):
              "vhairoimmsn02/20140520230753-20140520234253/system_commands", "system_commands"),
 
             ("logjam/scratch_space/950194-vhairoimmsn02-20140520215500-20140520231300/950194/"
-             "vhairoimmsn02/20140520215500-20140520231300", "other"),
+             "vhairoimmsn02/20140520215500-20140520231300", fields.MISSING_CATEGORY),
 
-            ("asdf123.log", "other"),
+            ("asdf123.log", fields.MISSING_CATEGORY),
 
             ("logjam/scratch_space/950166-vhanflimmcn10-20140717025500-20140717040000/950166/"
              "vhanflimmcn10/20140717025500-20140717040000/mandatory_files/messages", "messages"),
@@ -60,42 +158,48 @@ class ExtractFieldsTestCase(unittest.TestCase):
             "2004144146",
             "2004436294",
             "2004913956",
+            "/mnt/nfs/2001392039",
+            "/2004920192"
             ]
         for path in valid_paths:
             case_num = fields.get_case_number(path)
-            self.assertNotEqual(None, case_num, "Should have found case number %s" % path)
+            self.assertNotEqual(fields.MISSING_CASE_NUM, case_num, "Should have found case number %s" % path)
 
         invalid_paths = [
             "/mnt",
             "/mnt/nfs",
-            "/mnt/nfs/2001392039",
-            "/2004920192",
             "asdfasdf",
             "/",
             "/mnt/nfs/12345",
             ]
         for path in invalid_paths:
             case_num = fields.get_case_number(path)
-            self.assertEqual(None, case_num, "Shouldn't have found case number %s" % path)
+            self.assertEqual(fields.MISSING_CASE_NUM, case_num, "Shouldn't have found case number %s" % path)
 
     def test_get_version(self):
-        test_data_dir = os.path.join(self.data_dir, "StandardFiles")
-    
         try:
-            version = fields.get_storage_grid_version(os.path.join(test_data_dir,'1234567890', 'system_commands.txt'))
-            self.assertEqual(version, 'unknown')
+            version = fields.get_storage_grid_version(os.path.join(TEST_DATA_DIR,'1234567890'))
+            self.assertEqual(version, fields.MISSING_SG_VER)
         except Exception as exc:
             self.fail(exc)
 
         try:
-            version = fields.get_storage_grid_version(os.path.join(test_data_dir,'123', 'system_commands'))
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "time_span_2018-2019")
+            version = fields.get_storage_grid_version(lumber_dir)
             self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
         except Exception as exc:
             self.fail(exc)
 
         try:
-            version = fields.get_storage_grid_version(os.path.join(test_data_dir,'null', 'system_commands.txt'))
-            self.assertEqual(version, 'unknown')
+            version = fields.get_storage_grid_version(os.path.join(TEST_DATA_DIR,'null'))
+            self.assertEqual(version, fields.MISSING_SG_VER)
+        except Exception as exc:
+            self.fail(exc)
+    
+    def test_get_platform(self):
+        try:
+            platform = fields.get_platform(os.path.join(TEST_DATA_DIR, "nonexistant_dir"))
+            self.assertEqual(fields.MISSING_PLATFORM, platform)
         except Exception as exc:
             self.fail(exc)
 
