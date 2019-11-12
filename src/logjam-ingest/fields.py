@@ -141,7 +141,6 @@ def get_storage_grid_version(lumber_dir):
             with open(sys_file, "r") as file
                 for line in file:               # read system_commands line by line
                     if "storage-grid-release-" in line:
-                        searchfile.close()
                         return line[21: -1]     # return characters from line with version
         except:
             pass                                # count failure as missing SG Version
