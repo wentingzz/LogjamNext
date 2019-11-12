@@ -63,6 +63,9 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertEqual(fields.MISSING_SG_VER, f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
+        self.assertEqual(fields.MISSING_TIME_SPAN, f.time_span)
+        self.assertEqual(fields.MISSING_NODE_NAME, f.node_name)
+        self.assertEqual(fields.MISSING_GRID_ID, f.grid_id)
     
     def test_init_partial(self):
         f = fields.NodeFields(sg_ver="2.3.2-85qvk", category="bycast")
@@ -70,55 +73,97 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertEqual("2.3.2-85qvk", f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual("bycast", f.category)
+        self.assertEqual(fields.MISSING_TIME_SPAN, f.time_span)
+        self.assertEqual(fields.MISSING_NODE_NAME, f.node_name)
+        self.assertEqual(fields.MISSING_GRID_ID, f.grid_id)
 
     def test_init_all(self):
-        f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        f = fields.NodeFields(  case_num="2001293881", sg_ver="2.3.2",
+                                platform="Sandhawk", category="bycast",
+                                time_span="2017-2018", node_name="london",
+                                grid_id="97683")
         self.assertEqual("2001293881", f.case_num)
         self.assertEqual("2.3.2", f.sg_ver)
         self.assertEqual("Sandhawk", f.platform)
         self.assertEqual("bycast", f.category)
+        self.assertEqual("2017-2018", f.time_span)
+        self.assertEqual("london", f.node_name)
+        self.assertEqual("97683", f.grid_id)
     
     def test_inherit_missing_none(self):
-        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
-        new_f = fields.NodeFields(case_num="2001293900", sg_ver="2.5.1", platform="Titan", category="system")
+        old_f = fields.NodeFields(  case_num="2001293881", sg_ver="2.3.2",
+                                    platform="Sandhawk", category="bycast",
+                                    time_span="2017-2018", node_name="london",
+                                    grid_id="97683")
+        
+        new_f = fields.NodeFields(  case_num="2001293900", sg_ver="2.5.1",
+                                    platform="Titan", category="system",
+                                    time_span="2015-2016", node_name="paris",
+                                    grid_id="76544")
         self.assertEqual("2001293900", new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual("Titan", new_f.platform)
         self.assertEqual("system", new_f.category)
+        self.assertEqual("2015-2016", new_f.time_span)
+        self.assertEqual("paris", new_f.node_name)
+        self.assertEqual("76544", new_f.grid_id)
         
         new_f.inherit_missing_from(old_f)
         self.assertEqual("2001293900", new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual("Titan", new_f.platform)
         self.assertEqual("system", new_f.category)
+        self.assertEqual("2015-2016", new_f.time_span)
+        self.assertEqual("paris", new_f.node_name)
+        self.assertEqual("76544", new_f.grid_id)
     
     def test_inherit_missing_partial(self):
-        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        old_f = fields.NodeFields(  case_num="2001293881", sg_ver="2.3.2",
+                                    platform="Sandhawk", category="bycast",
+                                    time_span="2017-2018", node_name="london",
+                                    grid_id="97683")
+        
         new_f = fields.NodeFields(sg_ver="2.5.1", category="system")
         self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
         self.assertEqual("system", new_f.category)
+        self.assertEqual(fields.MISSING_TIME_SPAN, new_f.time_span)
+        self.assertEqual(fields.MISSING_NODE_NAME, new_f.node_name)
+        self.assertEqual(fields.MISSING_GRID_ID, new_f.grid_id)
         
         new_f.inherit_missing_from(old_f)
         self.assertEqual("2001293881", new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual("Sandhawk", new_f.platform)
         self.assertEqual("system", new_f.category)
+        self.assertEqual("2017-2018", new_f.time_span)
+        self.assertEqual("london", new_f.node_name)
+        self.assertEqual("97683", new_f.grid_id)
     
     def test_inherit_missing_all(self):
-        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        old_f = fields.NodeFields(  case_num="2001293881", sg_ver="2.3.2",
+                                    platform="Sandhawk", category="bycast",
+                                    time_span="2017-2018", node_name="london",
+                                    grid_id="97683")
+        
         new_f = fields.NodeFields()
         self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
         self.assertEqual(fields.MISSING_SG_VER, new_f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
+        self.assertEqual(fields.MISSING_TIME_SPAN, new_f.time_span)
+        self.assertEqual(fields.MISSING_NODE_NAME, new_f.node_name)
+        self.assertEqual(fields.MISSING_GRID_ID, new_f.grid_id)
         
         new_f.inherit_missing_from(old_f)
         self.assertEqual("2001293881", new_f.case_num)
         self.assertEqual("2.3.2", new_f.sg_ver)
         self.assertEqual("Sandhawk", new_f.platform)
         self.assertEqual("bycast", new_f.category)
+        self.assertEqual("2017-2018", new_f.time_span)
+        self.assertEqual("london", new_f.node_name)
+        self.assertEqual("97683", new_f.grid_id)
 
 
 class ExtractFieldsTestCase(unittest.TestCase):
