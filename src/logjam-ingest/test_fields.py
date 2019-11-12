@@ -57,7 +57,7 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
         self.assertEqual("2015-2017", f.time_span)
-        self.assertEqual("nodename_long", f.node_name)
+        self.assertEqual("nodename_london", f.node_name)
         self.assertEqual("gridid_542839", f.grid_id)
     
     def test_init_none(self):
