@@ -36,7 +36,7 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertTrue(not os.path.exists(self.tmp_dir))
     
     def test_from_lumberjack_only_verion(self):
-        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "timespan_2015-2017")
+        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "2015-2017")
         os.makedirs(lumber_dir)
         self.assertTrue(os.path.isdir(lumber_dir))
         
@@ -56,6 +56,9 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertEqual("100.100.100-12345678.0224.asdfg12345", f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
+        self.assertEqual("2015-2017", f.time_span)
+        self.assertEqual("nodename_long", f.node_name)
+        self.assertEqual("gridid_542839", f.grid_id)
     
     def test_init_none(self):
         f = fields.NodeFields()
@@ -304,7 +307,7 @@ class ExtractFieldsTestCase(unittest.TestCase):
             self.fail(exc)
     
     def test_extract_fields_only_version(self):
-        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "timespan_2015-2017")
+        lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "2015-2017")
         os.makedirs(lumber_dir)
         self.assertTrue(os.path.isdir(lumber_dir))
         
@@ -327,4 +330,7 @@ class ExtractFieldsTestCase(unittest.TestCase):
         self.assertEqual("100.100.100-12345678.0224.asdfg12345", new_f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
+        self.assertEqual("2015-2017", new_f.time_span)
+        self.assertEqual("nodename_london", new_f.node_name)
+        self.assertEqual("gridid_542839", new_f.grid_id)
 

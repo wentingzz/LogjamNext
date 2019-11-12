@@ -54,11 +54,11 @@ class NodeFields:
         sg_ver = get_storage_grid_version(lumber_dir)
         platform = get_platform(lumber_dir)
         category = get_category(lumber_dir)
-        time_span = os.path.basename(lumber_dir)
-        node_name = os.path.basename(os.path.dirname(lumber_dir))
-        grid_id = os.path.basename(os.path.dirname(os.path.dirname(lumber_dir)))
-                                                        # should not extract case number
-        return NodeFields(  sg_ver=sg_ver,
+        time_span = get_time_span(lumber_dir)
+        node_name = get_node_name(lumber_dir)
+        grid_id = get_grid_id(lumber_dir)
+        
+        return NodeFields(  sg_ver=sg_ver,              # should not extract case number
                             platform=platform,
                             category=category,
                             time_span=time_span,
