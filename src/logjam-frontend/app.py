@@ -9,6 +9,7 @@ ELASTICSEARCH_PORT = os.environ.get("ELASTICSEARCH_PORT", 9200)
 app = Flask(__name__)
 es = Elasticsearch([{"host": ELASTICSEARCH_HOST, "port": ELASTICSEARCH_PORT}])
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -54,8 +55,8 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "min_score": "10.0",
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "min_score": "40.0",
+                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query": {
                     "bool": {
                         "should": [
@@ -75,7 +76,7 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query": {
                     "bool": {
                         "should": [
@@ -99,7 +100,14 @@ def get_query():
             _source="false",
             body={
                 "min_score": "40.0",
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "aggs": {
+                    "unknown_cases": {"filters": { 
+                        "filters": { "unknowns" :{ "term" :{ "node_name": "unknown"}},
+                        }},
+                        "aggs": { "case_number": {"terms": { "field": "case.keyword"}}
+                        }},
+                    "matched_cases": {"terms" :{ "field": "node_name.keyword"}}
+                },       
                 "query": {
                     "bool": {
                         "should": [
@@ -109,20 +117,35 @@ def get_query():
                 },
             },
         )
-
-        for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
+        
+        for hits in total_hits_q["aggregations"]["matched_cases"]["buckets"]:
+            if not hits["key"] == "unknown":
+                total_hits += 1
+        
+        for hits in total_hits_q["aggregations"]["unknown_cases"]["buckets"]:
             total_hits += 1
 
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
             body={
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "aggs": {
+                    "matched_cases": {"terms": {"field": "node_name.keyword"}},
+                    "unknown_cases": {"filters": {
+                        "filters": {"unknowns" :{"term" :{"node_name":"unknown"}},
+                        }},
+                        "aggs": {"case_number": {"terms" :{"field":"case.keyword"}}
+                        }}
+                },
             }
         )
 
-        for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
+        for hits in total_no_hits_q["aggregations"]["unknown_cases"]["buckets"]:
             total_no_hits += 1
+
+        for hits in total_no_hits_q["aggregations"]["matched_cases"]["buckets"]:
+            if not hits["key"] == "unknown":
+                total_no_hits += 1
     
         total_no_hits -= total_hits
 
