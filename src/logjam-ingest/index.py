@@ -70,7 +70,7 @@ def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
                         'case': caseNum,
                         'node_name': nodeName,
                         'storagegrid_version': storageGridVersion,
-                        'message': line,
+                        'message': line.decode('utf-8'),
                         'platform':platform,
                         'categorize_time': time
                     }
