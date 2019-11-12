@@ -35,37 +35,28 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
     """
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
-    timespan = os.path.basename(fullPath)
-    nodeName = os.path.basename(os.path.dirname(fullPath))
-    gridId = os.path.basename(os.path.dirname(os.path.dirname(fullPath)))
-    storageGridVersion = fields.get_storage_grid_version(fullPath)
-    #TODO platform type
-    platform = fields.get_platform(fullPath)
-    timestamp = int(round(time.time() * 1000))  # Epoch milliseconds
+    
     files = process_files_in_node(fullPath, [])
+    nodefields = fields.extract_fields(fullPath, inherit_from=fields.NodeFields(case_num=caseNum))
     if es:
         for file in files:
-            try:
-                success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
-                logging.debug("Indexed %s to Elasticsearch", fullPath)
-            except elasticsearch.exceptions.ConnectionError:
-                logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-            except UnicodeDecodeError:
-                logging.warning("Error reading %s. Non utf-8 encoding?", file)
+            send_to_es(es, nodefields, file)
+    return
 
 
-def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
+def set_data(file_path, send_time, fields_obj):
+    """ Generator function used with bulk helper API """
     with open(file_path) as log_file:
         try:
             for line in log_file:
                 yield {
                     '_source': {
-                        'case': caseNum,
-                        'node_name': nodeName,
-                        'storagegrid_version': storageGridVersion,
-                        'message': line,
-                        'platform':platform,
-                        'categorize_time': time
+                        'case': fields_obj.case_num,
+                        'node_name': fields_obj.node_name,
+                        'storagegrid_version': fields_obj.sg_ver,
+                        'platform': fields_obj.platform,
+                        'categorize_time': send_time,
+                        'message': line
                     }
                 }
         except UnicodeDecodeError:
@@ -106,36 +97,37 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, es = None):
     assert os.path.isfile(fullPath), "This is not a file: "+fullPath
     assert os.path.splitext(filenameAndExtension)[1] in validExtensions or os.path.splitext(filenameAndExtension)[0] in validFiles, "Not a valid file: "+filenameAndExtension
 
-    # Log in the database and copy to the appropriate logjam category
     assert caseNum != None, "Null reference"
     assert caseNum != "0", "Not a valid case number: "+caseNum
 
-    timestamp = int(round(time.time() * 1000))
+    nodefields = fields.NodeFields(case_num=caseNum)            # only case for fields
     if es:
-        try:
-            success, _ = helpers.bulk(es, set_data(fullPath, caseNum, 'unknown', 'unknown', 'unknown', timestamp), index=INDEX_NAME, doc_type='_doc')
-            logging.debug("Indexed %s to Elasticsearch", fullPath)
-        except elasticsearch.exceptions.ConnectionError:
-            logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
-        except UnicodeDecodeError:
-            logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
+        send_to_es(es, nodefields, fullPath)                    # send as unknown node
     return
 
 
 def send_to_es(es_obj, fields_obj, file_path):
     """
     Sends the contents of the given file to ES with the attached
-    fields.
+    fields. The system time of the call is also attached and sent.
     """
+    time_of_send = int(round(time.time() * 1000))  # Epoch milliseconds
     
     try:
-        success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
+        success, _ = helpers.bulk(
+            es_obj,
+            set_data(file_path, send_time, fields_obj),
+            index=INDEX_NAME,
+            doc_type='_doc')
         logging.debug("Indexed %s to Elasticsearch", fullPath)
+    
     except elasticsearch.exceptions.ConnectionError:
         logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+    
     except UnicodeDecodeError:
         logging.warning("Error reading %s. Non utf-8 encoding?", file)
     
+    return
 
 
 def is_storagegrid(full_path):
