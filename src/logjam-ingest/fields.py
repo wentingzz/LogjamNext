@@ -204,7 +204,7 @@ def get_time_span(lumber_dir):
     Gets the time span represented by the given lumberjack directory.
     The time span format is two numbers with a dash between them (ex. 0000-0000)
     """
-    match_obj = re.match(r"^(\d+-\d)$", os.path.basename(lumber_dir))
+    match_obj = re.match(r"^([\d]+[-][\d]+)$", os.path.basename(lumber_dir))
     if match_obj is None:
         return MISSING_TIME_SPAN
     else:
