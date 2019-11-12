@@ -138,7 +138,7 @@ def get_storage_grid_version(lumber_dir):
     
     if os.path.isfile(sys_file):                # use system_commands file to find version
         try:
-            with open(sys_file, "r") as file
+            with open(sys_file, "r") as file:
                 for line in file:               # read system_commands line by line
                     if "storage-grid-release-" in line:
                         return line[21: -1]     # return characters from line with version
