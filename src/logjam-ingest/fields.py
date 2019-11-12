@@ -138,18 +138,15 @@ def get_storage_grid_version(lumber_dir):
     
     if os.path.isfile(sys_file):                # use system_commands file to find version
         try:
-            searchfile = open(sys_file, "r")    # read system_commands line by line
-            for line in searchfile:
-                if "storage-grid-release-" in line:
-                    searchfile.close()
-                    return line[21: -1]         # return characters from line with version
-            searchfile.close()
-            return MISSING_SG_VER
+            with open(sys_file, "r") as file
+                for line in file:               # read system_commands line by line
+                    if "storage-grid-release-" in line:
+                        searchfile.close()
+                        return line[21: -1]     # return characters from line with version
         except:
-            return MISSING_SG_VER
+            pass                                # count failure as missing SG Version
     
-    else:
-        return MISSING_SG_VER
+    return MISSING_SG_VER
 
 
 # TODO: implementation
@@ -171,7 +168,7 @@ def extract_fields(lumber_dir, *, inherit_from):
     The object inherits missing values from `inherit_from` SGFields object.
     All files under the `lumber_dir` are valid for extracting fields from.
     """
-    new_fields = SGFields().from_lumberjack_dir(lumber_dir)
+    new_fields = SGFields.from_lumberjack_dir(lumber_dir)
     
     new_fields.inherit_missing_from(inherit_from)
     
