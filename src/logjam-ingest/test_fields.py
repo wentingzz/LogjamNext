@@ -22,8 +22,8 @@ CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Fields")
 
 
-class SGFieldsTestCase(unittest.TestCase):
-    """ Test case for the SGFields object """
+class NodeFieldsTestCase(unittest.TestCase):
+    """ Test case for the NodeFields object """
     
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
@@ -51,36 +51,36 @@ class SGFieldsTestCase(unittest.TestCase):
             fd.write("random garbage text")
         self.assertTrue(os.path.isfile(sys_file))
         
-        f = fields.SGFields.from_lumberjack_dir(lumber_dir)
+        f = fields.NodeFields.from_lumberjack_dir(lumber_dir)
         self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
         self.assertEqual("100.100.100-12345678.0224.asdfg12345", f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
     
     def test_init_none(self):
-        f = fields.SGFields()
+        f = fields.NodeFields()
         self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
         self.assertEqual(fields.MISSING_SG_VER, f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
     
     def test_init_partial(self):
-        f = fields.SGFields(sg_ver="2.3.2-85qvk", category="bycast")
+        f = fields.NodeFields(sg_ver="2.3.2-85qvk", category="bycast")
         self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
         self.assertEqual("2.3.2-85qvk", f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual("bycast", f.category)
 
     def test_init_all(self):
-        f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
         self.assertEqual("2001293881", f.case_num)
         self.assertEqual("2.3.2", f.sg_ver)
         self.assertEqual("Sandhawk", f.platform)
         self.assertEqual("bycast", f.category)
     
     def test_inherit_missing_none(self):
-        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
-        new_f = fields.SGFields(case_num="2001293900", sg_ver="2.5.1", platform="Titan", category="system")
+        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.NodeFields(case_num="2001293900", sg_ver="2.5.1", platform="Titan", category="system")
         self.assertEqual("2001293900", new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual("Titan", new_f.platform)
@@ -93,8 +93,8 @@ class SGFieldsTestCase(unittest.TestCase):
         self.assertEqual("system", new_f.category)
     
     def test_inherit_missing_partial(self):
-        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
-        new_f = fields.SGFields(sg_ver="2.5.1", category="system")
+        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.NodeFields(sg_ver="2.5.1", category="system")
         self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
         self.assertEqual("2.5.1", new_f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
@@ -107,8 +107,8 @@ class SGFieldsTestCase(unittest.TestCase):
         self.assertEqual("system", new_f.category)
     
     def test_inherit_missing_all(self):
-        old_f = fields.SGFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
-        new_f = fields.SGFields()
+        old_f = fields.NodeFields(case_num="2001293881", sg_ver="2.3.2", platform="Sandhawk", category="bycast")
+        new_f = fields.NodeFields()
         self.assertEqual(fields.MISSING_CASE_NUM, new_f.case_num)
         self.assertEqual(fields.MISSING_SG_VER, new_f.sg_ver)
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
@@ -229,7 +229,7 @@ class ExtractFieldsTestCase(unittest.TestCase):
             fd.write("random garbage text")
         self.assertTrue(os.path.isfile(sys_file))
         
-        old_f = fields.SGFields(case_num="2001399485")
+        old_f = fields.NodeFields(case_num="2001399485")
         self.assertEqual("2001399485", old_f.case_num)
         
         new_f = fields.extract_fields(lumber_dir, inherit_from=old_f)
