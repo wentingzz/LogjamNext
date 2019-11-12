@@ -199,6 +199,34 @@ def get_platform(lumber_dir):
     return MISSING_PLATFORM
 
 
+def get_time_span(lumber_dir):
+    """
+    Gets the time span represented by the given lumberjack directory.
+    The time span format is two numbers with a dash between them (ex. 0000-0000)
+    """
+    match_obj = re.match(r"^(\d+-\d)$", os.path.basename(lumber_dir))
+    if match_obj is None:
+        return MISSING_TIME_SPAN
+    else:
+        return match_obj.group()
+
+
+def get_node_name(lumber_dir):
+    """
+    Gets the node name represented by the given lumberjack directory.
+    The node name is located two directories above the lumberjack directory.
+    """
+    return os.path.basename(os.path.dirname(lumber_dir))
+
+
+def get_grid_id(lumber_dir):
+    """
+    Gets the grid id represented by the given lumberjack directory.
+    The grid id is located three directories above the lumberjack directory.
+    """
+    return os.path.basename(os.path.dirname(os.path.dirname(lumber_dir)))
+
+
 def extract_fields(lumber_dir, *, inherit_from):
     """
     Extracts all relevant StorageGRID fields from the lumberjack directory

@@ -119,7 +119,7 @@ class NodeFieldsTestCase(unittest.TestCase):
         self.assertEqual("2.3.2", new_f.sg_ver)
         self.assertEqual("Sandhawk", new_f.platform)
         self.assertEqual("bycast", new_f.category)
-        
+
 
 class ExtractFieldsTestCase(unittest.TestCase):
     """ Test case for extracting different kinds of fields """
@@ -194,7 +194,7 @@ class ExtractFieldsTestCase(unittest.TestCase):
             self.fail(exc)
 
         try:
-            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "time_span_2018-2019")
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
             version = fields.get_storage_grid_version(lumber_dir)
             self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
         except Exception as exc:
@@ -210,6 +210,51 @@ class ExtractFieldsTestCase(unittest.TestCase):
         try:
             platform = fields.get_platform(os.path.join(TEST_DATA_DIR, "nonexistant_dir"))
             self.assertEqual(fields.MISSING_PLATFORM, platform)
+        except Exception as exc:
+            self.fail(exc)
+    
+    def test_get_time_span(self):
+        try:
+            bad_dir = os.path.join(TEST_DATA_DIR, "ABC-ABC")
+            time_span = fields.get_time_span(bad_dir)
+            self.assertEqual(fields.MISSING_TIME_SPAN, time_span)
+        except Exception as exc:
+            self.fail(exc)
+        
+        try:
+            bad_dir = os.path.join(TEST_DATA_DIR, "99992039")
+            time_span = fields.get_time_span(bad_dir)
+            self.assertEqual(fields.MISSING_TIME_SPAN, time_span)
+        except Exception as exc:
+            self.fail(exc)
+
+        try:                                # this dir does exist & it extracts from path
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
+            time_span = fields.get_time_span(lumber_dir)
+            self.assertEqual("2018-2019", time_span)
+        except Exception as exc:
+            self.fail(exc)
+        
+        try:                                # this dir does not exist, extracts from path
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2015-2017")
+            time_span = fields.get_time_span(lumber_dir)
+            self.assertEqual("2015-2017", time_span)
+        except Exception as exc:
+            self.fail(exc)
+    
+    def test_get_node_name(self):
+        try:                                # this dir does exist & it extracts from path
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
+            node_name = fields.get_node_name(lumber_dir)
+            self.assertEqual("node_name_paris", node_name)
+        except Exception as exc:
+            self.fail(exc)
+    
+    def test_get_grid_id(self):
+        try:                                # this dir does exist & it extracts from path
+            lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
+            grid_id = fields.get_grid_id(lumber_dir)
+            self.assertEqual("grid_id_293977", grid_id)
         except Exception as exc:
             self.fail(exc)
     
