@@ -111,7 +111,7 @@ def send_to_es(es_obj, fields_obj, file_path):
     Sends the contents of the given file to ES with the attached
     fields. The system time of the call is also attached and sent.
     """
-    time_of_send = int(round(time.time() * 1000))  # Epoch milliseconds
+    send_time = int(round(time.time() * 1000))  # Epoch milliseconds
     
     try:
         success, _ = helpers.bulk(
