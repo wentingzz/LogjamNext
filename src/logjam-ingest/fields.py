@@ -17,6 +17,9 @@ MISSING_CASE_NUM = "Unknown"
 MISSING_SG_VER = "Unknown"
 MISSING_PLATFORM = "Unknown"
 MISSING_CATEGORY = "other"
+MISSING_TIME_SPAN = "Unknown-Unknown"
+MISSING_NODE_NAME = "Unknown"
+MISSING_GRID_ID = "Unknown"
 
 # List of all categories to sort log files by
 CATEGORIES = {
@@ -33,17 +36,17 @@ CATEGORIES = {
 }
 
 
-class SGFields:
+class NodeFields:
     """
-    Record representing possible fields for a SG Node. Can be used
+    Record representing possible fields for a StorageGRID Node. Can be used
     as a simple storage container for the fields or can inherit fields
-    from another SGFields object.
+    from another NodeFields object.
     """
     
     @classmethod
     def from_lumberjack_dir(cls, lumber_dir):
         """
-        Builds a SGFields object by extracting relevant fields from the
+        Builds a NodeFields object by extracting relevant fields from the
         specified lumberjack directory (a directory with a lumberjack.log file).
         """
         assert os.path.isfile(os.path.join(lumber_dir, "lumberjack.log"))
@@ -51,23 +54,44 @@ class SGFields:
         sg_ver = get_storage_grid_version(lumber_dir)
         platform = get_platform(lumber_dir)
         category = get_category(lumber_dir)
-                                                        # should not extract case number
-        return SGFields(sg_ver=sg_ver, platform=platform, category=category)
+        time_span = get_time_span(lumber_dir)
+        node_name = get_node_name(lumber_dir)
+        grid_id = get_grid_id(lumber_dir)
+        
+        return NodeFields(  sg_ver=sg_ver,              # should not extract case number
+                            platform=platform,
+                            category=category,
+                            time_span=time_span,
+                            node_name=node_name,
+                            grid_id=grid_id)
     
-    def __init__(self, *, case_num=MISSING_CASE_NUM, sg_ver=MISSING_SG_VER, platform=MISSING_PLATFORM, category=MISSING_CATEGORY):
+    def __init__(   self, *,
+                    case_num=MISSING_CASE_NUM,
+                    sg_ver=MISSING_SG_VER,
+                    platform=MISSING_PLATFORM,
+                    category=MISSING_CATEGORY,
+                    time_span=MISSING_TIME_SPAN,
+                    node_name=MISSING_NODE_NAME,
+                    grid_id=MISSING_GRID_ID):
         """ Constructs basic structure with fields, named params are forced """
         self._case_num = case_num
         self._sg_ver = sg_ver
         self._platform = platform
         self._category = category
+        self._time_span = time_span
+        self._node_name = node_name
+        self._grid_id = grid_id
     
     def inherit_missing_from(self, other):
-        """ Inherits missing values from the other SGFields object """
+        """ Inherits missing values from the other NodeFields object """
         self._case_num = self._case_num if self._case_num != MISSING_CASE_NUM else other._case_num
         self._sg_ver = self._sg_ver if self._sg_ver != MISSING_SG_VER else other._sg_ver
         self._platform = self._platform if self._platform != MISSING_PLATFORM else other._platform
         self._category = self._category if self._category != MISSING_CATEGORY else other._category
-    
+        self._time_span = self._time_span if self._time_span != MISSING_TIME_SPAN else other._time_span
+        self._node_name = self._node_name if self._node_name != MISSING_NODE_NAME else other._node_name
+        self._grid_id = self._grid_id if self._grid_id != MISSING_GRID_ID else other._grid_id
+        
     @property
     def case_num(self):
         """ Getter property for case_num """
@@ -87,11 +111,26 @@ class SGFields:
     def category(self):
         """ Getter property for category """
         return self._category
+    
+    @property
+    def time_span(self):
+        """ Getter property for time_span """
+        return self._time_span
+    
+    @property
+    def node_name(self):
+        """ Getter property for node_name """
+        return self._node_name
+    
+    @property
+    def grid_id(self):
+        """ Getter property for grid_id """
+        return self._grid_id
 
 
 def get_category(lumber_dir):
     """
-    Gets the category for a SG Node based on the lumberjack directory provided
+    Gets the category for a StorageGRID Node based on the lumberjack directory provided
     lumber_dir : string
         the lumberjack directory to search for category
     """
@@ -160,14 +199,42 @@ def get_platform(lumber_dir):
     return MISSING_PLATFORM
 
 
+def get_time_span(lumber_dir):
+    """
+    Gets the time span represented by the given lumberjack directory.
+    The time span format is two numbers with a dash between them (ex. 0000-0000)
+    """
+    match_obj = re.match(r"^([\d]+[-][\d]+)$", os.path.basename(lumber_dir))
+    if match_obj is None:
+        return MISSING_TIME_SPAN
+    else:
+        return match_obj.group()
+
+
+def get_node_name(lumber_dir):
+    """
+    Gets the node name represented by the given lumberjack directory.
+    The node name is located two directories above the lumberjack directory.
+    """
+    return os.path.basename(os.path.dirname(lumber_dir))
+
+
+def get_grid_id(lumber_dir):
+    """
+    Gets the grid id represented by the given lumberjack directory.
+    The grid id is located three directories above the lumberjack directory.
+    """
+    return os.path.basename(os.path.dirname(os.path.dirname(lumber_dir)))
+
+
 def extract_fields(lumber_dir, *, inherit_from):
     """
     Extracts all relevant StorageGRID fields from the lumberjack directory
-    denoted by `lumber_dir` and returns a new SGFields object with the fields.
-    The object inherits missing values from `inherit_from` SGFields object.
+    denoted by `lumber_dir` and returns a new NodeFields object with the fields.
+    The object inherits missing values from `inherit_from` NodeFields object.
     All files under the `lumber_dir` are valid for extracting fields from.
     """
-    new_fields = SGFields.from_lumberjack_dir(lumber_dir)
+    new_fields = NodeFields.from_lumberjack_dir(lumber_dir)
     
     new_fields.inherit_missing_from(inherit_from)
     
