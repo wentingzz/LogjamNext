@@ -122,6 +122,22 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, es = None):
     return
 
 
+def send_to_es(es_obj, fields_obj, file_path):
+    """
+    Sends the contents of the given file to ES with the attached
+    fields.
+    """
+    
+    try:
+        success, _ = helpers.bulk(es, set_data(file, caseNum, nodeName, storageGridVersion, platform, timestamp), index=INDEX_NAME, doc_type='_doc')
+        logging.debug("Indexed %s to Elasticsearch", fullPath)
+    except elasticsearch.exceptions.ConnectionError:
+        logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
+    except UnicodeDecodeError:
+        logging.warning("Error reading %s. Non utf-8 encoding?", file)
+    
+
+
 def is_storagegrid(full_path):
     """
     Check if a file is StorageGRID file
