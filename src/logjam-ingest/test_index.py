@@ -1,3 +1,10 @@
+"""
+@author Wenting Zheng
+
+Tests the features found in the index.py file.
+"""
+
+
 import unittest
 import os
 import time
@@ -11,32 +18,12 @@ import index
 
 
 class ProcessFilesTestCase(unittest.TestCase):
-
-
     @classmethod
     def setUpClass(cls):
         dirname = os.path.dirname(os.path.realpath(__file__))
         data_dir = os.path.join(dirname, "test-data")
         cls.datadir = os.path.join(dirname, "test-data", 'StandardFiles')
 
-    def test_get_version(self):
-        try:
-            version = index.get_storage_grid_version(os.path.join(self.datadir,'1234567890', 'system_commands.txt'))
-            self.assertEqual(version, 'unknown')
-        except Exception as exc:
-            self.fail(exc)
-
-        try:
-            version = index.get_storage_grid_version(os.path.join(self.datadir,'123', 'system_commands'))
-            self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
-        except Exception as exc:
-            self.fail(exc)
-
-        try:
-            version = index.get_storage_grid_version(os.path.join(self.datadir,'null', 'system_commands.txt'))
-            self.assertEqual(version, 'unknown')
-        except Exception as exc:
-            self.fail(exc)
 
     def test_is_storagegrid(self):
         try:
@@ -59,7 +46,6 @@ class ProcessFilesTestCase(unittest.TestCase):
         except Exception as exc:
             self.fail(exc)
 
-
     def test_process_files(self):
         try:
             files = index.process_files_in_node(os.path.join(self.datadir, '123'), [])
@@ -71,14 +57,13 @@ class ProcessFilesTestCase(unittest.TestCase):
             self.fail(exc)
 
 
-# coverage report: 150-170
-
 class StashFilesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         dirname = os.path.dirname(os.path.realpath(__file__))
         data_dir = os.path.join(dirname, "test-data")
         cls.datadir = os.path.join(dirname, "test-data", 'StandardFiles')
+
 
     def test_stash_node(self):
         try:
@@ -101,7 +86,6 @@ class StashFilesTestCase(unittest.TestCase):
         except Exception as exc:
             self.fail(exc)
 
-
     def test_files_node(self):
         try:
             index.stash_file_in_elk(self.datadir, 'txt', None)
@@ -123,3 +107,4 @@ class StashFilesTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

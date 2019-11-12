@@ -1,7 +1,10 @@
 """
 @author Wenting Zheng
+
 This file is to process, and index files to Elasticsearch
 """
+
+
 import os
 import time
 import shutil
@@ -9,6 +12,8 @@ import logging
 
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
+
+import fields
 
 
 INDEX_NAME = "logjam"
@@ -33,9 +38,9 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
     timespan = os.path.basename(fullPath)
     nodeName = os.path.basename(os.path.dirname(fullPath))
     gridId = os.path.basename(os.path.dirname(os.path.dirname(fullPath)))
-    storageGridVersion = get_storage_grid_version(os.path.join(fullPath, 'system_commands'))
+    storageGridVersion = fields.get_storage_grid_version(os.path.join(fullPath, 'system_commands'))
     #TODO platform type
-    platform = get_platform(None)
+    platform = fields.get_platform(None)
     timestamp = int(round(time.time() * 1000))  # Epoch milliseconds
     files = process_files_in_node(fullPath, [])
     if es:
@@ -47,6 +52,7 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
                 logging.critical("Connection error sending doc %s to elastic search (file too big?)", fullPath)
             except UnicodeDecodeError:
                 logging.warning("Error reading %s. Non utf-8 encoding?", file)
+
 
 def set_data(file_path, caseNum, nodeName, storageGridVersion, platform, time):
     with open(file_path) as log_file:
@@ -115,33 +121,7 @@ def stash_file_in_elk(fullPath, filenameAndExtension, caseNum, es = None):
             logging.warning("Error reading %s. Non utf-8 encoding?", fullPath)
     return
 
-"""
-Gets the version of the node from specified file
-path: string
-    the path of the specified file (usually the system_command file)
-return: string
-    the version if found. Otherwise, returns 'unknown'
-"""
-def get_storage_grid_version(path):
-    try:
-        searchfile = open(path, "r")
-        for line in searchfile:
-            if "storage-grid-release-" in line:
-                searchfile.close()
-                return line[21: -1]
-        searchfile.close()
-        return 'unknown'
-    except:
-        return 'unknown'
 
-
-# TODO: implementation
-def get_platform(path):
-    return 'unknown'
-
-"""
-Check if a file is StorageGRID file
-"""
 def is_storagegrid(full_path):
     """
     Check if a file is StorageGRID file
