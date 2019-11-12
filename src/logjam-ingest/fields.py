@@ -171,5 +171,5 @@ def extract_fields(lumber_dir, *, inherit_from):
     
     new_fields.inherit_missing_from(inherit_from)
     
-    return newfields
+    return new_fields
 
