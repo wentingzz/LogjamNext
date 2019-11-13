@@ -118,7 +118,10 @@ def send_to_es(es_obj, fields_obj, file_path):
         for success, info in helpers.parallel_bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
             if not success:
                 error = True
-        logging.debug("Indexed %s to Elasticsearch", file_path)
+        if error:
+            logging.critical("Unable to index %s to Elasticsearch", file_path)
+        else:
+            logging.debug("Indexed %s to Elasticsearch", file_path)
     
     except elasticsearch.exceptions.ConnectionError:
         logging.critical("Connection error sending doc %s to elastic search (file too big?)", file_path)
