@@ -98,7 +98,7 @@ def main():
     logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
 
     # Should not allow configuration of intermediate directory
-    history_file = os.path.join(intermediate_dir, "scan-history.txt")
+    history_dir = os.path.join(intermediate_dir, "scan-history")
 
     es_logger = logging.getLogger('elasticsearch')
     es_logger.setLevel(logging.WARNING)
@@ -125,7 +125,7 @@ def main():
     try:
         # Ingest the directories
         logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_file, es)
+        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir, es)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
@@ -139,15 +139,15 @@ def main():
         utils.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
-def ingest_log_files(input_dir, scratch_dir, history_file, es = None):
+def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
-    Logjam DOES own `scratch_dir` and `history_file`.
+    Logjam DOES own `scratch_dir` and `history_dir`.
     """
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
-    scan = incremental.Scan(input_dir, history_file)
+    scan = incremental.Scan(input_dir, history_dir)
     
     entities = sorted(os.listdir(input_dir))
     for e in range(len(entities)):

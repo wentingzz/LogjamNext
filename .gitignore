@@ -2,6 +2,7 @@
 **/duplicates.db
 **/logjam_categories
 **/scratch_space
+data
 
 # Python configuration & misc files
 venv
@@ -14,3 +15,12 @@ tags
 **.7z
 **.tgz
 **.gz
+
+# Frontend external files
+bootstrap.min.css
+bootstrap.min.js
+vue.min.js
+vue-resource.min.js
+Chart.min.js
+jquery-*.slim.min.js
+
