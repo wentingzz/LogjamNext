@@ -223,7 +223,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
 
         if os.path.isdir(entity_path):
             if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
-                index.stash_node_in_elk(entity_path , case_num, es)
+                process_node(entity_path , case_num, es)
             else:
                 # Detected a directory, continue
                 recursive_search(scan, start, scratch_dir, es, case_num, os.path.join(depth, entity), scan_dir)
@@ -234,8 +234,8 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
             # Case for regular file. Check for relevance, then ingest.
             elif extension in validExtensions or filename in validFiles:
-                if index.is_storagegrid(entity_path):
-                    index.stash_file_in_elk(entity_path, entity, case_num, es)
+                if fields.is_storagegrid(entity_path):
+                    process_unknown_file(entity_path, case_num, es)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
             # Case for archive. Recursively unzip and ingest contents.
@@ -251,7 +251,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                     recursive_search(scan, unzip_folder, scratch_dir, es, case_num, None, entity_path)
                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
-                    index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, es)
+                    process_unknown_file(unzip_folder, case_num, es)
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
@@ -269,6 +269,68 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
             scan.just_scanned_this_path(scan_dir)
         else:
             scan.just_scanned_this_path(entity_path)
+
+
+def process_node(lumber_dir, case_num, es = None):
+    """ Stashes a node in ELK stack;
+    lumber_dir : string
+        absolute path of the node
+    case_num : string
+        StorageGRID case number for this file
+    es: Elasticsearch
+        Elasticsearch instance
+    """
+    assert case_num != None, "Null reference"
+    assert case_num != "0", "Not a valid case number: "+case_num
+    
+    files = process_node_recursive(lumber_dir, [])
+    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields.NodeFields(case_num=case_num))
+    if es:
+        for file in files:
+            index.send_to_es(es, nodefields, file)
+    
+    return
+
+
+def process_node_recursive(lumber_dir, file_list):
+    """ Finds all the files in the node; returns all the content as a array
+    lumber_dir : string
+        absolute path of the node
+    file_list: array of string
+        array of the content. Each element is the content of a file in the node
+    """
+    for entry in os.listdir(lumber_dir):
+        entry_path = os.path.join(lumber_dir, entry)
+        name, extension = os.path.splitext(entry)
+        
+        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and is_storagegrid(entry_path):
+            file_list.append(entry_path)
+        
+        elif os.path.isdir(entry_path):
+            process_node_recursive(entry_path, file_list)
+    
+    return file_list
+
+
+def process_unknown_file(file_path, case_num, es = None):
+    """ Stashes file in ELK stack; checks if duplicate, computes important
+    fields like log category, and prepares for ingest by Logstash.
+    file_path : string
+        absolute path of the file
+    case_num : string
+        StorageGRID case number for this file
+    es: Elasticsearch
+        Elasticsearch instance
+    """
+    assert os.path.isfile(file_path), "This is not a file: "+file_path
+    assert case_num != None, "Null reference"
+    assert case_num != "0", "Not a valid case number: "+case_num
+
+    nodefields = fields.NodeFields(case_num=case_num)            # only case for fields
+    if es:
+        index.send_to_es(es, nodefields, file_path)              # send as unknown node
+    
+    return
 
 
 if __name__ == "__main__":

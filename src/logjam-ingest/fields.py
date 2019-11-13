@@ -240,3 +240,22 @@ def extract_fields(lumber_dir, *, inherit_from):
     
     return new_fields
 
+
+
+def is_storagegrid(full_path):
+    """
+    Check if a file is StorageGRID file
+    """
+    if "bycast" in full_path:
+        return True
+
+    try:
+        with open(full_path) as searchfile:
+            for line in searchfile:
+                if "bycast" in line:
+                    return True
+    except Exception as e:
+        logging.warning('Error during "bycast" search: %s', str(e))
+    
+    return False
+
