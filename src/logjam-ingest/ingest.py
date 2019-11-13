@@ -225,9 +225,17 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
                 # Detected a directory, continue
                 searchAnInspectionDirectory(scan, start, scratch_dir, es, os.path.join(depth, entity), case_num, scan_dir)
         
-        elif os.path.isfile(entity_path) and scan.should_consider_file(entity_path):
-            if (extension in validExtensions or filename in validFiles) and index.is_storagegrid(entity_path):
-                index.stash_file_in_elk(entity_path, entity, case_num, es)
+        elif os.path.isfile(entity_path):
+            # Check timespan of scan (already scanned?)
+            if not scan.should_consider_file(entity_path):
+                logging.debug("Skipping file %s outside scan timespan", entity_path)
+            # Case for regular file. Check for relevance, then ingest.
+            elif extension in validExtensions or filename in validFiles:
+                if index.is_storagegrid(entity_path):
+                    index.stash_file_in_elk(entity_path, entity, case_num, es)
+                else:
+                    logging.debug("Skipping non-storagegrid file %s", entity_path)
+            # Case for archive. Recursively unzip and ingest contents.
             elif extension in validZips:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
@@ -249,7 +257,7 @@ def searchAnInspectionDirectory(scan, start, scratch_dir, es, depth=None, case_n
                 logging.debug("Added compressed archive to ELK: %s", entity_path)
             else:
                 # Invalid file, continue
-                logging.debug("Assumming incorrect filetype: %s", entity_path)
+                logging.debug("Skipping file %s with extension %s", entity_path, extension)
         else:
             # Previously ingested, continue
             logging.debug("Already ingested %s", entity_path)
