@@ -78,7 +78,7 @@ class EntryTestCase(unittest.TestCase):
             pass                                                # no leading ../ on rel
     
     def test_exists(self):
-        entry = paths.Entry(self.tmp_dir, int(time.time()))
+        entry = paths.Entry(self.tmp_dir, str(int(time.time())))
         self.assertFalse(entry.exists())
         self.assertFalse(entry.isdir())
         self.assertFalse(entry.isfile())
