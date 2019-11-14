@@ -57,7 +57,7 @@ class EntryTestCase(unittest.TestCase):
         self.assertEqual("/", entry.srcpath)
         self.assertEqual("dir/dir", entry.relpath)
         self.assertEqual("/dir/dir", entry.fullpath)
-        self.assertNotEqual("/dir/dir", entry.abspath)
+        self.assertEqual("/dir/dir", entry.abspath)
         
         try:
             entry = paths.Entry("/", "/dir/dir")
