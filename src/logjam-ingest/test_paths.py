@@ -14,7 +14,7 @@ import stat
 import gzip
 import subprocess
 
-import fields
+import paths
 
 
 CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
