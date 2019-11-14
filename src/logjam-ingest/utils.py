@@ -50,17 +50,29 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     assert os.path.isabs(dest), "Destination should be absolute: "+dest
 
     # Capture the modified time of the archive to force it upon its contents
-    archive_mtime = os.path.getmtime(src)
+    try:
+        archive_mtime = os.path.getmtime(src)
+    except:
+        logging.warning("Get mod time failed, skipping zipped file: %s", src)
+        pass                                    # no change permissions, may not own file
+        return                                  # just kill function, don't unzip
     
     def handle_extracted_file(path):
-        assert os.path.isabs(path), "Path should be absolute"
-        os.utime(path, (time.time(), archive_mtime)) # Set the file mod time to match the archive
+        """ Callback for each unzipped file """
+        path = os.path.abspath(path)
+        
+        if not try_fs_operation(path, lambda p: os.utime(p, (time.time(), archive_mtime))):
+            logging.warning("Set mod time failed, skipping file: %s", path)
+            delete_file(path)
+            return                              
+        
         if os.path.splitext(path)[1] in recursive_unzip_file_types:
             recursive_unzip(path, os.path.dirname(path), action)
             delete_file(path)                   # delete zip file, unzipped same location
         else:
             action(path)                        # basic file, perform action
             #delete_file(path)                  # no basic file clean up, leave for caller
+        
         return
     
     extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
@@ -162,82 +174,66 @@ def recursive_walk(src, action):
     return
 
 
+def lift_permissions(path):
+    """
+    Recursively chmods input file to 755
+    """
+    if platform.system() != "Windows":
+        parent_dir = os.path.dirname(path)
+        exit_code = os.system("chmod -R 755 {}".format(parent_dir))
+        if exit_code != 0:
+            logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
+    else:
+        os.chmod(path, stat.S_IWRITE)   # turn off read-only
+
+
+def try_fs_operation(path, func):
+    """
+    Tries to execute the given file system operation with lift_permissions
+    as a backup in case a 'Permission Denied' error is raised.
+    """
+    try:
+        func(path)                      # try operation with the given path
+        return True                     # operation succeeded, return True
+    except OSError as e:
+        if e.errno != 13:               # not permission denied (unknown error code)
+            return False                # could not complete operation, return failure
+        
+    lift_permissions(path)              # try raising the permissions of the path
+    
+    try:
+        func(path)                      # try operation again
+        return True                     # operation succeeded on 2nd try, return True
+    except:
+        return False                    # error occurred, couldn't fix it
+
+
 def delete_file(path):
     """
     Attempts to delete a file. If there is a problem halt the program.
     path : string
-        absolute path of the file to delete
+        path of the file to delete
     """
-    assert os.path.isabs(path), "Path should be absolute: "+path
+    path = os.path.abspath(path)
     
-    try:
-        os.remove(path)
-    except Exception as exc:
-        if isinstance(exc, OSError) and exc.errno == 13:
-            if platform.system() != "Windows":
-                logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                parent_dir = os.path.dirname(path)
-                exit_code = os.system("chmod -R 755 {}".format(parent_dir))
-                if exit_code != 0:
-                  logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
-                try:
-                    os.remove(path)             # try removing file again
-                except Exception as exc:
-                    logging.critical("Could not fix permissions: %d %s", exc.errno, exc)
-                    raise exc                   # give up, tried everything
-            else:
-                logging.warning("Error deleting %s. Attempting to turn off read-only", path)
-                os.chmod(path, stat.S_IWRITE)
-                try:
-                    os.remove(path)             # try removing file again
-                except Exception as exc:
-                    logging.critical("Could not fix permissions: %d %s", exc.errno, exc)
-                    raise exc                   # give up, tried everything
-        else:
-            logging.critical("Problem deleting file: %s", exc)
-            raise exc
+    if not try_fs_operation(path, lambda p: os.remove(p)):
+        logging.critical("File deletion failed, skipping file: %s", path)
+        return False
     
-    return
+    return True
 
 
 def delete_directory(path):
     """
     Attempts to delete a directory. If there is a problem halt the program.
     path : string
-        absolute path of the directory to delete
+        path of the directory to delete
     """
-    assert os.path.isabs(path), "Path should be absolute: "+path
+    path = os.path.abspath(path)
     
-    def handle_errors(func, path, excinfo):
-        """ Handles errors thrown by shutil.rmtree when trying to remove directories w/
-        bad permissions. This elegant solution was originally found here:
-        https://stackoverflow.com/questions/1889597/deleting-directory-in-python
-        """
-        (t,exc,traceback) = excinfo
-        if isinstance(exc, OSError) and exc.errno == 13:
-            if platform.system() != "Windows":
-                logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                parent_dir = os.path.dirname(path)
-                exit_code = os.system("chmod -R 755 {}".format(parent_dir))
-                if exit_code != 0:
-                  logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
-                func(path)                      # try removing file again
-            else:
-                logging.warning("Error deleting %s. Attempting to turn off read-only", path)
-                os.chmod(path, stat.S_IWRITE)   # turn off read-only
-                func(path)                      # try removing file again
-        else:
-            logging.warning("Unknown exception occured during directory removal")
-            logging.warning(excinfo)
-            logging.warning(exc)
-            raise exc
-        return
+    if not try_fs_operation(path, lambda p: shutil.rmtree(p)):
+        logging.critical("Directory deletion failed, skipping directory; %s", path)
+        return False
     
-    try:
-        shutil.rmtree(path,onerror=handle_errors)
-    except Exception as exc:
-        logging.critical("Problem deleting unzipped folder: %s", exc)
-        raise exc
-    
-    return
-    
+    return True
+
