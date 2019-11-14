@@ -108,34 +108,6 @@ class EntryTestCase(unittest.TestCase):
         self.assertEqual("./dir/dir/../tmp", entry.relpath)
         self.assertEqual("/dir/tmp", entry.abspath)
     
-    def test_exists(self):
-        entry = paths.Entry(self.tmp_dir, str(int(time.time())))
-        self.assertFalse(entry.exists())
-        self.assertFalse(entry.is_dir())
-        self.assertFalse(entry.is_file())
-    
-    def test_is_dir(self):
-        folder_path = os.path.join(self.tmp_dir, "folder")
-        os.makedirs(folder_path)
-        self.assertTrue(os.path.exists(folder_path))
-        self.assertTrue(os.path.isdir(folder_path))
-        
-        entry = paths.Entry(self.tmp_dir, "folder")
-        self.assertTrue(entry.exists())
-        self.assertTrue(entry.is_dir())
-        self.assertFalse(entry.is_file())
-    
-    def test_is_file(self):
-        file_path = os.path.join(self.tmp_dir, "log.txt")
-        open(file_path, "a").close()
-        self.assertTrue(os.path.exists(file_path))
-        self.assertTrue(os.path.isfile(file_path))
-        
-        entry = paths.Entry(self.tmp_dir, "log.txt")
-        self.assertTrue(entry.exists())
-        self.assertFalse(entry.is_dir())
-        self.assertTrue(entry.is_file())
-    
     def test_extension(self):
         entry = paths.Entry("/", "dir/dir")
         self.assertEqual("", entry.extension)
@@ -175,4 +147,34 @@ class EntryTestCase(unittest.TestCase):
         
         entry = paths.Entry("/", ".dir/dir.tar.gz")
         self.assertEqual(".gz", entry.extension)
+    
+    def test_exists(self):
+        entry = paths.Entry(self.tmp_dir, str(int(time.time())))
+        self.assertFalse(entry.exists())
+        self.assertFalse(entry.is_dir())
+        self.assertFalse(entry.is_file())
+    
+    def test_is_dir(self):
+        folder_path = os.path.join(self.tmp_dir, "folder")
+        os.makedirs(folder_path)
+        self.assertTrue(os.path.exists(folder_path))
+        self.assertTrue(os.path.isdir(folder_path))
+        
+        entry = paths.Entry(self.tmp_dir, "folder")
+        self.assertTrue(entry.exists())
+        self.assertTrue(entry.is_dir())
+        self.assertFalse(entry.is_file())
+    
+    def test_is_file(self):
+        file_path = os.path.join(self.tmp_dir, "log.txt")
+        open(file_path, "a").close()
+        self.assertTrue(os.path.exists(file_path))
+        self.assertTrue(os.path.isfile(file_path))
+        
+        entry = paths.Entry(self.tmp_dir, "log.txt")
+        self.assertTrue(entry.exists())
+        self.assertFalse(entry.is_dir())
+        self.assertTrue(entry.is_file())
+    
+
 

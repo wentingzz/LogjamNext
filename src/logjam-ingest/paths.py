@@ -41,11 +41,18 @@ class Entry:
     
     def __truediv__(self, new_path):
         """ Returns a new Entry object where new_path is appended to the relative path """
+        if not isinstance(new_path, str):
+            raise NotImplementedError("Can only append str")
+        
         return Entry(self.srcpath, os.path.join(self.relpath, new_path))
     
     def __itruediv__(self, new_path):
         """ Appends new_path to this Entry object's relative path """
+        if not isinstance(new_path, str):
+            raise NotImplementedError("Can only append str")
+        
         self.relpath = os.path.join(self.relpath, new_path)
+        return self
     
     @property
     def srcpath(self):
