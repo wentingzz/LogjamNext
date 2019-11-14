@@ -54,6 +54,20 @@ class Entry:
         """ Returns the relative location of the entry to its source directory """
         return self._relative
     
+    @property
+    def basename(self):
+        """ Returns the base name of the entry as defined by `os.path.basename` """
+        return os.path.basename(self._relative)
+    
+    @property
+    def extension(self):
+        """
+        Returns the extension of the entry (if the extension exists) including
+        the dot before the extension name. Directories should not have an extension
+        and if so this function will return an empty string. Leading dots are ignored.
+        """
+        return os.path.splitext(self._relative)[1]
+    
     def exists(self):
         """ Returns whether this entry exists on the file system """
         return os.path.exists(self.abspath)
@@ -66,11 +80,5 @@ class Entry:
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
     
-    def extension(self):
-        """
-        Returns the extension of the entry (if the extension exists) including
-        the dot before the extension name. Directories should not have an extension
-        and if so this function will return an empty string. Leading dots are ignored.
-        """
-        return os.path.splitext(self.relpath)[1]
+    
 
