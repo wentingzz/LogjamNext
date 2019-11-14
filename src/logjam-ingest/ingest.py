@@ -249,7 +249,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
                     recursive_search(scan, unzip_folder, scratch_dir, es, case_num, None, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
+                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
                     process_unknown_file(unzip_folder, case_num, es)
                 
@@ -303,7 +303,7 @@ def process_node_recursive(lumber_dir, file_list):
         entry_path = os.path.join(lumber_dir, entry)
         name, extension = os.path.splitext(entry)
         
-        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and is_storagegrid(entry_path):
+        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and fields.is_storagegrid(entry_path):
             file_list.append(entry_path)
         
         elif os.path.isdir(entry_path):
