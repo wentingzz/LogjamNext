@@ -33,10 +33,10 @@ class Entry:
         assert not relative.startswith("../"), "Leading .. not supported : "+relative
         assert not relative == "..", "Leading .. not supported : "+relative
         
-        source = source[:-2] if source.endswith('/') else source
+        source = source[:-1] if source.endswith('/') else source
         self._source = source                       # removed trailing /, format = ...n/n
         
-        relative = relative[:-2] if relative.endswith('/') else relative
+        relative = relative[:-1] if relative.endswith('/') else relative
         self._relative = relative                   # removed trailin /, format = n/n...
     
     @property
