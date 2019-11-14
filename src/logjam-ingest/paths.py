@@ -1,23 +1,14 @@
 """
 @author Nathaniel Brooks
 
-
+Utility file system path functionality, such as the QuantumEntry class.
 """
 
 
 import os
 
 
-
-class QuantumDirectories:
-	"""
-	Represents a collection of directories that a single file or directory
-	might simultaneously exist in. This will be used to detect overlapping
-	files between two distinct directories with the same hierarchy.
-	"""
-
-
-class Entry:
+class QuantumEntry:
     """
     Represents a file system entry that could exist in multiple source directories
     at once. For the purposes of the Logjam system only the relative path after
@@ -33,21 +24,21 @@ class Entry:
         self.relpath = relative
     
     def __eq__(self, other):
-        """ Returns whether two Entry objects are equal """
-        if not isinstance(other, Entry):
-            raise NotImplementedError("Can only compare Entry")
+        """ Returns whether two QuantumEntry objects are equal """
+        if not isinstance(other, QuantumEntry):
+            raise NotImplementedError("Can only compare QuantumEntry")
         
         return self.srcpath == other.srcpath and self.relpath == other.relpath
     
     def __truediv__(self, new_path):
-        """ Returns a new Entry object where new_path is appended to the relative path """
+        """ Returns a new QuantumEntry object where new_path is appended to the relative path """
         if not isinstance(new_path, str):
             raise NotImplementedError("Can only append str")
         
-        return Entry(self.srcpath, os.path.join(self.relpath, new_path))
+        return QuantumEntry(self.srcpath, os.path.join(self.relpath, new_path))
     
     def __itruediv__(self, new_path):
-        """ Appends new_path to this Entry object's relative path """
+        """ Appends new_path to this QuantumEntry object's relative path """
         if not isinstance(new_path, str):
             raise NotImplementedError("Can only append str")
         
