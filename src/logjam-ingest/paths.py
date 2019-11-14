@@ -123,6 +123,4 @@ class Entry:
     def is_file(self):
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
-    
-    
 
