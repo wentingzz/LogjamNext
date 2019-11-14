@@ -59,23 +59,54 @@ class EntryTestCase(unittest.TestCase):
         self.assertEqual("/dir/dir", entry.fullpath)
         self.assertEqual("/dir/dir", entry.abspath)
         
+        entry = paths.Entry("/", "./dir/dir")
+        self.assertEqual("/", entry.srcpath)
+        self.assertEqual("./dir/dir", entry.relpath)
+        self.assertEqual("/./dir/dir", entry.fullpath)
+        self.assertEqual("/dir/dir", entry.abspath)
+        
+        entry = paths.Entry("/mnt/", "../dir/dir/")
+        self.assertEqual("/mnt", entry.srcpath)
+        self.assertEqual("../dir/dir", entry.relpath)
+        self.assertEqual("/mnt/../dir/dir", entry.fullpath)
+        self.assertEqual("/dir/dir", entry.abspath)
+        
         try:
             entry = paths.Entry("/", "/dir/dir")
             self.fail()
         except AssertionError:
             pass                                                # no leading / on rel
+    
+    def test_eq(self):
+        entry = paths.Entry("/mnt/nfs/", "2008938201/log.txt")
+        self.assertEqual(paths.Entry("/mnt/nfs/", "2008938201/log.txt"), entry)
+        self.assertEqual(paths.Entry("/mnt/nfs", "2008938201/log.txt"), entry)
+        self.assertTrue(paths.Entry("/mnt/nfs/", "2008938201/log.txt") == entry)
+        self.assertTrue(paths.Entry("/mnt/nfs", "2008938201/log.txt") == entry)
         
-        try:
-            entry = paths.Entry("/", "./dir/dir")
-            self.fail()
-        except AssertionError:
-            pass                                                # no leading ./ on rel
+        self.assertNotEqual(paths.Entry("/mnt/nfs/", "2008938201/"), entry)
+        self.assertNotEqual(paths.Entry("/mnt/nfs", "2008938201"), entry)
+        self.assertFalse(paths.Entry("/mnt/nfs/", "2008938201/") == entry)
+        self.assertFalse(paths.Entry("/mnt/nfs", "2008938201") == entry)
+    
+    def test_truediv(self):
+        entry = paths.Entry("/", "dir/dir")
+        self.assertEqual(paths.Entry("/", "dir/dir/dir"), entry / "dir")
+        self.assertEqual(paths.Entry("/", "dir/dir/a/b/c"), entry / "a/b/c/")
+        self.assertEqual(paths.Entry("/", "dir/dir/a/b/c/"), entry / "a/b/c")
+        self.assertEqual(paths.Entry("/", "dir/dir/a/b/c"), entry / "a/b/c")
+        self.assertEqual(paths.Entry("/", "dir/dir"), entry)
+    
+    def test_itruediv(self):
+        entry = paths.Entry("/", "./")
+        self.assertEqual(".", entry.relpath)
         
-        try:
-            entry = paths.Entry("/", "../dir/dir")
-            self.fail()
-        except AssertionError:
-            pass                                                # no leading ../ on rel
+        entry /= "dir/dir/"
+        self.assertEqual("./dir/dir", entry.relpath)
+        
+        entry /= "../tmp"
+        self.assertEqual("./dir/dir/../tmp", entry.relpath)
+        self.assertEqual("/dir/tmp", entry.abspath)
     
     def test_exists(self):
         entry = paths.Entry(self.tmp_dir, str(int(time.time())))

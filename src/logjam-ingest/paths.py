@@ -37,25 +37,15 @@ class Entry:
         if not isinstance(other, Entry):
             raise NotImplementedError("Can only compare Entry")
         
-        return self._source == other._source and self._relative == other._relative
+        return self.srcpath == other.srcpath and self.relpath == other.relpath
     
     def __truediv__(self, new_path):
         """ Returns a new Entry object where new_path is appended to the relative path """
-        return Entry(self._source, os.path.join(self._relative, new_path))
+        return Entry(self.srcpath, os.path.join(self.relpath, new_path))
     
     def __itruediv__(self, new_path):
         """ Appends new_path to this Entry object's relative path """
-        self._relative = os.path.join(self._relative, new_path)
-    
-    @property
-    def abspath(self):
-        """ Returns the absolute location of the entry on the file system """
-        return os.path.abspath(os.path.join(self._source, self._relative))
-    
-    @property
-    def fullpath(self):
-        """ Returns the full path of the entry, which is the source + relative path """
-        return os.path.join(self._source, self._relative)
+        self.relpath = os.path.join(self.relpath, new_path)
     
     @property
     def srcpath(self):
@@ -65,8 +55,13 @@ class Entry:
     @srcpath.setter
     def srcpath(self, source):
         """ Sets the source directory for this entry """
-        source = source[:-1] if source.endswith("/") and source != "/" else source
-        self._source = source                       # removed trailing /, format = ...n/n
+        self._source = source
+        self._srcpath_trim_trailing_slash()
+    
+    def _srcpath_trim_trailing_slash(self):
+        """ Trims the trailing slash from source path if it exists """
+        while self._source.endswith("/") and self._source != "/":
+            self._source = self._source[:-1]
     
     @property
     def relpath(self):
@@ -77,18 +72,29 @@ class Entry:
     def relpath(self, relative):
         """ Sets the relative directory for this entry """
         assert not relative.startswith("/"), "Cannot start with '/' : "+relative
-        assert not relative.startswith("./"), "Leading . not supported : "+relative
-        assert not relative == ".", "Leading . not supported : "+relative
-        assert not relative.startswith("../"), "Leading .. not supported : "+relative
-        assert not relative == "..", "Leading .. not supported : "+relative
         
-        relative = relative[:-1] if relative.endswith('/') else relative
-        self._relative = relative                   # removed trailin /, format = n/n...
+        self._relative = relative
+        self._relpath_trim_trailing_slash()
+    
+    def _relpath_trim_trailing_slash(self):
+        """ Trims the trailing slash from relative path if it exists """
+        while self._relative.endswith('/'):
+            self._relative = self._relative[:-1]
+    
+    @property
+    def abspath(self):
+        """ Returns the absolute location of the entry on the file system """
+        return os.path.abspath(os.path.join(self.srcpath, self.relpath))
+    
+    @property
+    def fullpath(self):
+        """ Returns the full path of the entry, which is the source + relative path """
+        return os.path.join(self.srcpath, self.relpath)
     
     @property
     def basename(self):
         """ Returns the base name of the entry as defined by `os.path.basename` """
-        return os.path.basename(self._relative)
+        return os.path.basename(self.relpath)
     
     @property
     def extension(self):
@@ -97,7 +103,7 @@ class Entry:
         the dot before the extension name. Directories should not have an extension
         and if so this function will return an empty string. Leading dots are ignored.
         """
-        return os.path.splitext(self._relative)[1]
+        return os.path.splitext(self.relpath)[1]
     
     def exists(self):
         """ Returns whether this entry exists on the file system """
