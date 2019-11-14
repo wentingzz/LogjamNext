@@ -199,6 +199,17 @@ def delete_file(path):
     
     return
 
+def lift_permissions(path):
+    """
+    Recirsively chmods input file to 755
+    """
+    if platform.system() != "Windows":
+        parent_dir = os.path.dirname(path)
+        exit_code = os.system("chmod -R 755 {}".format(parent_dir))
+        if exit_code != 0:
+            logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
+    else:
+        os.chmod(path, stat.S_IWRITE)   # turn off read-only
 
 def delete_directory(path):
     """
@@ -207,7 +218,7 @@ def delete_directory(path):
         absolute path of the directory to delete
     """
     assert os.path.isabs(path), "Path should be absolute: "+path
-    
+
     def handle_errors(func, path, excinfo):
         """ Handles errors thrown by shutil.rmtree when trying to remove directories w/
         bad permissions. This elegant solution was originally found here:
@@ -215,17 +226,9 @@ def delete_directory(path):
         """
         (t,exc,traceback) = excinfo
         if isinstance(exc, OSError) and exc.errno == 13:
-            if platform.system() != "Windows":
-                logging.warning("Error deleting %s. Attempting to fix permissions", path)
-                parent_dir = os.path.dirname(path)
-                exit_code = os.system("chmod -R 755 {}".format(parent_dir))
-                if exit_code != 0:
-                  logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
-                func(path)                      # try removing file again
-            else:
-                logging.warning("Error deleting %s. Attempting to turn off read-only", path)
-                os.chmod(path, stat.S_IWRITE)   # turn off read-only
-                func(path)                      # try removing file again
+            logging.warning("Error deleting %s. Attempting to fix permissions", path)
+            lift_permissions(path)
+            func(path)
         else:
             logging.warning("Unknown exception occured during directory removal")
             logging.warning(excinfo)
