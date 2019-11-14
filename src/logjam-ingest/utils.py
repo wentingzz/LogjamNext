@@ -12,6 +12,7 @@ helper functions.
 
 import os
 import types
+import time
 import platform
 import logging
 import shutil
@@ -47,9 +48,13 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     assert os.path.isdir(dest), "Destination should be a dir: "+dest
     dest = os.path.abspath(dest)
     assert os.path.isabs(dest), "Destination should be absolute: "+dest
+
+    # Capture the modified time of the archive to force it upon its contents
+    archive_mtime = os.path.getmtime(src)
     
     def handle_extracted_file(path):
         assert os.path.isabs(path), "Path should be absolute"
+        os.utime(path, (time.time(), archive_mtime)) # Set the file mod time to match the archive
         if os.path.splitext(path)[1] in recursive_unzip_file_types:
             recursive_unzip(path, os.path.dirname(path), action)
             delete_file(path)                   # delete zip file, unzipped same location
@@ -102,12 +107,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
             error_flag = True                   # just log it and skip it
         
         if not error_flag:
-            if os.path.splitext(dest)[1] in recursive_unzip_file_types:
-                recursive_unzip(dest, os.path.dirname(dest), action)
-                delete_file(dest)               # delete zip file, unzipped same location
-            else:
-                action(dest)                    # basic file, perform action
-                #delete_file(dest)              # no basic file clean up, leave for caller
+            handle_extracted_file(dest) # Recurse for an archive, perform 'action' for a regular file
         elif os.path.exists(dest):
             if os.path.isdir(dest):
                 delete_directory(dest)
