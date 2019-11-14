@@ -7,7 +7,7 @@ import stat
 import gzip
 import subprocess
 
-import utils
+import unzip
 
 
 # coverage report: 72-74, 85-87, 104-106, 112-113, 
@@ -17,7 +17,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def setUpClass(cls):
         dirname = os.path.dirname(os.path.realpath(__file__))
         cls.tmpdir = os.path.join(dirname, "test-" + str(int(time.time())))
-        cls.srcdir = os.path.join(dirname, "test-data", "Utils")
+        cls.srcdir = os.path.join(dirname, "test-data", "Unzip")
         os.mkdir(cls.tmpdir)
         
         shutil.make_archive(os.path.join(cls.tmpdir, 'hello_zip'), 'zip', os.path.join(cls.srcdir, 'hello_zip'))
@@ -38,7 +38,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
 
     def test_targz(self):
         # Call recursive unzip
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz')))
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz', 'folder')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_targz', 'folder', 'targz.txt')))
@@ -47,26 +47,26 @@ class RecursiveUnzipTestCase(unittest.TestCase):
 
 
     def test_tar(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_tar.tar'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_tar.tar'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_tar')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_tar', 'tar.txt')))
 
     def test_zip(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_zip.zip'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_zip.zip'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_zip')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_zip', 'zip.txt')))
     
     def test_7z(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_7z')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_7z', '7z.txt')))
 
     def test_gz(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_gz')))
 
     def test_corrupt_tgz(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
         # Should have an error but handle gracefully. Output file should not exist.
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'corrupt')))
 
@@ -92,7 +92,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         os.remove(existing_file)
         assert not os.path.isfile(existing_file)
 
-        utils.recursive_unzip(archive_path, self.tmpdir)
+        unzip.recursive_unzip(archive_path, self.tmpdir)
 
         assert not os.path.isfile(existing_file)
 
@@ -119,13 +119,13 @@ class DeleteFileTestCase(unittest.TestCase):
 
     def test_invalidFile(self):
         try:
-            utils.delete_file(self.tmpdir)
-            self.fail("utils.delete_file deletes a directory")
+            unzip.delete_file(self.tmpdir)
+            self.fail("unzip.delete_file deletes a directory")
         except Exception as exc:
             pass
         
         try:
-            utils.delete_file(os.path.join(self.tmpdir, 'invalid_path'))
+            unzip.delete_file(os.path.join(self.tmpdir, 'invalid_path'))
             self.fail(os.path.join(self.tmpdir, 'invalid_path') + " should not exist")
         except Exception as exc:
             pass
@@ -136,7 +136,7 @@ class DeleteFileTestCase(unittest.TestCase):
         file.close()
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'copy.txt')))
         os.chmod(os.path.join(self.tmpdir, 'copy.txt'), stat.S_IRUSR)
-        utils.delete_file(os.path.join(self.tmpdir, 'copy.txt'))
+        unzip.delete_file(os.path.join(self.tmpdir, 'copy.txt'))
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'copy.txt')))
             
     @classmethod
@@ -156,7 +156,7 @@ class DeleteDirectoryTestCase(unittest.TestCase):
 
     def test_invalidDirectory(self):
         os.chmod(self.tmpsubdir, stat.S_IREAD)
-        utils.delete_directory(self.tmpsubdir)
+        unzip.delete_directory(self.tmpsubdir)
         self.assertFalse(os.access(os.path.join(self.tmpdir, "copy.txt"), os.W_OK))
 
     @classmethod
