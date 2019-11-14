@@ -80,10 +80,10 @@ class EntryTestCase(unittest.TestCase):
     def test_exists(self):
         entry = paths.Entry(self.tmp_dir, str(int(time.time())))
         self.assertFalse(entry.exists())
-        self.assertFalse(entry.isdir())
-        self.assertFalse(entry.isfile())
+        self.assertFalse(entry.is_dir())
+        self.assertFalse(entry.is_file())
     
-    def test_isdir(self):
+    def test_is_dir(self):
         folder_path = os.path.join(self.tmp_dir, "folder")
         os.makedirs(folder_path)
         self.assertTrue(os.path.exists(folder_path))
@@ -91,10 +91,10 @@ class EntryTestCase(unittest.TestCase):
         
         entry = paths.Entry(self.tmp_dir, "folder")
         self.assertTrue(entry.exists())
-        self.assertTrue(entry.isdir())
-        self.assertFalse(entry.isfile())
+        self.assertTrue(entry.is_dir())
+        self.assertFalse(entry.is_file())
     
-    def test_isfile(self):
+    def test_is_file(self):
         file_path = os.path.join(self.tmp_dir, "log.txt")
         open(file_path, "a").close()
         self.assertTrue(os.path.exists(file_path))
@@ -102,8 +102,8 @@ class EntryTestCase(unittest.TestCase):
         
         entry = paths.Entry(self.tmp_dir, "log.txt")
         self.assertTrue(entry.exists())
-        self.assertFalse(entry.isdir())
-        self.assertTrue(entry.isfile())
+        self.assertFalse(entry.is_dir())
+        self.assertTrue(entry.is_file())
     
     def test_extension(self):
         entry = paths.Entry("/", "dir/dir")
@@ -135,4 +135,13 @@ class EntryTestCase(unittest.TestCase):
         
         entry = paths.Entry("/", "log.txt/")
         self.assertEqual(".txt", entry.extension)
+        
+        entry = paths.Entry("/", ".dir/dir.dir.dir/")
+        self.assertEqual(".dir", entry.extension)
+        
+        entry = paths.Entry("/", ".dir/dir.dir.dir/.dir")
+        self.assertEqual("", entry.extension)
+        
+        entry = paths.Entry("/", ".dir/dir.tar.gz")
+        self.assertEqual(".gz", entry.extension)
 
