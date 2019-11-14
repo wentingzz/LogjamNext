@@ -27,12 +27,17 @@ class Entry:
     
     def __init__(self, source, relative):
         """ Initializes an object with one source directory and a relative path """
-        assert not relative.startswith("/"), "Relative portion cannot start with '/' : "+relative
-        assert not relative.startswith("./"), "Leading dot not supported : "+relative
-        assert not relative.startswith("../"), "Double leading dot not supported : "+relative
+        assert not relative.startswith("/"), "Cannot start with '/' : "+relative
+        assert not relative.startswith("./"), "Leading . not supported : "+relative
+        assert not relative == ".", "Leading . not supported : "+relative
+        assert not relative.startswith("../"), "Leading .. not supported : "+relative
+        assert not relative == "..", "Leading .. not supported : "+relative
         
-        self._source = os.path.join(source, "")             # ensure always ends with /
-        self._relative = relative                           # should be of form n/n/n...
+        source = source[:-2] if source.endswith('/') else source
+        self._source = source                       # removed trailing /, format = ...n/n
+        
+        relative = relative[:-2] if relative.endswith('/') else relative
+        self._relative = relative                   # removed trailin /, format = n/n...
     
     @property
     def abspath(self):

@@ -36,22 +36,22 @@ class EntryTestCase(unittest.TestCase):
     
     def test_init(self):
         entry = paths.Entry("/mnt/nfs", "2001387465/dir/dir/log.txt")
-        self.assertEqual("/mnt/nfs/", entry.srcpath)
+        self.assertEqual("/mnt/nfs", entry.srcpath)
         self.assertEqual("2001387465/dir/dir/log.txt", entry.relpath)
         self.assertEqual("/mnt/nfs/2001387465/dir/dir/log.txt", entry.fullpath)
         self.assertEqual("/mnt/nfs/2001387465/dir/dir/log.txt", entry.abspath)
         
         entry = paths.Entry(".", "dir/dir/dir/")
-        self.assertEqual("./", entry.srcpath)
-        self.assertEqual("dir/dir/dir/", entry.relpath)
-        self.assertEqual("./dir/dir/dir/", entry.fullpath)
-        self.assertNotEqual("./dir/dir/dir/", entry.abspath)    # can't know absolute path
+        self.assertEqual(".", entry.srcpath)
+        self.assertEqual("dir/dir/dir", entry.relpath)
+        self.assertEqual("./dir/dir/dir", entry.fullpath)
+        self.assertNotEqual("./dir/dir/dir", entry.abspath)    # can't know absolute path
         
         entry = paths.Entry("./", "dir/dir/dir/")
-        self.assertEqual("./", entry.srcpath)
-        self.assertEqual("dir/dir/dir/", entry.relpath)
-        self.assertEqual("./dir/dir/dir/", entry.fullpath)
-        self.assertNotEqual("./dir/dir/dir/", entry.abspath)    # can't know absolute path
+        self.assertEqual(".", entry.srcpath)
+        self.assertEqual("dir/dir/dir", entry.relpath)
+        self.assertEqual("./dir/dir/dir", entry.fullpath)
+        self.assertNotEqual("./dir/dir/dir", entry.abspath)    # can't know absolute path
         
         entry = paths.Entry("/", "dir/dir")
         self.assertEqual("/", entry.srcpath)
@@ -84,12 +84,12 @@ class EntryTestCase(unittest.TestCase):
         self.assertFalse(entry.isfile())
     
     def test_isdir(self):
-        folder_path = os.path.join(self.tmp_dir, "folder/")
+        folder_path = os.path.join(self.tmp_dir, "folder")
         os.makedirs(folder_path)
         self.assertTrue(os.path.exists(folder_path))
         self.assertTrue(os.path.isdir(folder_path))
         
-        entry = paths.Entry(self.tmp_dir, "folder/")
+        entry = paths.Entry(self.tmp_dir, "folder")
         self.assertTrue(entry.exists())
         self.assertTrue(entry.isdir())
         self.assertFalse(entry.isfile())
