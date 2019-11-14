@@ -36,7 +36,7 @@ class TestIngest(unittest.TestCase):
     def test_basic_ingest(self):
         """ Run the full ingest process on a simple set of inputs """
         # Establish paths under the test's temp directory
-        input_dir = os.path.join(self.data_dir, "TestInputDir01")
+        input_dir = os.path.join(self.data_dir, "Scan")
         categ_dir = os.path.join(self.tmp_dir, "categories")
         scratch_dir = os.path.join(self.tmp_dir, "scratch")
         history_dir = os.path.join(self.tmp_dir, "history")
