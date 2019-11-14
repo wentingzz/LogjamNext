@@ -19,7 +19,7 @@ CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Scan")
 
 
-class TestIngest(unittest.TestCase):
+class FullIngestTestCase(unittest.TestCase):
     """ Test case class for ingest unit tests """
 
     data_dir = os.path.join(CODE_SRC_DIR, "test-data")

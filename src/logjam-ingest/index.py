@@ -1,7 +1,8 @@
 """
 @author Wenting Zheng
+@author Nathaniel Brooks
 
-This file is to process, and index files to Elasticsearch
+This file is for indexing files to Elasticsearch
 """
 
 
