@@ -46,7 +46,7 @@ def stash_node_in_elk(fullPath, caseNum, es = None):
 
 def set_data(file_path, send_time, fields_obj):
     """ Generator function used with bulk helper API """
-    with open(file_path) as log_file:
+    with open(file_path, "rb") as log_file:
         try:
             for line in log_file:
                 yield {
@@ -56,7 +56,7 @@ def set_data(file_path, send_time, fields_obj):
                         'storagegrid_version': fields_obj.sg_ver,
                         'platform': fields_obj.platform,
                         'categorize_time': send_time,
-                        'message': line
+                        'message': line.decode('utf-8')
                     }
                 }
         except UnicodeDecodeError:
@@ -114,12 +114,14 @@ def send_to_es(es_obj, fields_obj, file_path):
     send_time = int(round(time.time() * 1000))  # Epoch milliseconds
     
     try:
-        success, _ = helpers.bulk(
-            es_obj,
-            set_data(file_path, send_time, fields_obj),
-            index=INDEX_NAME,
-            doc_type='_doc')
-        logging.debug("Indexed %s to Elasticsearch", file_path)
+        error = False
+        for success, info in helpers.parallel_bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
+            if not success:
+                error = True
+        if error:
+            logging.critical("Unable to index %s to Elasticsearch", file_path)
+        else:
+            logging.debug("Indexed %s to Elasticsearch", file_path)
     
     except elasticsearch.exceptions.ConnectionError:
         logging.critical("Connection error sending doc %s to elastic search (file too big?)", file_path)
