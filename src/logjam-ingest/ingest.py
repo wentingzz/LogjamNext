@@ -34,7 +34,7 @@ from conans import tools
 from pyunpack import Archive
 
 import incremental
-import utils
+import unzip
 import index
 import fields
 
@@ -136,7 +136,7 @@ def main():
     
     finally:
         logging.info("Cleaning up scratch space")
-        utils.delete_directory(scratch_dir)         # always delete scratch_dir
+        unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
 def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
@@ -244,7 +244,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
                 new_scratch_dir = os.path.join(scratch_dir, "tmp")
                 os.makedirs(new_scratch_dir)
-                utils.recursive_unzip(entity_path, new_scratch_dir)
+                unzip.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
@@ -255,7 +255,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
-                utils.delete_directory(new_scratch_dir)
+                unzip.delete_directory(new_scratch_dir)
 
                 logging.debug("Added compressed archive to ELK: %s", entity_path)
             else:
