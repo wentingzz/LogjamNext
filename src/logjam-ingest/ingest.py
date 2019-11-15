@@ -149,7 +149,13 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
     
     scan = incremental.Scan(input_dir, history_dir)
     
-    entities = sorted(os.listdir(input_dir))
+    try:
+        entities = os.listdir(input_dir)
+    except OSError as e:
+        logging.critical("Error during os.listdir(%s): %s", input_dir, e)
+        entities = []
+    entities = sorted(entities)
+    
     for e in range(len(entities)):
         if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
             continue                                    # skip, haven't reached last_path
@@ -209,7 +215,14 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
     
     # Loop over each file in the current directory\
     search_dir = os.path.join(start, depth)
-    entities = sorted(os.listdir(search_dir))
+    
+    try:
+        entities = os.listdir(search_dir)
+    except OSError as e:
+        logging.critical("Error during os.listdir(%s): %s", search_dir, e)
+        entities = []
+    entities = sorted(entities)
+    
     for e in range(len(entities)):
         if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
             continue                                    # skip, haven't reached last_path
