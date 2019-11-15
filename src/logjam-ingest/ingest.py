@@ -164,7 +164,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
         if os.path.isdir(full_path):
             case_num = fields.get_case_number(entity)
             if case_num != None:
-                search_case_directory(scan, es_obj, paths.QuantumEntry(scan.input_dir, entity))
+                search_case_directory(scan, full_path, es_obj, case_num)
             else:
                 logging.debug("Ignored non-StorageGRID directory: %s", full_path)
         else:
@@ -178,13 +178,16 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     return
 
 
-def search_case_directory(scan_obj, es_obj, case_dir_entry):
+def search_case_directory(scan_obj, case_dir, es_obj, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
+    case_num = None                         # will remove after parallelization done
+    
+    case_dir_entry = paths.QuantumEntry(scan.input_dir, os.path.basename(case_dir))
     
     case_num = fields.get_case_number(case_dir_entry.abspath)
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
