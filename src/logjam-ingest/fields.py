@@ -12,6 +12,7 @@ and handling other StorageGRID related tasks such as identifying valid StorageGR
 
 import re
 import os
+import logging
 
 
 MISSING_CASE_NUM = "Unknown"
