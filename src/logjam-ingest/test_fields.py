@@ -53,7 +53,8 @@ class NodeFieldsTestCase(unittest.TestCase):
         
         f = fields.NodeFields.from_lumberjack_dir(lumber_dir)
         self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
-        self.assertEqual("100.100.100-12345678.0224.asdfg12345", f.sg_ver)
+        self.assertEqual(100, f.sg_ver[0])
+        self.assertEqual(100, f.sg_ver[1])
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
         self.assertEqual("2015-2017", f.time_span)
@@ -244,7 +245,8 @@ class ExtractFieldsTestCase(unittest.TestCase):
         try:
             lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
             version = fields.get_storage_grid_version(lumber_dir)
-            self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
+            self.assertEqual(version[0], 100)
+            self.assertEqual(version[1], 100)
         except Exception as exc:
             self.fail(exc)
 
@@ -327,7 +329,8 @@ class ExtractFieldsTestCase(unittest.TestCase):
         
         new_f = fields.extract_fields(lumber_dir, inherit_from=old_f)
         self.assertEqual("2001399485", new_f.case_num)
-        self.assertEqual("100.100.100-12345678.0224.asdfg12345", new_f.sg_ver)
+        self.assertEqual(100, new_f.sg_ver[0])
+        self.assertEqual(100, new_f.sg_ver[1])
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
         self.assertEqual("2015-2017", new_f.time_span)
