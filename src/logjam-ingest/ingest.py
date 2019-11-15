@@ -139,7 +139,7 @@ def main():
         utils.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
-def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
+def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
@@ -147,7 +147,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
     """
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
-    scan = incremental.Scan(input_dir, history_dir)
+    scan = incremental.Scan(input_dir, history_dir, scratch_dir)
     
     entities = sorted(os.listdir(input_dir))
     for e in range(len(entities)):
@@ -159,7 +159,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
         if os.path.isdir(full_path):
             case_num = fields.get_case_number(entity)
             if case_num != None:
-                search_case_directory(scan, full_path, scratch_dir, es, case_num)
+                search_case_directory(scan, full_path, es_obj, case_num)
             else:
                 logging.debug("Ignored non-StorageGRID directory: %s", full_path)
         else:
@@ -173,17 +173,17 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
     return
 
 
-def search_case_directory(scan_obj, search_dir, scratch_dir, es_obj, case_num):
+def search_case_directory(scan_obj, search_dir, es_obj, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    return recursive_search(scan_obj, search_dir, scratch_dir, es_obj, case_num)
+    return recursive_search(scan_obj, search_dir, es_obj, case_num)
 
 
-def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_dir=None):
+def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
     """
     Recursively go through directories to find log files. If compressed, then we need
     to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
@@ -226,7 +226,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 index.stash_node_in_elk(entity_path , case_num, es)
             else:
                 # Detected a directory, continue
-                recursive_search(scan, start, scratch_dir, es, case_num, os.path.join(depth, entity), scan_dir)
+                recursive_search(scan, start, es, case_num, os.path.join(depth, entity), scan_dir)
         
         elif os.path.isfile(entity_path):
             # Check timespan of scan (already scanned?)
@@ -242,13 +242,13 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
             elif extension in validZips:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scratch_dir, "tmp")
+                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp")
                 os.makedirs(new_scratch_dir)
                 utils.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
-                    recursive_search(scan, unzip_folder, scratch_dir, es, case_num, None, entity_path)
+                    recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
                     index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, es)
