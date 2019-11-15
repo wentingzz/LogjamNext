@@ -39,8 +39,6 @@ def get_versions():
 
 @app.route("/matchData", methods=["POST"])
 def get_query():
-    count = 0
-
     if not request.json or not "logText" in request.json:
         abort(400)
     message = request.json["logText"]
@@ -57,8 +55,8 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "min_score": "10.0",
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "min_score": "40.0",
+                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query": {
                     "bool": {
                         "should": [
@@ -72,16 +70,13 @@ def get_query():
         )
 
         for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_hits += hits["doc_count"]
-            else:
-                total_hits += 1
+            total_hits += 1
 
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
             body={
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query": {
                     "bool": {
                         "should": [
@@ -95,10 +90,7 @@ def get_query():
         )
 
         for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_no_hits += hits["doc_count"]
-            else:
-                total_no_hits += 1
+            total_no_hits += 1
         
         total_no_hits -= total_hits
 
@@ -107,48 +99,55 @@ def get_query():
             index="logjam",
             _source="false",
             body={
-                "min_score": "10.0",
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
+                "min_score": "40.0",
+                "aggs": {
+                    "unknown_cases": {"filters": { 
+                        "filters": { "unknowns" :{ "term" :{ "node_name": "unknown"}},
+                        }},
+                        "aggs": { "case_number": {"terms": { "field": "case.keyword"}}
+                        }},
+                    "matched_cases": {"terms" :{ "field": "node_name.keyword"}}
+                },       
                 "query": {
                     "bool": {
                         "should": [
                             {"match": {"message": message}},
-                            # {"match": {"platform": platform}},
                         ]
                     }
                 },
             },
         )
-
-        for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_hits += hits["doc_count"]
-            else:
+        
+        for hits in total_hits_q["aggregations"]["matched_cases"]["buckets"]:
+            if not hits["key"] == "unknown":
                 total_hits += 1
+        
+        for hits in total_hits_q["aggregations"]["unknown_cases"]["buckets"]:
+            total_hits += 1
 
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
             body={
-                "aggs": {"cases": {"terms": {"field": "node_name"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            # {"match": {"platform": platform}},
-                        ]
-                    }
+                "aggs": {
+                    "matched_cases": {"terms": {"field": "node_name.keyword"}},
+                    "unknown_cases": {"filters": {
+                        "filters": {"unknowns" :{"term" :{"node_name":"unknown"}},
+                        }},
+                        "aggs": {"case_number": {"terms" :{"field":"case.keyword"}}
+                        }}
                 },
-            },
+            }
         )
 
-        for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            if hits["key"] == "unknown":
-                total_no_hits += hits["doc_count"]
-            else:
+        for hits in total_no_hits_q["aggregations"]["unknown_cases"]["buckets"]:
+            total_no_hits += 1
+
+        for hits in total_no_hits_q["aggregations"]["matched_cases"]["buckets"]:
+            if not hits["key"] == "unknown":
                 total_no_hits += 1
     
-    total_no_hits -= total_hits
+        total_no_hits -= total_hits
 
     return jsonify(
         [
