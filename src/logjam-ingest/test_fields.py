@@ -334,3 +334,28 @@ class ExtractFieldsTestCase(unittest.TestCase):
         self.assertEqual("nodename_london", new_f.node_name)
         self.assertEqual("gridid_542839", new_f.grid_id)
 
+
+class FilterFilesTestCase(unittest.TestCase):
+    """ Tests functions that filter StorageGRID files """
+    
+    def test_is_storagegrid(self):
+        try:
+            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log')))
+        except Exception as exc:
+            self.fail(exc)
+
+        try:
+            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR,'1234567890', 'bycast.log')))
+        except Exception as exc:
+            self.fail(exc)
+
+        try:
+            self.assertFalse(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'system_commands.txt')))
+        except Exception as exc:
+            self.fail(exc)
+
+        try:
+            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log', 'bycast.log')))
+        except Exception as exc:
+            self.fail(exc)
+
