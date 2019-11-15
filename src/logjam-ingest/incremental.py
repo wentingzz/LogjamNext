@@ -159,7 +159,7 @@ class Scan:
         self.history_dir = history_dir
         self.history_active_file = os.path.join(history_dir, "scan-history-active.txt")
         self.history_log_file = os.path.join(history_dir, "scan-history-log.txt")
-        os.makedirs(scratch_dir, exist_okay=True)   # makes dirs if they don't exist
+        os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
         self.scratch_dir = scratch_dir              # will own subdirectories for R/W
         
 
