@@ -6,11 +6,13 @@
 @author Wenting Zheng
 
 Functionality for extracting StorageGRID log fields (platform, version, etc.)
+and handling other StorageGRID related tasks such as identifying valid StorageGRID logs.
 """
 
 
 import re
 import os
+import logging
 
 
 MISSING_CASE_NUM = "Unknown"
@@ -239,4 +241,22 @@ def extract_fields(lumber_dir, *, inherit_from):
     new_fields.inherit_missing_from(inherit_from)
     
     return new_fields
+
+
+def is_storagegrid(full_path):
+    """
+    Check if a file is StorageGRID file
+    """
+    if "bycast" in full_path:
+        return True
+
+    try:
+        with open(full_path) as searchfile:
+            for line in searchfile:
+                if "bycast" in line:
+                    return True
+    except Exception as e:
+        logging.warning('Error during "bycast" search: %s', str(e))
+    
+    return False
 

@@ -80,7 +80,7 @@ var vm = new Vue({
         platform: null,
         versions: [
             "All Versions"
-        ],
+	],
         sgVersion: "All Versions",
         logText: "",
         hasError: false,
