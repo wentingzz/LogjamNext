@@ -48,8 +48,6 @@ mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 validExtensions = [".txt", ".log"]
 # Valid extentionless files used in special cases
 validFiles = ["syslog", "messages", "system_commands"]
-# Valid zip formats
-validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
 graceful_abort = False
 #elasticsearch host
@@ -239,7 +237,7 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
             # Case for archive. Recursively unzip and ingest contents.
-            elif extension in validZips:
+            elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
                 new_scratch_dir = os.path.join(scratch_dir, "tmp")

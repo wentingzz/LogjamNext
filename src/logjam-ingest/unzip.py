@@ -22,7 +22,7 @@ import gzip
 import pyunpack
 
 
-recursive_unzip_file_types = {".gz", ".tgz", ".tar", ".zip", ".7z"}
+SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
@@ -55,7 +55,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     def handle_extracted_file(path):
         assert os.path.isabs(path), "Path should be absolute"
         os.utime(path, (time.time(), archive_mtime)) # Set the file mod time to match the archive
-        if os.path.splitext(path)[1] in recursive_unzip_file_types:
+        if os.path.splitext(path)[1] in SUPPORTED_FILE_TYPES:
             recursive_unzip(path, os.path.dirname(path), action)
             delete_file(path)                   # delete zip file, unzipped same location
         else:
@@ -65,7 +65,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     
     extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
     dest = os.path.join(dest, os.path.basename(src.replace(extension,'')))
-    assert extension in recursive_unzip_file_types, "Invalid extension: "+src
+    assert extension in SUPPORTED_FILE_TYPES, "Invalid extension: "+src
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
     if os.path.exists(dest):                    # file/dir already exists
