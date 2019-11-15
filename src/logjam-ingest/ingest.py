@@ -37,6 +37,7 @@ import incremental
 import unzip
 import index
 import fields
+import paths
 
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
@@ -163,7 +164,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
         if os.path.isdir(full_path):
             case_num = fields.get_case_number(entity)
             if case_num != None:
-                search_case_directory(scan, full_path, es_obj, case_num)
+                search_case_directory(scan, es_obj, paths.QuantumEntry(scan.input_dir, entity))
             else:
                 logging.debug("Ignored non-StorageGRID directory: %s", full_path)
         else:
@@ -177,17 +178,23 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     return
 
 
-def search_case_directory(scan_obj, search_dir, es_obj, case_num):
+def search_case_directory(scan_obj, es_obj, case_dir_entry):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    return recursive_search(scan_obj, search_dir, es_obj, case_num)
+    
+    case_num = fields.get_case_number(case_dir_entry.abspath)
+    assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
+    
+    fields_obj = fields.NodeFields(case_num=case_num)
+    
+    recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry.abspath)
 
 
-def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
+def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=None):
     """
     Recursively go through directories to find log files. If compressed, then we need
     to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
@@ -195,10 +202,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
         the start of the file path to traverse
     depth : string
         the sub-directories and sub-files associated with this directory
-    case_num : string
-        string for the case number of this case directory
     """
-    assert case_num != None, "Case number must be provided"
     
     if graceful_abort:
         return
@@ -222,7 +226,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
     entities = sorted(entities)
     
     for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
+        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan_obj.last_path:
             continue                                    # skip, haven't reached last_path
 
         entity = entities[e]
@@ -234,35 +238,35 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
 
         if os.path.isdir(entity_path):
             if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
-                process_node(entity_path , case_num, es)
+                process_node(entity_path, fields_obj, es_obj)
             else:
                 # Detected a directory, continue
-                recursive_search(scan, start, es, case_num, os.path.join(depth, entity), scan_dir)
+                recursive_search(scan_obj, es_obj, fields_obj, start, os.path.join(depth, entity), scan_dir)
         
         elif os.path.isfile(entity_path):
             # Check timespan of scan (already scanned?)
-            if not scan.should_consider_file(entity_path):
+            if not scan_obj.should_consider_file(entity_path):
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
             # Case for regular file. Check for relevance, then ingest.
             elif extension in validExtensions or filename in validFiles:
                 if fields.is_storagegrid(entity_path):
-                    process_unknown_file(entity_path, case_num, es)
+                    process_unknown_file(entity_path, fields_obj, es_obj)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
             # Case for archive. Recursively unzip and ingest contents.
             elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp")
+                new_scratch_dir = os.path.join(scan_obj.scratch_dir, "tmp")
                 os.makedirs(new_scratch_dir)
                 unzip.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
-                    recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
+                    recursive_search(scan_obj, es_obj, fields_obj, unzip_folder, None, entity_path)
                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
-                    process_unknown_file(unzip_folder, case_num, es)
+                    process_unknown_file(unzip_folder, fields_obj, es_obj)
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
@@ -277,25 +281,21 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
             logging.debug("Already ingested %s", entity_path)
         
         if 'tmp' in entity_path:
-            scan.just_scanned_this_path(scan_dir)
+            scan_obj.just_scanned_this_path(scan_dir)
         else:
-            scan.just_scanned_this_path(entity_path)
+            scan_obj.just_scanned_this_path(entity_path)
 
 
-def process_node(lumber_dir, case_num, es = None):
+def process_node(lumber_dir, fields_obj, es = None):
     """ Stashes a node in ELK stack;
     lumber_dir : string
         absolute path of the node
-    case_num : string
-        StorageGRID case number for this file
     es: Elasticsearch
         Elasticsearch instance
     """
-    assert case_num != None, "Null reference"
-    assert case_num != "0", "Not a valid case number: "+case_num
     
     files = process_node_recursive(lumber_dir, [])
-    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields.NodeFields(case_num=case_num))
+    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields_obj)
     if es:
         for file in files:
             index.send_to_es(es, nodefields, file)
@@ -323,23 +323,19 @@ def process_node_recursive(lumber_dir, file_list):
     return file_list
 
 
-def process_unknown_file(file_path, case_num, es = None):
+def process_unknown_file(file_path, fields_obj, es = None):
     """ Stashes file in ELK stack; checks if duplicate, computes important
     fields like log category, and prepares for ingest by Logstash.
     file_path : string
         absolute path of the file
-    case_num : string
-        StorageGRID case number for this file
     es: Elasticsearch
         Elasticsearch instance
     """
     assert os.path.isfile(file_path), "This is not a file: "+file_path
-    assert case_num != None, "Null reference"
-    assert case_num != "0", "Not a valid case number: "+case_num
 
-    nodefields = fields.NodeFields(case_num=case_num)            # only case for fields
+    nodefields = fields_obj                             # use defaults provided
     if es:
-        index.send_to_es(es, nodefields, file_path)              # send as unknown node
+        index.send_to_es(es, nodefields, file_path)     # send as unknown node
     
     return
 
