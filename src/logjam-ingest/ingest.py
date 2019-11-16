@@ -28,7 +28,6 @@ import sqlite3
 import sys
 import time
 import signal
-import concurrent.futures
 
 from elasticsearch import Elasticsearch, helpers
 from conans import tools
@@ -149,25 +148,20 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     scan = incremental.Scan(input_dir, history_dir, scratch_dir)
     
     entities = sorted(os.listdir(input_dir))
-    
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for e in range(len(entities)):
-            if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
-                continue                                    # skip, haven't reached last_path
-
-            entity = entities[e]
-            full_path = os.path.join(input_dir,entity)
-            if os.path.isdir(full_path):
-                case_num = fields.get_case_number(entity)
-                if case_num != None:
-                    f = executor.submit(search_case_directory, scan, full_path, es_obj, case_num)
-                    print(f.result())
-                else:
-                    logging.debug("Ignored non-StorageGRID directory: %s", full_path)
-            else:
-                logging.debug("Ignored non-StorageGRID file: %s", full_path)
+    for e in range(len(entities)):
+        if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+            continue                                    # skip, haven't reached last_path
         
-    
+        entity = entities[e]
+        full_path = os.path.join(input_dir,entity)
+        if os.path.isdir(full_path):
+            case_num = fields.get_case_number(entity)
+            if case_num != None:
+                search_case_directory(scan, full_path, es_obj, case_num)
+            else:
+                logging.debug("Ignored non-StorageGRID directory: %s", full_path)
+        else:
+            logging.debug("Ignored non-StorageGRID file: %s", full_path)
     
     if graceful_abort:
         scan.premature_exit()
@@ -184,16 +178,7 @@ def search_case_directory(scan_obj, search_dir, es_obj, case_num):
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt")
-    recursive_search(child_scan, search_dir, es_obj, case_num)
-    if graceful_abort:
-        child_scan.premature_exit()
-    else:
-        child_scan.complete_scan()
-        unzip.delete_file(child_scan.history_log_file)
-        scan_obj.just_scanned_this_path(search_dir)
-    
-    return
+    return recursive_search(scan_obj, search_dir, es_obj, case_num)
 
 
 def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
