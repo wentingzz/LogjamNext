@@ -217,8 +217,8 @@ def get_query():
                 "size" : "0"                        # no docs returned, just aggregation
             },
         )
-        val_to_print = json.dumps(total_hits_q, indent=4)
-        logging.critical(str(val_to_print))
+        # val_to_print = json.dumps(total_hits_q, indent=4)
+        # logging.critical(str(val_to_print))
         total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
         total_all_q = es.search(
@@ -247,8 +247,8 @@ def get_query():
                 "size" : "0"                        # no docs returned, just aggregation
             }
         )
-        val_to_print = json.dumps(total_all_q, indent=4)
-        logging.critical(str(val_to_print))
+        # val_to_print = json.dumps(total_all_q, indent=4)
+        # logging.critical(str(val_to_print))
         total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
         total_no_hits = total_all - total_hits
