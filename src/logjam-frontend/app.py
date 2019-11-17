@@ -222,7 +222,7 @@ def get_query():
         total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
         total_all_q = es.search(
-            index="logjam"
+            index="logjam",
             body={
                 "aggs":                             # aggregate our query below
                 {
