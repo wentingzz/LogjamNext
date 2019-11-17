@@ -54,15 +54,53 @@ def get_query():
         total_hits_q = es.search(
             index="logjam",
             _source="false",
-            body={
-                "min_score": "40.0",
+            body=
+            {
                 "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            {"match": {"storagegrid_version": version}},
-                            # {"match": {"platform": platform}},
+                "query":
+                {
+                    "bool":
+                    {
+                        "filter":
+                        [
+                            {
+                                "term":
+                                {
+                                    "storagegrid_version":
+                                    {
+                                        "value" : version
+                                    }
+                                }
+                            },                            
+                            # {
+                                # "term":
+                                # {
+                                    # "platform":
+                                    # {
+                                        # "value" : platform
+                                    # }
+                                # }
+                            # },
+                        ],
+                        
+                        "should":
+                        [
+                            {
+                                "match":
+                                {
+                                    "message":
+                                    {
+                                        "query" : message,
+                                        "auto_generate_synonyms_phrase_query" : "false",
+                                        "fuzziness" : "0",
+                                        "max_expansions" : "1",
+                                        "lenient" : "false",
+                                        "operator" : "OR",
+                                        "minimum_should_match" : "50%",
+                                        "zero_terms_query" : "none"
+                                    }
+                                }
+                            },
                         ]
                     }
                 },
@@ -75,14 +113,40 @@ def get_query():
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
-            body={
+            body=
+            {
                 "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            {"match": {"storagegrid_version": version}},
-                            # {"match": {"platform": platform}},
+                "query":
+                {
+                    "bool":
+                    {
+                        "filter":
+                        [
+                            {
+                                "term":
+                                {
+                                    "storagegrid_version":
+                                    {
+                                        "value" : version
+                                    }
+                                }
+                            },
+                            # {
+                                # "term":
+                                # {
+                                    # "platform":
+                                    # {
+                                        # "value" : platform
+                                    # }
+                                # }
+                            # },
+                        ],
+                        
+                        "should":
+                        [
+                            {
+                                "match_all" : {}
+                            }
                         ]
                     }
                 },
@@ -98,8 +162,8 @@ def get_query():
         total_hits_q = es.search(
             index="logjam",
             _source="false",
-            body={
-                "min_score": "40.0",
+            body=
+            {
                 "aggs": {
                     "unknown_cases": {"filters": { 
                         "filters": { "unknowns" :{ "term" :{ "node_name": "unknown"}},
@@ -107,11 +171,29 @@ def get_query():
                         "aggs": { "case_number": {"terms": { "field": "case.keyword"}}
                         }},
                     "matched_cases": {"terms" :{ "field": "node_name.keyword"}}
-                },       
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
+                },
+                "query":
+                {
+                    "bool":
+                    {
+                        "should":
+                        [
+                            {
+                                "match":
+                                {
+                                    "message":
+                                    {
+                                        "query" : message,
+                                        "auto_generate_synonyms_phrase_query" : "false",
+                                        "fuzziness" : "0",
+                                        "max_expansions" : "1",
+                                        "lenient" : "false",
+                                        "operator" : "OR",
+                                        "minimum_should_match" : "50%",
+                                        "zero_terms_query" : "none"
+                                    }
+                                }
+                            },
                         ]
                     }
                 },
@@ -128,7 +210,8 @@ def get_query():
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
-            body={
+            body=
+            {
                 "aggs": {
                     "matched_cases": {"terms": {"field": "node_name.keyword"}},
                     "unknown_cases": {"filters": {
@@ -137,6 +220,10 @@ def get_query():
                         "aggs": {"case_number": {"terms" :{"field":"case.keyword"}}
                         }}
                 },
+                "query":
+                {
+                    "match_all" : {}
+                }
             }
         )
 
