@@ -164,24 +164,32 @@ def get_query():
             _source="false",
             body=
             {
-                "aggs": {
-                    "unknown_cases": {"filters": { 
-                        "filters": { "unknowns" :{ "term" :{ "node_name": "unknown"}},
-                        }},
-                        "aggs": { "case_number": {"terms": { "field": "case.keyword"}}
-                        }},
-                    "matched_cases": {"terms" :{ "field": "node_name.keyword"}}
-                },
-                "query":
+                "aggs":                             # aggregate our query below
                 {
-                    "bool":
+                    "by_nodename_and_casenumber":   # name of aggregation
                     {
-                        "should":
-                        [
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
+                },
+                
+                "query":                            # query that will be aggregated
+                {
+                    "bool":                         # use bool query type
+                    {
+                        "should":                   # should = OR w/ a summed scored
+                        [                           # array = multiple clauses can be used
                             {
-                                "match":
-                                {
-                                    "message":
+                                "match":            # match query searches all tokens from
+                                {                   # message anywhere in doc text, we set
+                                    "message":      # the minimum limit to match = 50%
                                     {
                                         "query" : message,
                                         "auto_generate_synonyms_phrase_query" : "false",
@@ -199,42 +207,39 @@ def get_query():
                 },
             },
         )
-        
-        for hits in total_hits_q["aggregations"]["matched_cases"]["buckets"]:
-            if not hits["key"] == "unknown":
-                total_hits += 1
-        
-        for hits in total_hits_q["aggregations"]["unknown_cases"]["buckets"]:
-            total_hits += 1
+        total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
-        total_no_hits_q = es.search(
-            index="logjam",
-            _source="false",
+        total_all_q = es.search(
+            index="logjam"
             body=
             {
-                "aggs": {
-                    "matched_cases": {"terms": {"field": "node_name.keyword"}},
-                    "unknown_cases": {"filters": {
-                        "filters": {"unknowns" :{"term" :{"node_name":"unknown"}},
-                        }},
-                        "aggs": {"case_number": {"terms" :{"field":"case.keyword"}}
-                        }}
-                },
-                "query":
+                "aggs":                             # aggregate our query below
                 {
-                    "match_all" : {}
-                }
+                    "by_nodename_and_casenumber":   # name of aggregation
+                    {
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
+                },
+                
+                "query":                            # query that will be agregated
+                {
+                    "match_all" : {}                # all docs considered/matched
+                },
+                "size" : "0"                        # no docs returned, just aggregation
             }
         )
-
-        for hits in total_no_hits_q["aggregations"]["unknown_cases"]["buckets"]:
-            total_no_hits += 1
-
-        for hits in total_no_hits_q["aggregations"]["matched_cases"]["buckets"]:
-            if not hits["key"] == "unknown":
-                total_no_hits += 1
+        
+        total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
-        total_no_hits -= total_hits
+        total_no_hits = total_all - total_hits
 
     return jsonify(
         [
