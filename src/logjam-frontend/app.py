@@ -1,4 +1,16 @@
+"""
+@author Jeremy Schmidt
+@author Daniel Grist
+@author Nathaniel Brooks
+
+Basic Flask app for serving our webpage and ferrying queries to Elasticsearch
+"""
+
+
 import os
+import logging
+import sys
+import json
 
 from flask import Flask, request, render_template, jsonify, json, abort
 from elasticsearch import Elasticsearch
@@ -205,8 +217,11 @@ def get_query():
                         ]
                     }
                 },
+                "size" : "0"                        # no docs returned, just aggregation
             },
         )
+        val_to_print = json.dumps(total_hits_q, indent=4)
+        logging.critical(str(val_to_print))
         total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
         total_all_q = es.search(
@@ -236,7 +251,8 @@ def get_query():
                 "size" : "0"                        # no docs returned, just aggregation
             }
         )
-        
+        val_to_print = json.dumps(total_all_q, indent=4)
+        logging.critical(str(val_to_print))
         total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
         total_no_hits = total_all - total_hits
