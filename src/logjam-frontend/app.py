@@ -66,8 +66,7 @@ def get_query():
         total_hits_q = es.search(
             index="logjam",
             _source="false",
-            body=
-            {
+            body={
                 "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query":
                 {
@@ -125,8 +124,7 @@ def get_query():
         total_no_hits_q = es.search(
             index="logjam",
             _source="false",
-            body=
-            {
+            body={
                 "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
                 "query":
                 {
@@ -174,8 +172,7 @@ def get_query():
         total_hits_q = es.search(
             index="logjam",
             _source="false",
-            body=
-            {
+            body={
                 "aggs":                             # aggregate our query below
                 {
                     "by_nodename_and_casenumber":   # name of aggregation
@@ -226,8 +223,7 @@ def get_query():
 
         total_all_q = es.search(
             index="logjam"
-            body=
-            {
+            body={
                 "aggs":                             # aggregate our query below
                 {
                     "by_nodename_and_casenumber":   # name of aggregation
