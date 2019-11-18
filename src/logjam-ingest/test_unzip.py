@@ -1,3 +1,12 @@
+"""
+@author Wenting Zheng
+@author Jeremy Schmidt
+@author Nathaniel Brooks
+
+Tests the utility unzipping function and its helper functions.
+"""
+
+
 import unittest
 import os
 import time
@@ -10,7 +19,6 @@ import subprocess
 import unzip
 
 
-# coverage report: 72-74, 85-87, 104-106, 112-113, 
 class RecursiveUnzipTestCase(unittest.TestCase):
 
     @classmethod
@@ -44,7 +52,6 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_targz', 'folder', 'targz.txt')))
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz', 'hello_zip')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_targz', 'hello_zip', 'zip.txt')))
-
 
     def test_tar(self):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_tar.tar'), self.tmpdir)
@@ -96,19 +103,11 @@ class RecursiveUnzipTestCase(unittest.TestCase):
 
         assert not os.path.isfile(existing_file)
 
-
-
-
-
-
     @classmethod
     def tearDownClass(cls):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
 
-
-
-# coverage report: 150-170
 
 class DeleteFileTestCase(unittest.TestCase):
     @classmethod
@@ -144,7 +143,7 @@ class DeleteFileTestCase(unittest.TestCase):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
 
-# coverage report: 188-203
+
 class DeleteDirectoryTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
