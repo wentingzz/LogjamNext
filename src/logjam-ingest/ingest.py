@@ -187,7 +187,7 @@ def search_case_directory(scan_obj, case_dir, es_obj, case_num):
     """
     case_num = None                         # will remove after parallelization done
     
-    case_dir_entry = paths.QuantumEntry(scan.input_dir, os.path.basename(case_dir))
+    case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
     
     case_num = fields.get_case_number(case_dir_entry.abspath)
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
