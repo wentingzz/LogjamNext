@@ -236,6 +236,10 @@ class Scan:
         modification_time = os.path.getmtime(path)
         return modification_time in self.time_period
 
+    def list_unscanned_entries(self, dir):
+        """ Returns generator that yields unscanned entries, just forwards arguments """
+        return list_unscanned_entries(dir, self.last_path)
+
     def complete_scan(self):
         """
         Completes the scan, writing out information to the history files
