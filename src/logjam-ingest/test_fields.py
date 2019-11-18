@@ -255,11 +255,60 @@ class ExtractFieldsTestCase(unittest.TestCase):
             self.fail(exc)
     
     def test_get_platform(self):
-        try:
-            platform = fields.get_platform(os.path.join(TEST_DATA_DIR, "nonexistant_dir"))
-            self.assertEqual(fields.MISSING_PLATFORM, platform)
-        except Exception as exc:
-            self.fail(exc)
+        # Test get platform with no os/etc directory
+        lumber_dir = os.path.join(self.tmp_dir, "443251", "rio", "2012-2013")
+        lumber_file = os.path.join(lumber_dir, "lumberjack.log")
+        os.makedirs(lumber_dir)
+        open(lumber_file, "a").close()
+        self.assertTrue(os.path.isdir(lumber_dir))
+        self.assertTrue(os.path.isfile(lumber_file))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc directory, but no user_data file
+        etc_dir = os.path.join(lumber_dir, "os", "etc")
+        os.makedirs(etc_dir)
+        self.assertTrue(os.path.isdir(etc_dir))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file, but no data
+        user_file = os.path.join(etc_dir, "user_data")
+        open(user_file, "a").close()
+        self.assertTrue(os.path.isfile(user_file))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but no good data
+        with open(user_file, "w") as fd:
+            fd.write("unfortunately there is no information here\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("BOBBY=TALL\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("JOHN=SHORT\n")
+            fd.write("  HV_ENV : NOT GIVEN\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("  HV_ENV   =    \'\"BAD_TYPE\"\';\n")
+            fd.write("SG_PARTY=EXCITING\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data & a good type!
+        with open(user_file, "w") as fd:
+            fd.write("SG_RULE=ON\n")
+            fd.write("  HV_ENV   =    \'\"SGA\"\';\n")
+        self.assertEqual("SGA", fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data & a good type!
+        with open(user_file, "w") as fd:
+            fd.write("SG_THING=OTHER\n")
+            fd.write("HV_ENV=vSphere")
+        self.assertEqual("vSphere", fields.get_platform(lumber_dir))
     
     def test_get_time_span(self):
         try:

@@ -14,6 +14,8 @@ import re
 import os
 import logging
 
+import paths
+
 
 MISSING_CASE_NUM = "Unknown"
 MISSING_SG_VER = "Unknown"
@@ -22,6 +24,12 @@ MISSING_CATEGORY = "other"
 MISSING_TIME_SPAN = "Unknown-Unknown"
 MISSING_NODE_NAME = "Unknown"
 MISSING_GRID_ID = "Unknown"
+
+HV_ENV_TO_PLATFORM = {
+    "vSphere" : "vSphere",
+    "??????" : "Container",
+    "SGA" : "SGA",
+}
 
 # List of all categories to sort log files by
 CATEGORIES = {
@@ -189,7 +197,6 @@ def get_storage_grid_version(lumber_dir):
     return MISSING_SG_VER
 
 
-# TODO: implementation
 def get_platform(lumber_dir):
     """
     Gets the platform of the node from the specified lumberjack directory.
@@ -198,6 +205,16 @@ def get_platform(lumber_dir):
     return: string
         the platform if found, otherwise MISSING_PLATFORM
     """
+    user_data_file = paths.QuantumEntry(lumber_dir, "os/etc/user_data")
+    if user_data_file.is_file():
+        with open(user_data_file.abspath, "r") as fd:
+            for line in fd:
+                if "HV_ENV" in line and "=" in line:# has magic word (HV_ENV) & equals
+                    val = line.split("=")[1]        # take part after equals
+                    val = val.strip("\n\"\'; ")     # remove puncuation characters
+                    if val in HV_ENV_TO_PLATFORM:   # make sure mapping defined
+                        return HV_ENV_TO_PLATFORM[val]
+    
     return MISSING_PLATFORM
 
 
