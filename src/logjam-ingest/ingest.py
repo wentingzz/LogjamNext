@@ -218,7 +218,7 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
 
     assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
     
-    # Loop over each file in the current directory\
+    # Loop over each file in the current directory
     search_dir = os.path.join(start, depth)
     
     try:
@@ -284,6 +284,8 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
             logging.debug("Already ingested %s", entity_path)
         
         if 'tmp' in entity_path:
+            logging.critical("FATAL ERRROOOOOOOOOOOOOORRRRRRRRRRRRRR")
+            sys.exit(1)
             scan_obj.just_scanned_this_path(scan_dir)
         else:
             scan_obj.just_scanned_this_path(entity_path)
