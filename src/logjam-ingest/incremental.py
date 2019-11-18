@@ -300,7 +300,13 @@ def list_unscanned_entries(dir, last_path):
     """
     Returns a generator that yields each entry in the directory that
     has not been scanned. An entry is determined to have been scanned if
-    it alphabetically before the `last_path` based ONLY on its relative path
+    it should have been considered before the `last_path` based ONLY on its relative
+    path. To determine if a path shoudl be considered first, it is sorted in
+    alphabetically DESCENDING order (Z -> A). This has the side effect of making
+    longer child paths appear before parent paths (since they will be scanned first).
+    Allows this function to determine a single total order for recursive scanning;
+    search every path in reverse alphabetical order, starting from child
+    entries to parent entries.
     """
     assert isinstance(dir, paths.QuantumEntry)
     assert isinstance(last_path, str)
