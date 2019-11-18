@@ -141,14 +141,17 @@ class ScanTestCase(unittest.TestCase):
         os.mkdir(self.tmp_dir)
         self.history_dir = os.path.join(self.tmp_dir, "history")
         os.mkdir(self.history_dir)
+        self.scratch_dir = os.path.join(self.tmp_dir, "scratch")
+        os.mkdir(self.scratch_dir)
     
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
         self.assertTrue(not os.path.exists(self.tmp_dir))
         self.assertTrue(not os.path.exists(self.history_dir))
+        self.assertTrue(not os.path.exists(self.scratch_dir))
     
     def test_init(self):
-        scan = incremental.Scan(".",self.history_dir)   # assumes "." is a valid path
+        scan = incremental.Scan(".",self.history_dir,self.scratch_dir)# assumes "." is a valid path
         cur_time = time.time()                          # assumes both same time source
         
         self.assertGreater(cur_time, scan.safe_time)
@@ -160,7 +163,7 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual("", scan.last_path)
     
     def test_update_from_scan_record(self):
-        scan = incremental.Scan(".",self.history_dir)
+        scan = incremental.Scan(".",self.history_dir,self.scratch_dir)
         
         self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
         self.assertEqual(scan.safe_time, scan.time_period.stop)
@@ -179,7 +182,7 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual("./log.txt", scan.last_path)
     
     def test_to_scan_record(self):
-        scan = incremental.Scan(".",self.history_dir)
+        scan = incremental.Scan(".",self.history_dir,self.scratch_dir)
         
         scan.last_path = ""
         
