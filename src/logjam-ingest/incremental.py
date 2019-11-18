@@ -304,15 +304,30 @@ def list_unscanned_entries(dir, last_path):
     """
     assert isinstance(dir, paths.QuantumEntry)
     assert isinstance(last_path, str)
+    print("Searching \"", dir.relpath, "\" given last path \"", last_path, "\"")
                                             # list of all entries in alphabetical order
-    entry_names = sorted(os.listdir(dir.abspath))
+    entry_names = sorted(os.listdir(dir.abspath), reverse=True)
     
     for e in range(len(entry_names)):       # iterate in order
-        if e+1 != len(entry_names) and (dir/entry_names[e+1]).relpath <= last_path:
+        entry = dir/entry_names[e]          # find entry
+        
+        if last_path == "":
+            print("Returning",entry.relpath)
+            yield dir/entry_names[e]        # yields new QuantumEntry w/ unscanned path
+            continue                        # valid entry, no last_path = nothing scanned
+        
+        if e+1 != len(entry_names) and (dir/entry_names[e+1]).relpath >= last_path:
+            print("Skipping",entry.relpath)
             continue                        # skip entry, next path still before last_path
-        if (dir/entry_names[e]).relpath == last_path:
-            continue                        # skip entry, it IS the last_path
-        yield dir/entry_names[e]            # yields new QuantumEntry w/ unscanned path
+            
+        if (dir/entry_names[e]).relpath >= last_path:
+            print("Skipping",entry.relpath)
+            continue                        # skip entry, it is still before the last_path
+        
+        if True:
+            print("Returning",entry.relpath)
+            yield dir/entry_names[e]        # yields new QuantumEntry w/ unscanned path
+            continue                        # valid entry, found correct insert loc
 
 
 def extract_last_scan_record(path):

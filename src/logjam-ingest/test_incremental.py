@@ -218,29 +218,57 @@ class ScanHelperFuncTestCase(unittest.TestCase):
         shutil.rmtree(self.tmp_dir)
         self.assertTrue(not os.path.exists(self.tmp_dir))
     
+    def test_recursive_walk_pattern_assumption(self):
+        walk_pattern = [
+            "/dir3/X.txt",
+            "/dir2/nested/B.txt",
+            "/dir2/nested/A.txt",
+            "/dir1/Z.txt",
+            "/dir1/Y.txt",
+            "/dir1/X.txt",
+            "/dir/dir/C.txt",
+            "/dir/dir/B.txt",
+            "/dir/dir/A.txt",
+            "/dir/dir-A.txt",
+            "/dir/X.txt",
+            "/dir/B.txt",
+            "/dir-dir-A.txt",
+            "/X.txt",
+            "/A.txt",
+        ]
+        
+        assumed_walk_pattern = walk_pattern[:]
+        self.assertEqual(assumed_walk_pattern, sorted(walk_pattern, reverse=True))
+    
     def test_list_unscanned_entries(self):
         file_structure = {
-            "dir1":
+            "fileX.txt" : {},
+            
+            "dir3":
             {
                 "nested":
                 {
-                    "fileA.txt" : {},
-                    "fileB.txt" : {},
                     "fileC.txt" : {},
+                    "fileB.txt" : {},
+                    "fileA.txt" : {},
                 },
             },
             
             "dir2":
             {
-                "fileA.txt" : {},
-                "fileB.txt" : {},
                 "fileC.txt" : {},
+                "fileB.txt" : {},
+                "fileA.txt" : {},
             },
             
-            "fileX.txt" : {},
-            
-            "dir3":
+            "dir":
             {
+                "nested":
+                {
+                    "fileC.txt" : {},
+                    "fileB.txt" : {},
+                    "fileA.txt" : {},
+                },
             },
         }
         
@@ -256,50 +284,105 @@ class ScanHelperFuncTestCase(unittest.TestCase):
         
         recursive_build(self.tmp_dir, file_structure)
         
-        search_dir = paths.QuantumEntry(self.tmp_dir, "")
-        
-        # Nothing scanned so far, return all
-        i = incremental.list_unscanned_entries(search_dir, "")
-        for relpath in ["dir1", "dir2", "dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
-        
-        # Child of dir1 scanned, return all (dir1 needs to continue scanning)
-        i = incremental.list_unscanned_entries(search_dir, "dir1/nested")
-        for relpath in ["dir1", "dir2", "dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
-        
-        # Child of dir1 scanned, return all (dir1 needs to continue scanning)
-        i = incremental.list_unscanned_entries(search_dir, "dir1/nested/fileA.txt")
-        for relpath in ["dir1", "dir2", "dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
-        
-        # dir1 fully scanned, return all except dir1
-        i = incremental.list_unscanned_entries(search_dir, "dir1")
-        for relpath in ["dir2", "dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
-        
-        # Child of dir2 scanned, return all except dir1 (dir2 needs to continue)
-        i = incremental.list_unscanned_entries(search_dir, "dir2/fileA.txt")
-        for relpath in ["dir2", "dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
-        
-        # dir2 fully scanned, return all except dir1, dir2
-        i = incremental.list_unscanned_entries(search_dir, "dir2")
-        for relpath in ["dir3", "fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+        if True:
+            # Search the base directory
+            search_dir = paths.QuantumEntry(self.tmp_dir, "")
+            
+            # Nothing scanned so far, return all
+            i = incremental.list_unscanned_entries(search_dir, "")
+            for relpath in ["fileX.txt", "dir3", "dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # fileX.txt scanned, return all except that
+            i = incremental.list_unscanned_entries(search_dir, "fileX.txt")
+            for relpath in ["dir3", "dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # Child of dir3 scanned, return all (dir3 needs to continue scanning)
+            i = incremental.list_unscanned_entries(search_dir, "dir3/nested")
+            for relpath in ["dir3", "dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # Child of dir3 scanned, return all (dir3 needs to continue scanning)
+            i = incremental.list_unscanned_entries(search_dir, "dir3/nested/fileA.txt")
+            for relpath in ["dir3", "dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # dir3 fully scanned, return all except dir3
+            i = incremental.list_unscanned_entries(search_dir, "dir3")
+            for relpath in ["dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # Child of dir2 scanned, return all except dir3 (dir2 needs to continue)
+            i = incremental.list_unscanned_entries(search_dir, "dir2/fileA.txt")
+            for relpath in ["dir2", "dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # dir2 fully scanned, return all except dir3, dir2
+            i = incremental.list_unscanned_entries(search_dir, "dir2")
+            for relpath in ["dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
 
-        # dir3 fully scanned, return all except dir1, dir2, dir3
-        i = incremental.list_unscanned_entries(search_dir, "dir3")
-        for relpath in ["fileX.txt"]:
-            self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            # Child of dir scanned, return dir b/c it needs to continue scanning
+            i = incremental.list_unscanned_entries(search_dir, "dir/nested")
+            for relpath in ["dir"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # dir fully scanned, return nothing, nothing left to scan
+            i = incremental.list_unscanned_entries(search_dir, "dir")
+            try:
+                next(i)
+                self.fail("Should have raised an exception")
+            except StopIteration:
+                pass
         
-        # fileX.txt fully scanned, nothing to return, every entry scanned
-        i = incremental.list_unscanned_entries(search_dir, "fileX.txt")
-        try:
-            next(i)
-            self.fail("Should have raised an exception")
-        except StopIteration:
-            pass
+        if True:
+            # Search the nested directory
+            search_dir.relpath = "dir3/nested"
+            
+            # Nothing scanned so far, return all
+            i = incremental.list_unscanned_entries(search_dir, "")
+            for relpath in ["dir3/nested/fileC.txt", "dir3/nested/fileB.txt", "dir3/nested/fileA.txt"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # fileC.txt scanned, return all except fileC.txt
+            i = incremental.list_unscanned_entries(search_dir, "dir3/nested/fileC.txt")
+            for relpath in ["dir3/nested/fileB.txt", "dir3/nested/fileA.txt"]:
+                self.assertEqual(relpath, next(i).relpath.replace("\\","/"))
+            
+            # fileA.txt scanned, return nothing (all done)
+            i = incremental.list_unscanned_entries(search_dir, "dir3/nested/fileA.txt")
+            try:
+                next(i)
+                self.fail("Should have raised an exception")
+            except StopIteration:
+                pass
+            
+            # nested scanned, return nothing (all done)
+            i = incremental.list_unscanned_entries(search_dir, "dir3/nested")
+            try:
+                next(i)
+                self.fail("Should have raised an exception")
+            except StopIteration:
+                pass
+            
+            # sibling directory scanned, return nothing (all done)
+            i = incremental.list_unscanned_entries(search_dir, "dir2")
+            try:
+                next(i)
+                self.fail("Should have raised an exception")
+            except StopIteration:
+                pass
+            
+            # sibling directory scanned, return nothing (all done)
+            i = incremental.list_unscanned_entries(search_dir, "dir")
+            try:
+                next(i)
+                self.fail("Should have raised an exception")
+            except StopIteration:
+                pass
+        
+        return
     
     def test_overwrite_scan_record(self):
         record = incremental.ScanRecord.from_str('0 10 "/nfs" ""')
