@@ -155,20 +155,17 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
         entities = []
     entities = sorted(entities)
     
-    for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
-            continue                                    # skip, haven't reached last_path
-        
-        entity = entities[e]
-        full_path = os.path.join(input_dir,entity)
-        if os.path.isdir(full_path):
-            case_num = fields.get_case_number(entity)
-            if case_num != None:
-                search_case_directory(scan, full_path, es_obj, case_num)
+    search_dir = paths.QuantumEntry(input_dir, "")
+    for entry in incremental.list_unscanned_entries(search_dir, ""):
+        if entry.is_dir():
+            case_num = fields.get_case_number(entry.relpath)
+            if case_num != fields.MISSING_CASE_NUM:
+                logging.debug("Search case directory: %s", entry.relpath)
+                search_case_directory(scan, entry.abspath, es_obj, case_num)
             else:
-                logging.debug("Ignored non-StorageGRID directory: %s", full_path)
+                logging.debug("Ignored non-StorageGRID directory: %s", entry.relpath)
         else:
-            logging.debug("Ignored non-StorageGRID file: %s", full_path)
+            logging.debug("Ignored non-StorageGRID file: %s", entry.relpath)
     
     if graceful_abort:
         scan.premature_exit()
@@ -194,6 +191,7 @@ def search_case_directory(scan_obj, case_dir, es_obj, case_num):
     
     fields_obj = fields.NodeFields(case_num=case_num)
     
+    logging.debug("Recursing into case directory: %s", case_dir_entry.relpath)
     recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry)
 
 
@@ -209,32 +207,34 @@ def recursive_search(scan, es, nodefields, cur_dir):
     if graceful_abort:                                  # kick out if abort requested
         return
     
-    if (cur_dir/"lumberjack.log").isfile():             # extract fields 1st
-        logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.abspath)
+    if (cur_dir/"lumberjack.log").is_file():            # extract fields 1st
+        logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.relpath)
         nodefields = fields.extract_fields(cur_dir.abspath, inherit_from=nodefields)
+    
+    logging.debug("Inspecting all entries in: %s", cur_dir.relpath)
     
     for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
         
-        if scan.should_consider_entry(entry):           # check, has been scanned?
-            logging.debug("Skipping file, outside scan timespan: %s", entry.abspath)
+        if not scan.should_consider_entry(entry):       # check, has been scanned?
+            logging.debug("Skip file, outside timespan: %s", entry.relpath)
             scan.just_scanned_this_entry(entry)         # log the scan
             continue                                    # continue, next entry
         else:
-            logging.debug("Considering entry: %s", entry.abspath)
+            logging.debug("Consider entry, inside timespan: %s", entry.relpath)
         
         if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
             scratch_entry = paths.QuantumEntry(scan.scratch_dir, entry.relpath)
-            scratch_entry = unzip.strip_all_zip_exts(scratch_entry.relpath)
+            scratch_entry.relpath = unzip.strip_all_zip_exts(scratch_entry.relpath)
             
             if scratch_entry.exists() or scratch_entry.exists_in(scan.input_dir):
-                logging.debug("Skipping archive, already unpacked: %s", entry.abspath)
+                logging.debug("Skip archive, already unpacked: %s", entry.relpath)
                 scan.just_scanned_this_entry(entry)     # log the scan
                 continue                                # continue, next entry
             else:
-                logging.debug("Unpacking archive, path open: %s", entry.abspath)
+                logging.debug("Unpack archive, path open: %s", entry.relpath)
             
             assert not scratch_entry.exists(), "Entry should not be there"
-            unzip.recursive_unzip(entry.abspath, scratch_entry.dirname)
+            unzip.recursive_unzip(entry.abspath, scratch_entry.dirpath)
             assert scratch_entry.exists(), "Entry should have been created"
             
             entry = scratch_entry                       # override old entry
@@ -242,25 +242,25 @@ def recursive_search(scan, es, nodefields, cur_dir):
         if entry.is_file():                             # entry is a file
             if entry.extension in validExtensions or entry.filename in validFiles:
                 if fields.is_storagegrid(entry.abspath):# check for relevance, then ingest
-                    logging.debug("
+                    logging.debug("Index log file: %s", entry.relpath)
                     index.send_to_es(es, nodefields, entry.abspath)
                 else:
-                    logging.debug("Skipping non-storagegrid file %s", entry.abspath)
+                    logging.debug("Skip non-storagegrid file: %s", entry.relpath)
             else:                                       # bad file extension, skip
-                logging.debug("Skipping file, bad extension (%s): %s", entry.extension, entry.abspath)
+                logging.debug("Skip file, bad extension (%s): %s", entry.extension, entry.relpath)
         
         elif entry.is_dir():                            # detect a directory, continue
             try:
-                logging.debug("Recursing into directory: %s", entry.abspath)
+                logging.debug("Recursing into directory: %s", entry.relpath)
                 recursive_search(scan, es, nodefields, entry)
             except OSError as e:
-                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
+                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.relpath, e)
         
         else:                                           # it wasn't a dir or file?
-            logging.debug("Skipping unknown entry: %s", entry.abspath)
+            logging.debug("Skip unknown entry: %s", entry.relpath)
         
         if entry.srcpath == scan.scratch_dir:           # if entry inside scratch
-            logging.debug("Deleting unpacked archive: %s", entry.abspath)
+            logging.debug("Delete unpacked archive: %s", entry.relpath)
             entry.delete()                              # rm on FS (does not clear entry)
         
         scan.just_scanned_this_entry(entry)             # log the scan

@@ -108,6 +108,22 @@ class QuantumEntryTestCase(unittest.TestCase):
         self.assertEqual("./dir/dir/../tmp", entry.relpath)
         self.assertEqual("/dir/tmp", entry.abspath)
     
+    def test_filename(self):
+        entry = paths.QuantumEntry("/", "dir/dir")
+        self.assertEqual("dir", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "txt.txt.txt")
+        self.assertEqual("txt.txt", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/dir/file.q")
+        self.assertEqual("file", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/dir/file.zip.gz.jpg")
+        self.assertEqual("file.zip.gz", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/.git")
+        self.assertEqual(".git", entry.filename)
+    
     def test_extension(self):
         entry = paths.QuantumEntry("/", "dir/dir")
         self.assertEqual("", entry.extension)

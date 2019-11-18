@@ -90,9 +90,22 @@ class QuantumEntry:
         return os.path.join(self.srcpath, self.relpath)
     
     @property
+    def dirpath(self):
+        """ Absolute directory location of this entry """
+        return os.path.dirname(self.abspath)
+        
+    @property
     def basename(self):
         """ Returns the base name of the entry as defined by `os.path.basename` """
         return os.path.basename(self.relpath)
+    
+    @property
+    def filename(self):
+        """
+        Returns the filename of the entry. Defined as the basename minus the
+        extension.
+        """
+        return os.path.splitext(os.path.basename(self.relpath))[0]
     
     @property
     def extension(self):
@@ -106,6 +119,10 @@ class QuantumEntry:
     def exists(self):
         """ Returns whether this entry exists on the file system """
         return os.path.exists(self.abspath)
+    
+    def exists_in(self, new_src):
+        """ """
+        return QuantumEntry(new_src, self.relpath).exists()
     
     def is_dir(self):
         """ Returns whether this entry is a directory """
