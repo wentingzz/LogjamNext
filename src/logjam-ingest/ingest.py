@@ -43,7 +43,7 @@ import fields
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
-MAX_WORKERS = 8
+MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -156,6 +156,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     lock = multiprocessing.Manager().Lock()
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
+        futures = []
         for e in range(len(entities)):
             if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
                 continue                                    # skip, haven't reached last_path
@@ -165,12 +166,13 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             if os.path.isdir(full_path):
                 case_num = fields.get_case_number(entity)
                 if case_num != None:
-                    f = executor.submit(search_case_directory, scan, full_path, case_num, lock)
-                    f.result()
+                    futures.append(executor.submit(search_case_directory, scan, full_path, case_num, lock))
                 else:
                     logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", full_path)
+        for f in futures:
+            print(f.result())
         
     
     
