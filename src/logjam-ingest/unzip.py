@@ -42,12 +42,11 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isfile(src), "Source should be a file: "+src
+    assert os.path.splitext(src)[1] in SUPPORTED_FILE_TYPES, "Invalid extension: "+src
     src = os.path.abspath(src)
-    assert os.path.isabs(src), "Source path should be absolute: "+src
     assert os.path.exists(dest), "Destination does not exist: "+dest
     assert os.path.isdir(dest), "Destination should be a dir: "+dest
     dest = os.path.abspath(dest)
-    assert os.path.isabs(dest), "Destination should be absolute: "+dest
 
     # Capture the modified time of the archive to force it upon its contents
     try:
@@ -76,8 +75,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         return
     
     extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
-    dest = os.path.join(dest, os.path.basename(src.replace(extension,'')))
-    assert extension in SUPPORTED_FILE_TYPES, "Invalid extension: "+src
+    dest = os.path.join(dest, strip_zip_ext(os.path.basename(src)))
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
     if os.path.exists(dest):                    # file/dir already exists
@@ -236,4 +234,28 @@ def delete_directory(path):
         return False
     
     return True
+
+
+def strip_all_zip_exts(path):
+    """
+    Strips all the zip extensions from the path and returns the new path without all
+    the zip extensions. If the path did not have zip extensions, returns it unchanged.
+    """
+    while True:
+        new_path = strip_zip_ext(path)              # strip one extension
+        if new_path == path:                        # was extension stripped?
+            return path                             # no change, all done!
+        path = new_path                             # recurse down path
+
+
+def strip_zip_ext(path):
+    """
+    Strips a zip extension off the provided path and returns the new path without
+    the extension. If the path does not have a zip extension, returns the same path.
+    """
+    (prior, extension) = os.path.splitext(path)
+    if extension in SUPPORTED_FILE_TYPES:
+        return prior
+    else:
+        return path
 
