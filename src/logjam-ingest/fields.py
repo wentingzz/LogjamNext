@@ -25,10 +25,9 @@ MISSING_TIME_SPAN = "Unknown-Unknown"
 MISSING_NODE_NAME = "Unknown"
 MISSING_GRID_ID = "Unknown"
 
-HV_ENV_TO_PLATFORM = {
-    "vSphere" : "vSphere",
-    "??????" : "Container",
-    "SGA" : "SGA",
+HV_ENV_TO_PLATFORM = {                              # in file: HV_ENV = '"dict key"';
+    "vSphere" : "vSphere",                          # TODO: Container platform key is
+    "SGA" : "SGA",                                  # unknown
 }
 
 # List of all categories to sort log files by
