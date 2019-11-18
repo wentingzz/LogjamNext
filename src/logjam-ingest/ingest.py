@@ -287,43 +287,6 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
             scan_obj.just_scanned_this_path(entity_path)
 
 
-def process_node(lumber_dir, fields_obj, es = None):
-    """ Stashes a node in ELK stack;
-    lumber_dir : string
-        absolute path of the node
-    es: Elasticsearch
-        Elasticsearch instance
-    """
-    
-    files = process_node_recursive(lumber_dir, [])
-    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields_obj)
-    if es:
-        for file in files:
-            index.send_to_es(es, nodefields, file)
-    
-    return
-
-
-def process_node_recursive(lumber_dir, file_list):
-    """ Finds all the files in the node; returns all the content as a array
-    lumber_dir : string
-        absolute path of the node
-    file_list: array of string
-        array of the content. Each element is the content of a file in the node
-    """
-    for entry in os.listdir(lumber_dir):
-        entry_path = os.path.join(lumber_dir, entry)
-        name, extension = os.path.splitext(entry)
-        
-        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and fields.is_storagegrid(entry_path):
-            file_list.append(entry_path)
-        
-        elif os.path.isdir(entry_path):
-            process_node_recursive(entry_path, file_list)
-    
-    return file_list
-
-
 if __name__ == "__main__":
     main()
 
