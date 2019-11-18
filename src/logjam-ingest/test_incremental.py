@@ -218,27 +218,36 @@ class ScanHelperFuncTestCase(unittest.TestCase):
         shutil.rmtree(self.tmp_dir)
         self.assertTrue(not os.path.exists(self.tmp_dir))
     
-    def test_recursive_walk_pattern_assumption(self):
+    def test_sorted_recursive_order(self):
         walk_pattern = [
+            "/zaa",
+            "/z/f",
+            "/z/b",
+            "/z/a",
+            "/z",
+            "/z-a",
+            "/x.txt",
             "/dir3/X.txt",
-            "/dir2/nested/B.txt",
-            "/dir2/nested/A.txt",
-            "/dir1/Z.txt",
-            "/dir1/Y.txt",
-            "/dir1/X.txt",
-            "/dir/dir/C.txt",
-            "/dir/dir/B.txt",
-            "/dir/dir/A.txt",
-            "/dir/dir-A.txt",
-            "/dir/X.txt",
-            "/dir/B.txt",
-            "/dir-dir-A.txt",
-            "/X.txt",
-            "/A.txt",
+            "/dir3",
+            "/dir2/nested/b.txt",
+            "/dir2/nested/a.txt",
+            "/dir2",
+            "/dir1/z.txt",
+            "/dir1/y.txt",
+            "/dir1/x.txt",
+            "/dir1",
+            "/dir/x.txt",
+            "/dir/dir/c.txt",
+            "/dir/dir/b.txt",
+            "/dir/dir/a.txt",
+            "/dir/dir-a.txt",
+            "/dir/b.txt",
+            "/dir",
+            "/dir-dir-a.txt",
+            "/a.txt",
         ]
         
-        assumed_walk_pattern = walk_pattern[:]
-        self.assertEqual(assumed_walk_pattern, sorted(walk_pattern, reverse=True))
+        self.assertEqual(walk_pattern, incremental.sorted_recursive_order(walk_pattern))
     
     def test_list_unscanned_entries(self):
         file_structure = {

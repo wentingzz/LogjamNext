@@ -312,7 +312,7 @@ def list_unscanned_entries(dir, last_path):
     assert isinstance(last_path, str)
     #print("Searching \"", dir.relpath, "\" given last path \"", last_path, "\"")
                                             # list of all entries in alphabetical order
-    entry_names = sorted(os.listdir(dir.abspath), reverse=True)
+    entry_names = sorted_recursive_order(os.listdir(dir.abspath))
     
     for e in range(len(entry_names)):       # iterate in order
         entry = dir/entry_names[e]          # find entry
@@ -334,6 +334,18 @@ def list_unscanned_entries(dir, last_path):
             #print("Returning",entry.relpath)
             yield dir/entry_names[e]        # yields new QuantumEntry w/ unscanned path
             continue                        # valid entry, found correct insert loc
+
+
+def sorted_recursive_order(entry_names):
+    """
+    Sorts the list of entry names in recursive order. Recursive order is
+    defined as reverse alphabetical with directories listed immediately after
+    their children.
+    """
+    entry_names = [entry_name+"/" for entry_name in entry_names]
+    entry_names = sorted(entry_names, reverse=True)
+    entry_names = [entry_name[:-1] for entry_name in entry_names]
+    return entry_names
 
 
 def extract_last_scan_record(path):
