@@ -43,7 +43,7 @@ import fields
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
-MAX_WORKERS = None
+MAX_WORKERS = 2
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -55,7 +55,8 @@ validFiles = ["syslog", "messages", "system_commands"]
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
-
+#directories that haven't been scanned
+dirs_to_scan = []
 
 def main():
     """
@@ -151,10 +152,11 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
     scan = incremental.Scan(input_dir, history_dir, scratch_dir)
-    
+
     entities = sorted(os.listdir(input_dir))
     lock = multiprocessing.Manager().Lock()
-    
+    global dirs_to_scan
+    dirs_to_scan = entities
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
         futures = []
         for e in range(len(entities)):
@@ -192,18 +194,30 @@ def search_case_directory(scan_obj, search_dir, case_num, lock):
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
     child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-    es_obj = get_es_connection()
+    es_obj = None#get_es_connection()
     recursive_search(child_scan, search_dir, es_obj, case_num)
+    global graceful_abort
     if graceful_abort:
         child_scan.premature_exit()
     else:
         child_scan.complete_scan()
-        lock.acquire()
-        scan_obj.just_scanned_this_path(search_dir)
-        lock.release()
-        unzip.delete_file(child_scan.history_log_file)
-        unzip.delete_file(child_scan.history_active_file)
-        
+        with lock:
+            global dirs_to_scan
+            if dirs_to_scan[0] == case_num:
+                tmp_dirs = sorted(os.listdir(child_scan.history_dir))
+                for history_file in tmp_dirs:
+                    filename, _ = os.path.splitext(history_file)
+                    try:
+                        if filename < dirs_to_scan[1]:
+                            scan_obj.just_scanned_this_path(os.join(scan_obj.input_dir, case_num))
+                            unzip.delete_file(history_file)
+                        else:
+                            break
+                    except Exception:
+                        break
+            dirs_to_scan.remove(case_num)
+            unzip.delete_file(child_scan.history_log_file)
+        return dirs_to_scan, len(dirs_to_scan), case_num
     return
 
 
@@ -266,7 +280,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
             elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp")
+                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp" + str(case_num))
                 os.makedirs(new_scratch_dir)
                 unzip.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
