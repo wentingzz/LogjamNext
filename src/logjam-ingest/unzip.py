@@ -237,3 +237,27 @@ def delete_directory(path):
     
     return True
 
+
+def strip_all_zip_exts(path):
+    """
+    Strips all the zip extensions from the path and returns the new path without all
+    the zip extensions. If the path did not have zip extensions, returns it unchanged.
+    """
+    while True:
+        new_path = strip_zip_ext(path)              # strip one extension
+        if new_path == path:                        # was extension stripped?
+            return path                             # no change, all done!
+        path = new_path                             # recurse down path
+
+
+def strip_zip_ext(path):
+    """
+    Strips a zip extension off the provided path and returns the new path without
+    the extension. If the path does not have a zip extension, returns the same path.
+    """
+    (prior, extension) = os.path.splitext(path)
+    if extension in SUPPORTED_FILE_TYPES:
+        return prior
+    else:
+        return path
+

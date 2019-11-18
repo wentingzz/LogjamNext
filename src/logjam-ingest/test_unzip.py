@@ -165,5 +165,23 @@ class DeleteDirectoryTestCase(unittest.TestCase):
         shutil.rmtree(cls.tmpdir)
         pass
 
+
+class ExtensionStrippingTestCase(unittest.TestCase):
+    """ Tests the zip extension strippping functions """
+    
+    def test_strip_all_zip_exts(self):
+        self.assertEqual("/f", unzip.strip_all_zip_exts("/f.tgz.tar.zip.zip.gz"))
+        self.assertEqual("b.png", unzip.strip_all_zip_exts("b.png.zip.7z.gz"))
+        self.assertEqual(".git.ziip", unzip.strip_all_zip_exts(".git.ziip.zip"))
+    
+    def test_strip_zip_ext(self):
+        self.assertEqual("/dir/dir/img.jpg", unzip.strip_zip_ext("/dir/dir/img.jpg.zip"))
+        self.assertEqual("/.git", unzip.strip_zip_ext("/.git"))
+        self.assertEqual("./pack.tar.gz", unzip.strip_zip_ext("./pack.tar.gz.zip"))
+        self.assertEqual("./f", unzip.strip_zip_ext("./f.7z"))
+        self.assertEqual("./x.tar", unzip.strip_zip_ext("./x.tar.tgz"))
+
+
 if __name__ == '__main__':
     unittest.main()
+
