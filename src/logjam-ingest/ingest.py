@@ -105,15 +105,6 @@ def main():
     es_logger.setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-    es = Elasticsearch([es_host], verify_certs = True, maxsize = MAX_WORKERS)
-    if not es.ping():
-        logging.critical("Unable to connect to Elasticsearch")
-        es = None
-    elif not es.indices.exists(index.INDEX_NAME):
-        with open(mappings_path) as mappings_file:
-            mappings = mappings_file.read()
-        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
-        es.indices.create(index.INDEX_NAME, body=mappings)
 
 
     def signal_handler(signum, frame):
@@ -126,7 +117,7 @@ def main():
     try:
         # Ingest the directories
         logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir, es)
+        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
@@ -139,8 +130,19 @@ def main():
         logging.info("Cleaning up scratch space")
         unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
+def get_es_connection():
+    es = Elasticsearch([es_host], verify_certs = True)
+    if not es.ping():
+        logging.critical("Unable to connect to Elasticsearch")
+        return None
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
+    return es
 
-def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
+def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
@@ -163,7 +165,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
             if os.path.isdir(full_path):
                 case_num = fields.get_case_number(entity)
                 if case_num != None:
-                    f = executor.submit(search_case_directory, scan, full_path, es_obj, case_num, lock)
+                    f = executor.submit(search_case_directory, scan, full_path, case_num, lock)
                     f.result()
                 else:
                     logging.debug("Ignored non-StorageGRID directory: %s", full_path)
@@ -180,7 +182,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     return
 
 
-def search_case_directory(scan_obj, search_dir, es_obj, case_num, lock):
+def search_case_directory(scan_obj, search_dir, case_num, lock):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
@@ -188,6 +190,7 @@ def search_case_directory(scan_obj, search_dir, es_obj, case_num, lock):
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
     child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    es_obj = get_es_connection()
     recursive_search(child_scan, search_dir, es_obj, case_num)
     if graceful_abort:
         child_scan.premature_exit()
