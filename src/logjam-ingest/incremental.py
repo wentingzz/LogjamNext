@@ -342,6 +342,9 @@ def sorted_recursive_order(entry_names):
     defined as reverse alphabetical with directories listed immediately after
     their children.
     """
+    assert not next((True for entry_name in entry_names if entry_name.endswith("/")), False),\
+        "Use normal dir representation, no slash at the end!"
+    
     entry_names = [entry_name+"/" for entry_name in entry_names]
     entry_names = sorted(entry_names, reverse=True)
     entry_names = [entry_name[:-1] for entry_name in entry_names]
