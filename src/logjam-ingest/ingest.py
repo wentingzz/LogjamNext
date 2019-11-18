@@ -203,7 +203,7 @@ def search_case_directory(scan_obj, case_dir, case_num, lock):
     
     fields_obj = fields.NodeFields(case_num=case_num)
     
-    logging.debug("Recursing into case directory: %s", case_dir_entry.relpath)
+    logging.debug("Recursing into case directory: %s", case_dir.relpath)
     recursive_search(child_scan, es_obj, fields_obj, case_dir)
     if graceful_abort:
         child_scan.premature_exit()
