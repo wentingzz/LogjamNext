@@ -43,7 +43,7 @@ import fields
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
-MAX_WORKERS = 2
+MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -194,7 +194,7 @@ def search_case_directory(scan_obj, search_dir, case_num, lock):
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
     child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-    es_obj = None#get_es_connection()
+    es_obj = get_es_connection()
     recursive_search(child_scan, search_dir, es_obj, case_num)
     global graceful_abort
     if graceful_abort:
