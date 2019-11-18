@@ -284,8 +284,6 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
             logging.debug("Already ingested %s", entity_path)
         
         if 'tmp' in entity_path:
-            logging.critical("FATAL ERRROOOOOOOOOOOOOORRRRRRRRRRRRRR")
-            sys.exit(1)
             scan_obj.just_scanned_this_path(scan_dir)
         else:
             scan_obj.just_scanned_this_path(entity_path)
