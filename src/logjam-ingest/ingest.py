@@ -225,37 +225,35 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
         entities = os.listdir(search_dir)
     except OSError as e:
         logging.critical("Error during os.listdir(%s): %s", search_dir, e)
-        entities = []
+        return                                          # exit function, empty for loop
     entities = sorted(entities)
+    
+    if paths.QuantumEntry(search_dir, "lumberjack.log").isfile():# extract fields first
+        fields_obj = fields.extract_fields(search_dir, inherit_from=fields_obj)
     
     for e in range(len(entities)):
         if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan_obj.last_path:
             continue                                    # skip, haven't reached last_path
-
-        entity = entities[e]
+        entity = entities[e]                            # reference correct entry
         
-        # Check for the file type to make sure it's not compressed
-        filename, extension = os.path.splitext(entity)
-        # Get the file's path in inspection dir
-        entity_path = os.path.join(search_dir, entity)
+        filename, extension = os.path.splitext(entity)  # extract name + extension
+        entity_path = os.path.join(search_dir, entity)  # find full entry's path
 
-        if os.path.isdir(entity_path):
-            if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
-                process_node(entity_path, fields_obj, es_obj)
-            else:
-                # Detected a directory, continue
-                recursive_search(scan_obj, es_obj, fields_obj, start, os.path.join(depth, entity), scan_dir)
+        if os.path.isdir(entity_path):                  # detect a directory, continue
+            recursive_search(scan_obj, es_obj, fields_obj, start, os.path.join(depth, entity), scan_dir)
         
         elif os.path.isfile(entity_path):
-            # Check timespan of scan (already scanned?)
-            if not scan_obj.should_consider_file(entity_path):
+            if not scan_obj.should_consider_file(entity_path):  # check, already scanned?
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
+            
             # Case for regular file. Check for relevance, then ingest.
             elif extension in validExtensions or filename in validFiles:
                 if fields.is_storagegrid(entity_path):
-                    process_unknown_file(entity_path, fields_obj, es_obj)
+                    if es:
+                        index.send_to_es(es_obj, fields_obj, entity_path)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
+            
             # Case for archive. Recursively unzip and ingest contents.
             elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
@@ -268,24 +266,22 @@ def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=N
                 if os.path.isdir(unzip_folder):
                     recursive_search(scan_obj, es_obj, fields_obj, unzip_folder, None, entity_path)
                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
-#                         random_files.append(unzip_folder)
-                    process_unknown_file(unzip_folder, fields_obj, es_obj)
+                    if es:
+                        index.send_to_es(es_obj, fields_obj, unzip_folder)
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
                 unzip.delete_directory(new_scratch_dir)
 
                 logging.debug("Added compressed archive to ELK: %s", entity_path)
-            else:
-                # Invalid file, continue
+            
+            else:                                       # bad file extension, skip
                 logging.debug("Skipping file %s with extension %s", entity_path, extension)
-        else:
-            # Previously ingested, continue
-            logging.debug("Already ingested %s", entity_path)
+        
+        else:                                           # it wasn't a dir or file?
+            logging.warning("Skipping unknown entry: %s", entity_path)
         
         if 'tmp' in entity_path:
-            logging.critical("FATAL ERRROOOOOOOOOOOOOORRRRRRRRRRRRRR")
-            sys.exit(1)
             scan_obj.just_scanned_this_path(scan_dir)
         else:
             scan_obj.just_scanned_this_path(entity_path)
@@ -326,23 +322,6 @@ def process_node_recursive(lumber_dir, file_list):
             process_node_recursive(entry_path, file_list)
     
     return file_list
-
-
-def process_unknown_file(file_path, fields_obj, es = None):
-    """ Stashes file in ELK stack; checks if duplicate, computes important
-    fields like log category, and prepares for ingest by Logstash.
-    file_path : string
-        absolute path of the file
-    es: Elasticsearch
-        Elasticsearch instance
-    """
-    assert os.path.isfile(file_path), "This is not a file: "+file_path
-
-    nodefields = fields_obj                             # use defaults provided
-    if es:
-        index.send_to_es(es, nodefields, file_path)     # send as unknown node
-    
-    return
 
 
 if __name__ == "__main__":
