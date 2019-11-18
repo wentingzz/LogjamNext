@@ -49,57 +49,6 @@ class FullIngestTestCase(unittest.TestCase):
         ingest.ingest_log_files(input_dir, scratch_dir, history_dir)
 
         # TODO: Verify ingest worked now that category folders are gone
-
-
-class ProcessDataTestCase(unittest.TestCase):
-    """ Tests the process_xxx functions from the main scan file """
-    
-    def test_process_node_recursive(self):
-        try:
-            files = ingest.process_node_recursive(os.path.join(TEST_DATA_DIR, '123'), [])
-            self.assertEqual(3, len(files))
-            self.assertTrue(next((True for f in files if "system_commands" in f), False))
-            self.assertTrue(next((True for f in files if "lumberjack.log" in f), False))
-            self.assertTrue(next((True for f in files if "servermanager.log" in f), False))
-        except Exception as exc:
-            self.fail(exc)
-
-    def test_process_node(self):
-        try:
-            ingest.process_node(TEST_DATA_DIR, None, self.tmpdir, False)
-            self.fail(exc)
-        except Exception as exc:
-            pass
-
-        try:
-            if os.path.exists(self.tmpdir):
-                ingest.process_node(os.path.join(TEST_DATA_DIR,'1234567890'), None)
-            else:
-                ingest.process_node(os.path.join(TEST_DATA_DIR,'1234567890'), None)
-            self.fail(exc)
-        except Exception as exc:
-            pass
-
-        try:
-            ingest.process_node(os.path.join(TEST_DATA_DIR,'123'), '123')
-        except Exception as exc:
-            self.fail(exc)
-
-    def test_process_unknown_file(self):
-        try:
-            ingest.process_unknown_file(TEST_DATA_DIR, None)
-            self.fail(exc)
-        except Exception as exc:
-            pass
-
-        try:
-            ingest.process_unknown_file(os.path.join(TEST_DATA_DIR, '1234567890'), None)
-            self.fail(exc)
-        except Exception as exc:
-            pass
-
-        try:
-            ingest.process_unknown_file(os.path.join(TEST_DATA_DIR, '123', 'system_commands'), '123')
-        except Exception as exc:
-            self.fail(exc)
+        
+        return
 
