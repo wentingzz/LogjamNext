@@ -8,6 +8,8 @@ Utility file for incremental scanning.
 import os
 import time
 
+import paths
+
 
 seconds_between_automatic_history_updates = 120
 
@@ -294,7 +296,7 @@ class Scan:
         self.last_history_update = cur_time
 
 
-def list_unscanned_entries(self, dir, last_path):
+def list_unscanned_entries(dir, last_path):
     """
     Returns a generator that yields each entry in the directory that
     has not been scanned. An entry is determined to have been scanned if
@@ -307,8 +309,10 @@ def list_unscanned_entries(self, dir, last_path):
     
     for e in range(len(entry_names)):       # iterate in order
         if e+1 != len(entry_names) and (dir/entry_names[e+1]).relpath <= last_path:
-            continue                        # skip this entry, it's before last_path
-        yield dir/entry_names[e]            # yields a new QuantumEntry
+            continue                        # skip entry, next path still before last_path
+        if (dir/entry_names[e]).relpath == last_path:
+            continue                        # skip entry, it IS the last_path
+        yield dir/entry_names[e]            # yields new QuantumEntry w/ unscanned path
 
 
 def extract_last_scan_record(path):
