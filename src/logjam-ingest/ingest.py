@@ -197,92 +197,70 @@ def search_case_directory(scan_obj, case_dir, es_obj, case_num):
     recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry.abspath)
 
 
-def recursive_search(scan_obj, es_obj, fields_obj, start, depth=None, scan_dir=None):
+def recursive_search(scan_obj, es_obj, fields_obj, cur_dir):
     """
-    Recursively go through directories to find log files. If compressed, then we need
-    to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
-    start : string
-        the start of the file path to traverse
-    depth : string
-        the sub-directories and sub-files associated with this directory
+    Recursively searches directories for StorageGRID Nodes and Log Files. Unzips
+    compressed files as needed. Sends the log data to Elasticsearch via the 'es_obj'.
     """
+    assert isinstance(fields_obj, fields.NodeFields), "Wrong argument type"
+    assert isinstance(cur_dir, paths.QuantumEntry), "Wrong argument type"
     
-    if graceful_abort:
+    if graceful_abort:                                  # kick out if abort requested
         return
-
-    if not depth:
-        depth = ""
     
-    if not scan_dir:
-        scan_dir = start
-
-    assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
-    
-    search_dir = os.path.join(start, depth)             # the dir to search on this level
     try:
-        entities = os.listdir(search_dir)
+        # TODO: Special QuantumEntry method to check if available?
+        assert cur_dir.is_dir(), "Entry is not a directory: " + cur_dir.abspath
+        entries = os.listdir(cur_dir.abspath)
     except OSError as e:
-        logging.critical("Error during os.listdir(%s): %s", search_dir, e)
-        return                                          # exit function, empty for loop
-    entities = sorted(entities)
+        logging.critical("Cannot access directory %s : Error = %s", cur_dir.abspath, e)
+        return                                          # exit function, can't access
+    entries = sorted(entries)                           # sort entries to locate start
     
-    if paths.QuantumEntry(search_dir, "lumberjack.log").isfile():   # extract fields 1st
-        fields_obj = fields.extract_fields(search_dir, inherit_from=fields_obj)
+    if (cur_dir/"lumberjack.log").isfile():             # extract fields 1st
+        fields_obj = fields.extract_fields(cur_dir.abspath, inherit_from=fields_obj)
     
-    for e in range(len(entities)):                      # loop over each entry in dir
-        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan_obj.last_path:
+    for e in range(len(entries)):                       # loop over each entry in dir
+        if e+1 != len(entries) and scan_obj.has_scanned(cur_dir/entries[e+1]):
             continue                                    # skip, haven't reached last_path
-        entry = entities[e]                             # reference correct entry
+        entry = cur_dir/entries[e]                      # reference correct entry
         
-        filename, extension = os.path.splitext(entry)   # extract name + extension
-        entry_path = os.path.join(search_dir, entry)    # find full entry's path
-
-        if os.path.isfile(entry_path):
-            if not scan_obj.should_consider_file(entry_path):  # check, already scanned?
-                logging.debug("Skipping file %s outside scan timespan", entry_path)
-            
-            # Case for regular file. Check for relevance, then ingest.
-            elif extension in validExtensions or filename in validFiles:
-                if fields.is_storagegrid(entry_path):
+        filename, extension = os.path.splitext(entry.basename)# extract name + extension
+        
+                                                        # check, already scanned?
+        if entry.is_file() and not scan_obj.should_consider_file(entry.abspath):
+            logging.debug("Skipping file %s outside scan timespan", entry.abspath)
+            scan_obj.just_scanned_this_path(entry.relpath)
+            continue                                    # log the file check & continue
+        
+        if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
+            scratch_entry = paths.QuantumEntry(scan_obj.scratch_dir, entry.relpath)
+            unzip.recursive_unzip(entry.abspath, scratch_entry.dirname)
+            entry = scratch_entry
+        
+        if entry.is_file():                             # entry is a file
+            if extension in validExtensions or filename in validFiles:
+                if fields.is_storagegrid(entry.abspath):# check for relevance, then ingest
                     if es:
-                        index.send_to_es(es_obj, fields_obj, entry_path)
+                        index.send_to_es(es_obj, fields_obj, entry.abspath)
                 else:
-                    logging.debug("Skipping non-storagegrid file %s", entry_path)
-            
-            # Case for archive. Recursively unzip and ingest contents.
-            elif extension in unzip.SUPPORTED_FILE_TYPES:
-                # TODO: Choose unique folder names per Logjam worker instance
-                # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scan_obj.scratch_dir, "tmp")
-                os.makedirs(new_scratch_dir)
-                unzip.recursive_unzip(entry_path, new_scratch_dir)
-                f, e = os.path.splitext(entity)
-                unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
-                if os.path.isdir(unzip_folder):
-                    recursive_search(scan_obj, es_obj, fields_obj, unzip_folder, None, entry_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
-                    if es:
-                        index.send_to_es(es_obj, fields_obj, unzip_folder)
-                
-                assert os.path.exists(entry_path), "Should still exist"
-                assert os.path.exists(new_scratch_dir), "Should still exist"
-                unzip.delete_directory(new_scratch_dir)
-
-                logging.debug("Added compressed archive to ELK: %s", entry_path)
+                    logging.debug("Skipping non-storagegrid file %s", entry.abspath)
             
             else:                                       # bad file extension, skip
                 logging.debug("Skipping file %s with extension %s", entry_path, extension)
         
-        elif os.path.isdir(entry_path):                 # detect a directory, continue
-            recursive_search(scan_obj, es_obj, fields_obj, start, os.path.join(depth, entity), scan_dir)
+        elif entry.is_dir():                            # detect a directory, continue
+            recursive_search(scan_obj, es_obj, fields_obj, entry)
         
         else:                                           # it wasn't a dir or file?
-            logging.warning("Skipping unknown entry: %s", entry_path)
+            logging.warning("Skipping unknown entry: %s", entry.abspath)
         
-        if 'tmp' in entry_path:                         # check to see if in scratch dir
-            scan_obj.just_scanned_this_path(scan_dir)   # log only zip directory from NFS
-        else:
-            scan_obj.just_scanned_this_path(entry_path) # normal log of file in NFS
+        scan_obj.just_scanned_this_path(entry.relpath)  # log only relative path
+        
+        if entry.srcpath == scan_obj.scratch_dir:       # if entry inside scratch
+            entry.delete()                              # delete entry
+        
+        continue                                        # continue, next entry
 
 
 if __name__ == "__main__":
