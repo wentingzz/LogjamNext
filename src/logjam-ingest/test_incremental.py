@@ -206,10 +206,54 @@ class ScanHelperFuncTestCase(unittest.TestCase):
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
         self.tmp_dir = os.path.join(code_src_dir, tmp_name)
-        os.mkdir(self.tmp_dir)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
     
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+    
+    def test_list_unscanned_entries(self):
+        file_structure = {
+            "dir1": {
+                "nested": {
+                    "fileA.txt",
+                    "fileB.txt",
+                    "fileC.txt"
+                }
+            },
+            
+            "dir2": {
+                "fileA.txt",
+                "fileB.txt",
+                "fileC.txt"
+            }
+        }
+        
+        def recursive_build(dir, dict):
+            for key in dict:
+                if isinstance(dict[key], str):
+                    new_file_path = os.path.join(dir, dict[key])
+                    open(new_file_path, "a").close()
+                    print(new_file_path)
+                elif isinstance(dict[key], dict)
+                    new_dir_path = os.path.join(dir, dict[key])
+                    os.makedirs(new_dir_path)
+                    recursive_build(new_dir_path, dict[key])
+                    print(new_dir_path)
+        
+        recursive_build(self.tmp_dir, file_structure)
+                    
+        
+    
+        # lumber_dir = os.path.join(self.tmp_dir, "gridid_542839", "nodename_london", "2015-2017")
+        # os.makedirs(lumber_dir)
+        # self.assertTrue(os.path.isdir(lumber_dir))
+        
+        # lumber_file = os.path.join(lumber_dir, "lumberjack.log")
+        # with open(lumber_file, "w") as fd:
+            # fd.write("lumberjack.log file!"+"\n")
+        # self.assertTrue(os.path.isfile(lumber_file))
     
     def test_overwrite_scan_record(self):
         record = incremental.ScanRecord.from_str('0 10 "/nfs" ""')
