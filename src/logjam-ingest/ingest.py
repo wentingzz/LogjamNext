@@ -28,6 +28,8 @@ import sqlite3
 import sys
 import time
 import signal
+import concurrent.futures
+import multiprocessing
 
 from elasticsearch import Elasticsearch, helpers
 from conans import tools
@@ -42,6 +44,7 @@ import paths
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -103,15 +106,6 @@ def main():
     es_logger.setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-    es = Elasticsearch([es_host], verify_certs = True)
-    if not es.ping():
-        logging.critical("Unable to connect to Elasticsearch")
-        es = None
-    elif not es.indices.exists(index.INDEX_NAME):
-        with open(mappings_path) as mappings_file:
-            mappings = mappings_file.read()
-        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
-        es.indices.create(index.INDEX_NAME, body=mappings)
 
 
     def signal_handler(signum, frame):
@@ -124,7 +118,7 @@ def main():
     try:
         # Ingest the directories
         logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir, es)
+        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
@@ -138,7 +132,20 @@ def main():
         unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
 
-def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
+def get_es_connection():
+    es = Elasticsearch([es_host], verify_certs = True)
+    if not es.ping():
+        logging.critical("Unable to connect to Elasticsearch")
+        return None
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
+    return es
+
+
+def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
@@ -154,18 +161,25 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
         logging.critical("Error during os.listdir(%s): %s", input_dir, e)
         entities = []
     entities = sorted(entities)
+    lock = multiprocessing.Manager().Lock()
     
-    search_dir = paths.QuantumEntry(input_dir, "")
-    for entry in incremental.list_unscanned_entries(search_dir, ""):
-        if entry.is_dir():
-            case_num = fields.get_case_number(entry.relpath)
-            if case_num != fields.MISSING_CASE_NUM:
-                logging.debug("Search case directory: %s", entry.relpath)
-                search_case_directory(scan, entry.abspath, es_obj, case_num)
+    with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
+        futures = []
+        
+        search_dir = paths.QuantumEntry(input_dir, "")
+        for entry in incremental.list_unscanned_entries(search_dir, ""):
+            if entry.is_dir():
+                case_num = fields.get_case_number(entry.relpath)
+                if case_num != fields.MISSING_CASE_NUM:
+                    logging.debug("Search case directory: %s", entry.relpath)
+                    futures.append(executor.submit(search_case_directory, scan, entry.abspath, case_num, lock))
+                else:
+                    logging.debug("Ignored non-StorageGRID directory: %s", entry.relpath)
             else:
-                logging.debug("Ignored non-StorageGRID directory: %s", entry.relpath)
-        else:
-            logging.debug("Ignored non-StorageGRID file: %s", entry.relpath)
+                logging.debug("Ignored non-StorageGRID file: %s", entry.relpath)
+        
+        for f in futures:
+            print(f.result())
     
     if graceful_abort:
         scan.premature_exit()
@@ -175,24 +189,33 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     return
 
 
-def search_case_directory(scan_obj, case_dir, es_obj, case_num):
+def search_case_directory(scan_obj, case_dir, case_num, lock):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    case_num = None                         # will remove after parallelization done
-    
-    case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
-    
-    case_num = fields.get_case_number(case_dir_entry.abspath)
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
+    
+    child_scan = incremental.Scan(case_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    es_obj = get_es_connection()
     
     fields_obj = fields.NodeFields(case_num=case_num)
     
     logging.debug("Recursing into case directory: %s", case_dir_entry.relpath)
-    recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry)
+    recursive_search(child_scan, es_obj, fields_obj, case_dir)
+    if graceful_abort:
+        child_scan.premature_exit()
+    else:
+        child_scan.complete_scan()
+        lock.acquire()
+        scan_obj.just_scanned_this_path(case_dir)
+        lock.release()
+        unzip.delete_file(child_scan.history_log_file)
+        unzip.delete_file(child_scan.history_active_file)
+        
+    return
 
 
 def recursive_search(scan, es, nodefields, cur_dir):
