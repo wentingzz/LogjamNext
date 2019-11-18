@@ -73,7 +73,8 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
             #delete_file(path)                  # no basic file clean up, leave for caller
         
         return
-                                                # dest file/dir will mirror old name
+    
+    extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
     dest = os.path.join(dest, strip_zip_ext(os.path.basename(src)))
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
