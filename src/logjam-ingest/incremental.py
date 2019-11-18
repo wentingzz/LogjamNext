@@ -211,29 +211,30 @@ class Scan:
             self.input_dir,
             self.last_path)
 
-    def just_scanned_this_path(self, path):
+    def just_scanned_this_entry(self, entry):
         """
-        Caller just scanned the given path, so update the internal last
+        Caller just scanned the given entry, so update the internal last
         scanned path variable and possibly write the file to our history file if
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "Path should exist on system"
+        assert entry.exists(), "Entry should exist on system"
 
-        self.last_path = path
+        self.last_path = entry.relpath
 
         self._save_state_to_file(force_save=False)
 
-    def should_consider_file(self, path):
+    def should_consider_entry(self, entry):
         """
         Checks to see if the file denoted by path would be considered for this
         scan over the given time period.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "File should exist on system"
-        assert not os.path.isdir(path), "Path should point to a file"
+        assert entry.exists(), "Entry should exist on system"
+        if entry.is_dir():
+            return True
 
-        modification_time = os.path.getmtime(path)
+        modification_time = os.path.getmtime(entry.abspath)
         return modification_time in self.time_period
 
     def list_unscanned_entries(self, dir):

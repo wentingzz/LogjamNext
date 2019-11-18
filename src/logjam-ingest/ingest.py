@@ -194,73 +194,79 @@ def search_case_directory(scan_obj, case_dir, es_obj, case_num):
     
     fields_obj = fields.NodeFields(case_num=case_num)
     
-    recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry.abspath)
+    recursive_search(scan_obj, es_obj, fields_obj, case_dir_entry)
 
 
-def recursive_search(scan_obj, es_obj, fields_obj, cur_dir):
+def recursive_search(scan, es, nodefields, cur_dir):
     """
     Recursively searches directories for StorageGRID Nodes and Log Files. Unzips
-    compressed files as needed. Sends the log data to Elasticsearch via the 'es_obj'.
+    compressed files as needed. Sends the log data to Elasticsearch via the 'es'.
     """
-    assert isinstance(fields_obj, fields.NodeFields), "Wrong argument type"
+    assert isinstance(nodefields, fields.NodeFields), "Wrong argument type"
     assert isinstance(cur_dir, paths.QuantumEntry), "Wrong argument type"
+    assert cur_dir.is_dir(), "Entry is not a directory: " + cur_dir.abspath
     
     if graceful_abort:                                  # kick out if abort requested
         return
     
-    try:
-        # TODO: Special QuantumEntry method to check if available?
-        assert cur_dir.is_dir(), "Entry is not a directory: " + cur_dir.abspath
-        entries = os.listdir(cur_dir.abspath)
-    except OSError as e:
-        logging.critical("Cannot access directory %s : Error = %s", cur_dir.abspath, e)
-        return                                          # exit function, can't access
-    entries = sorted(entries)                           # sort entries to locate start
-    
     if (cur_dir/"lumberjack.log").isfile():             # extract fields 1st
-        fields_obj = fields.extract_fields(cur_dir.abspath, inherit_from=fields_obj)
+        logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.abspath)
+        nodefields = fields.extract_fields(cur_dir.abspath, inherit_from=nodefields)
     
-    for e in range(len(entries)):                       # loop over each entry in dir
-        if e+1 != len(entries) and scan_obj.has_scanned(cur_dir/entries[e+1]):
-            continue                                    # skip, haven't reached last_path
-        entry = cur_dir/entries[e]                      # reference correct entry
+    for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
         
-        filename, extension = os.path.splitext(entry.basename)# extract name + extension
-        
-                                                        # check, already scanned?
-        if entry.is_file() and not scan_obj.should_consider_file(entry.abspath):
-            logging.debug("Skipping file %s outside scan timespan", entry.abspath)
-            scan_obj.just_scanned_this_path(entry.relpath)
-            continue                                    # log the file check & continue
+        if scan.should_consider_entry(entry):           # check, has been scanned?
+            logging.debug("Skipping file, outside scan timespan: %s", entry.abspath)
+            scan.just_scanned_this_entry(entry)         # log the scan
+            continue                                    # continue, next entry
+        else:
+            logging.debug("Considering entry: %s", entry.abspath)
         
         if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
-            scratch_entry = paths.QuantumEntry(scan_obj.scratch_dir, entry.relpath)
+            scratch_entry = paths.QuantumEntry(scan.scratch_dir, entry.relpath)
+            scratch_entry = unzip.strip_all_zip_exts(scratch_entry.relpath)
+            
+            if scratch_entry.exists() or scratch_entry.exists_in(scan.input_dir):
+                logging.debug("Skipping archive, already unpacked: %s", entry.abspath)
+                scan.just_scanned_this_entry(entry)     # log the scan
+                continue                                # continue, next entry
+            else:
+                logging.debug("Unpacking archive, path open: %s", entry.abspath)
+            
+            assert not scratch_entry.exists(), "Entry should not be there"
             unzip.recursive_unzip(entry.abspath, scratch_entry.dirname)
-            entry = scratch_entry
+            assert scratch_entry.exists(), "Entry should have been created"
+            
+            entry = scratch_entry                       # override old entry
         
         if entry.is_file():                             # entry is a file
-            if extension in validExtensions or filename in validFiles:
+            if entry.extension in validExtensions or entry.filename in validFiles:
                 if fields.is_storagegrid(entry.abspath):# check for relevance, then ingest
-                    if es:
-                        index.send_to_es(es_obj, fields_obj, entry.abspath)
+                    logging.debug("
+                    index.send_to_es(es, nodefields, entry.abspath)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entry.abspath)
-            
             else:                                       # bad file extension, skip
-                logging.debug("Skipping file %s with extension %s", entry_path, extension)
+                logging.debug("Skipping file, bad extension (%s): %s", entry.extension, entry.abspath)
         
         elif entry.is_dir():                            # detect a directory, continue
-            recursive_search(scan_obj, es_obj, fields_obj, entry)
+            try:
+                logging.debug("Recursing into directory: %s", entry.abspath)
+                recursive_search(scan, es, nodefields, entry)
+            except OSError as e:
+                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
         
         else:                                           # it wasn't a dir or file?
-            logging.warning("Skipping unknown entry: %s", entry.abspath)
+            logging.debug("Skipping unknown entry: %s", entry.abspath)
         
-        scan_obj.just_scanned_this_path(entry.relpath)  # log only relative path
+        if entry.srcpath == scan.scratch_dir:           # if entry inside scratch
+            logging.debug("Deleting unpacked archive: %s", entry.abspath)
+            entry.delete()                              # rm on FS (does not clear entry)
         
-        if entry.srcpath == scan_obj.scratch_dir:       # if entry inside scratch
-            entry.delete()                              # delete entry
-        
+        scan.just_scanned_this_entry(entry)             # log the scan
         continue                                        # continue, next entry
+    
+    return                                              # done searching this cur_dir
 
 
 if __name__ == "__main__":
