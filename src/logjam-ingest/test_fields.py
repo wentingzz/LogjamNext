@@ -273,7 +273,7 @@ class ExtractFieldsTestCase(unittest.TestCase):
         # Test get platform with os/etc/user_data file, but no data
         user_file = os.path.join(etc_dir, "user_data")
         open(user_file, "a").close()
-        self.assertTrue(os.path.isfile(user_file)
+        self.assertTrue(os.path.isfile(user_file))
         self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
         
         # Test get platform with os/etc/user_data file but no good data
