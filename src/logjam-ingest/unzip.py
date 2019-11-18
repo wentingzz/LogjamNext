@@ -42,12 +42,11 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isfile(src), "Source should be a file: "+src
+    assert os.path.splitext(src)[1] in SUPPORTED_FILE_TYPES, "Invalid extension: "+src
     src = os.path.abspath(src)
-    assert os.path.isabs(src), "Source path should be absolute: "+src
     assert os.path.exists(dest), "Destination does not exist: "+dest
     assert os.path.isdir(dest), "Destination should be a dir: "+dest
     dest = os.path.abspath(dest)
-    assert os.path.isabs(dest), "Destination should be absolute: "+dest
 
     # Capture the modified time of the archive to force it upon its contents
     try:
@@ -74,10 +73,8 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
             #delete_file(path)                  # no basic file clean up, leave for caller
         
         return
-    
-    extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
-    dest = os.path.join(dest, os.path.basename(src.replace(extension,'')))
-    assert extension in SUPPORTED_FILE_TYPES, "Invalid extension: "+src
+                                                # dest file/dir will mirror old name
+    dest = os.path.join(dest, strip_zip_ext(os.path.basename(src)))
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
     if os.path.exists(dest):                    # file/dir already exists
