@@ -7,6 +7,8 @@ Utility file system path functionality, such as the QuantumEntry class.
 
 import os
 
+import unzip
+
 
 class QuantumEntry:
     """
@@ -131,4 +133,16 @@ class QuantumEntry:
     def is_file(self):
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
+    
+    def delete(self);
+        """ Attempts to delete the file refernced by this QuantumEntry """
+        
+        if not self.exists():
+            return True
+        
+        if self.is_file():
+            return unzip.delete_file(self.abspath)
+        
+        if self.is_dir():
+            return unzip.delete_directory(self.abspath)
 
