@@ -56,7 +56,6 @@ graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
 
-
 def main():
     """
     Recursively walks the directories of the inspection
@@ -161,7 +160,6 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     lock = multiprocessing.Manager().Lock()
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
-        futures = []
         for e in range(len(entities)):
             if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
                 continue                                # skip, haven't reached last_path
@@ -171,25 +169,26 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             if os.path.isdir(full_path):
                 case_num = fields.get_case_number(entity)
                 if case_num != None:
-                    futures.append(executor.submit(search_case_directory, scan, full_path, case_num, lock))
+                    executor.submit(search_case_directory, scan, full_path, case_num)
                 else:
                     logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", full_path)
-        for f in futures:
-            print(f.result())
-        
-    
-    
+    tmp_dirs = sorted(os.listdir(history_dir))
+    for history_file in tmp_dirs:
+        filename, _ = os.path.splitext(history_file)
+        if 'log' in filename:
+            break
+        unzip.delete_file(os.path.join(history_dir, history_file))
+        scan.just_scanned_this_path(os.path.join(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
         scan.complete_scan()
-        
     return
 
 
-def search_case_directory(scan_obj, search_dir, case_num, lock):
+def search_case_directory(scan_obj, search_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
@@ -199,16 +198,12 @@ def search_case_directory(scan_obj, search_dir, case_num, lock):
     child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
     es_obj = get_es_connection()
     recursive_search(child_scan, search_dir, es_obj, case_num)
+    global graceful_abort
     if graceful_abort:
         child_scan.premature_exit()
     else:
         child_scan.complete_scan()
-        lock.acquire()
-        scan_obj.just_scanned_this_path(search_dir)
-        lock.release()
         unzip.delete_file(child_scan.history_log_file)
-        unzip.delete_file(child_scan.history_active_file)
-        
     return
 
 
@@ -278,7 +273,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
             elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp")
+                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp" + str(case_num))
                 os.makedirs(new_scratch_dir)
                 unzip.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
