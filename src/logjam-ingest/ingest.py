@@ -203,6 +203,7 @@ def search_case_directory(scan_obj, case_dir, case_num, lock):
     
     fields_obj = fields.NodeFields(case_num=case_num)
     
+    case_dir = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
     logging.debug("Recursing into case directory: %s", case_dir.relpath)
     recursive_search(child_scan, es_obj, fields_obj, case_dir)
     if graceful_abort:
@@ -210,7 +211,7 @@ def search_case_directory(scan_obj, case_dir, case_num, lock):
     else:
         child_scan.complete_scan()
         lock.acquire()
-        scan_obj.just_scanned_this_path(case_dir)
+        scan_obj.just_scanned_this_entry(case_dir)
         lock.release()
         unzip.delete_file(child_scan.history_log_file)
         unzip.delete_file(child_scan.history_active_file)
