@@ -134,7 +134,7 @@ class QuantumEntry:
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
     
-    def delete(self);
+    def delete(self):
         """ Attempts to delete the file refernced by this QuantumEntry """
         
         if not self.exists():
