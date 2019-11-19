@@ -28,6 +28,8 @@ import sqlite3
 import sys
 import time
 import signal
+import concurrent.futures
+import multiprocessing
 
 from elasticsearch import Elasticsearch, helpers
 from conans import tools
@@ -41,6 +43,7 @@ import fields
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -102,15 +105,6 @@ def main():
     es_logger.setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-    es = Elasticsearch([es_host], verify_certs = True)
-    if not es.ping():
-        logging.critical("Unable to connect to Elasticsearch")
-        es = None
-    elif not es.indices.exists(index.INDEX_NAME):
-        with open(mappings_path) as mappings_file:
-            mappings = mappings_file.read()
-        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
-        es.indices.create(index.INDEX_NAME, body=mappings)
 
 
     def signal_handler(signum, frame):
@@ -123,7 +117,7 @@ def main():
     try:
         # Ingest the directories
         logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir, es)
+        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
@@ -136,8 +130,19 @@ def main():
         logging.info("Cleaning up scratch space")
         unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
+def get_es_connection():
+    es = Elasticsearch([es_host], verify_certs = True)
+    if not es.ping():
+        logging.critical("Unable to connect to Elasticsearch")
+        return None
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
+    return es
 
-def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
+def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
@@ -153,21 +158,28 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
         logging.critical("Error during os.listdir(%s): %s", input_dir, e)
         entities = []
     entities = sorted(entities)
+    lock = multiprocessing.Manager().Lock()
     
-    for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
-            continue                                    # skip, haven't reached last_path
-        
-        entity = entities[e]
-        full_path = os.path.join(input_dir,entity)
-        if os.path.isdir(full_path):
-            case_num = fields.get_case_number(entity)
-            if case_num != None:
-                search_case_directory(scan, full_path, es_obj, case_num)
+    with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
+        futures = []
+        for e in range(len(entities)):
+            if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+                continue                                # skip, haven't reached last_path
+
+            entity = entities[e]
+            full_path = os.path.join(input_dir,entity)
+            if os.path.isdir(full_path):
+                case_num = fields.get_case_number(entity)
+                if case_num != None:
+                    futures.append(executor.submit(search_case_directory, scan, full_path, case_num, lock))
+                else:
+                    logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
-                logging.debug("Ignored non-StorageGRID directory: %s", full_path)
-        else:
-            logging.debug("Ignored non-StorageGRID file: %s", full_path)
+                logging.debug("Ignored non-StorageGRID file: %s", full_path)
+        for f in futures:
+            print(f.result())
+        
+    
     
     if graceful_abort:
         scan.premature_exit()
@@ -177,14 +189,27 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es_obj = None):
     return
 
 
-def search_case_directory(scan_obj, search_dir, es_obj, case_num):
+def search_case_directory(scan_obj, search_dir, case_num, lock):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    return recursive_search(scan_obj, search_dir, es_obj, case_num)
+    child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    es_obj = get_es_connection()
+    recursive_search(child_scan, search_dir, es_obj, case_num)
+    if graceful_abort:
+        child_scan.premature_exit()
+    else:
+        child_scan.complete_scan()
+        lock.acquire()
+        scan_obj.just_scanned_this_path(search_dir)
+        lock.release()
+        unzip.delete_file(child_scan.history_log_file)
+        unzip.delete_file(child_scan.history_active_file)
+        
+    return
 
 
 def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
