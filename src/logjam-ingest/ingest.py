@@ -55,8 +55,6 @@ validFiles = ["syslog", "messages", "system_commands"]
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
-#directories that haven't been scanned
-dirs_to_scan = []
 
 def main():
     """
@@ -154,39 +152,38 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     scan = incremental.Scan(input_dir, history_dir, scratch_dir)
 
     entities = sorted(os.listdir(input_dir))
-    lock = multiprocessing.Manager().Lock()
-    global dirs_to_scan
-    dirs_to_scan = entities
+    cur_index = 0
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
-        futures = []
         for e in range(len(entities)):
             if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
                 continue                                    # skip, haven't reached last_path
-
             entity = entities[e]
             full_path = os.path.join(input_dir,entity)
             if os.path.isdir(full_path):
                 case_num = fields.get_case_number(entity)
                 if case_num != None:
-                    futures.append(executor.submit(search_case_directory, scan, full_path, case_num, lock))
+                    executor.submit(search_case_directory, scan, full_path, case_num)
                 else:
                     logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", full_path)
-        for f in futures:
-            print(f.result())
-        
-    
-    
+    tmp_dirs = sorted(os.listdir(history_dir))
+    tmp_file = ""
+    for history_file in tmp_dirs:
+        filename, _ = os.path.splitext(history_file)
+        if 'log' in filename:
+            break
+        tmp_file = filename
+        unzip.delete_file(os.path.join(history_dir, history_file))
+        scan.just_scanned_this_path(os.path.join(input_dir, tmp_file))
     if graceful_abort:
         scan.premature_exit()
     else:
         scan.complete_scan()
-        
     return
 
 
-def search_case_directory(scan_obj, search_dir, case_num, lock):
+def search_case_directory(scan_obj, search_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
@@ -201,23 +198,7 @@ def search_case_directory(scan_obj, search_dir, case_num, lock):
         child_scan.premature_exit()
     else:
         child_scan.complete_scan()
-        with lock:
-            global dirs_to_scan
-            if dirs_to_scan[0] == case_num:
-                tmp_dirs = sorted(os.listdir(child_scan.history_dir))
-                for history_file in tmp_dirs:
-                    filename, _ = os.path.splitext(history_file)
-                    try:
-                        if filename < dirs_to_scan[1]:
-                            scan_obj.just_scanned_this_path(os.join(scan_obj.input_dir, case_num))
-                            unzip.delete_file(history_file)
-                        else:
-                            break
-                    except Exception:
-                        break
-            dirs_to_scan.remove(case_num)
-            unzip.delete_file(child_scan.history_log_file)
-        return dirs_to_scan, len(dirs_to_scan), case_num
+        unzip.delete_file(child_scan.history_log_file)
     return
 
 
