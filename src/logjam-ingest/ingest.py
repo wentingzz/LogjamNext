@@ -175,14 +175,12 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", full_path)
     tmp_dirs = sorted(os.listdir(history_dir))
-    tmp_file = ""
     for history_file in tmp_dirs:
         filename, _ = os.path.splitext(history_file)
         if 'log' in filename:
             break
-        tmp_file = filename
         unzip.delete_file(os.path.join(history_dir, history_file))
-        scan.just_scanned_this_path(os.path.join(input_dir, tmp_file))
+        scan.just_scanned_this_path(os.path.join(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
