@@ -1,4 +1,16 @@
+"""
+@author Jeremy Schmidt
+@author Daniel Grist
+@author Nathaniel Brooks
+
+Basic Flask app for serving our webpage and ferrying queries to Elasticsearch
+"""
+
+
 import os
+import logging
+import sys
+import json
 
 from flask import Flask, request, render_template, jsonify, json, abort
 from elasticsearch import Elasticsearch
@@ -53,101 +65,222 @@ def get_query():
     if version:
         total_hits_q = es.search(
             index="logjam",
-            _source="false",
             body={
-                "min_score": "40.0",
-                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            {"match": {"storagegrid_version": version}},
-                            # {"match": {"platform": platform}},
+                "aggs":                             # aggregate our query below
+                {
+                    "by_nodename_and_casenumber":   # name of aggregation
+                    {
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
+                },
+                
+                "query":                            # query that will be aggregated
+                {
+                    "bool":                         # use bool query type
+                    {
+                        "filter":                   # filter = include/exclude docs based
+                        [                           # on condition, score not included
+                            {
+                                "term":             # term query matches a token exactly
+                                {                   # (not fuzzy) to a field
+                                    "storagegrid_version":
+                                    {               # exact version match
+                                        "value" : version
+                                    }               # replace with a 'range query' soon
+                                }
+                            },                            
+                            # {
+                                # "term":           # term query matches a token exactly
+                                # {                 # (not fuzzy) to a field
+                                    # "platform":
+                                    # {             # exact platform match
+                                        # "value" : platform
+                                    # }
+                                # }
+                            # },
+                        ],
+                        
+                        "should":                   # should = OR w/ a summed score
+                        [                           # array = multiple clauses can be used
+                            {
+                                "match":            # match query searches all tokens from
+                                {                   # message anywhere in doc text, we set
+                                    "message":      # the minimum limit to match = 50%
+                                    {
+                                        "query" : message,
+                                        "auto_generate_synonyms_phrase_query" : "false",
+                                        "fuzziness" : "0",
+                                        "max_expansions" : "1",
+                                        "lenient" : "false",
+                                        "operator" : "OR",
+                                        "minimum_should_match" : "50%",
+                                        "zero_terms_query" : "none"
+                                    }
+                                }
+                            },
                         ]
                     }
                 },
+                "size" : "0"                        # no docs returned, just aggregation
             },
         )
+        total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
-        for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            total_hits += 1
-
-        total_no_hits_q = es.search(
+        total_all_q = es.search(
             index="logjam",
-            _source="false",
             body={
-                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
-                            {"match": {"storagegrid_version": version}},
-                            # {"match": {"platform": platform}},
+                "aggs":                             # aggregate our query below
+                {
+                    "by_nodename_and_casenumber":   # name of aggregation
+                    {
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
+                },
+                
+                "query":                            # query that will be aggregated
+                {
+                    "bool":                         # use bool query type
+                    {
+                        "filter":                   # filter = include/exclude docs based
+                        [                           # on condition, score not included
+                            {
+                                "term":             # term query matches a token exactly
+                                {                   # (not fuzzy) to a field
+                                    "storagegrid_version":
+                                    {               # exact version match
+                                        "value" : version
+                                    }               # replace with a 'range query' soon
+                                }
+                            },
+                            # {
+                                # "term":           # term query matches a token exactly
+                                # {                 # (not fuzzy) to a field
+                                    # "platform":
+                                    # {             # exact platform match
+                                        # "value" : platform
+                                    # }
+                                # }
+                            # },
+                        ],
+                        
+                        "should":                   # should = OR w/ a summed score
+                        [                           # array = multiple clauses can be used
+                            {
+                                "match_all":        # match all query returns all docs
+                                {                   # with a score of 1.0
+                                
+                                }    
+                            }
                         ]
                     }
                 },
+                "size" : "0"                        # no docs returned, just aggregation
             },
         )
-
-        for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            total_no_hits += 1
+        total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
         
-        total_no_hits -= total_hits
+        total_no_hits = total_all - total_hits
 
     else:
         total_hits_q = es.search(
             index="logjam",
             _source="false",
             body={
-                "min_score": "40.0",
-                "aggs": {
-                    "unknown_cases": {"filters": { 
-                        "filters": { "unknowns" :{ "term" :{ "node_name": "unknown"}},
-                        }},
-                        "aggs": { "case_number": {"terms": { "field": "case.keyword"}}
-                        }},
-                    "matched_cases": {"terms" :{ "field": "node_name.keyword"}}
-                },       
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"match": {"message": message}},
+                "aggs":                             # aggregate our query below
+                {
+                    "by_nodename_and_casenumber":   # name of aggregation
+                    {
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
+                },
+                
+                "query":                            # query that will be aggregated
+                {
+                    "bool":                         # use bool query type
+                    {
+                        "should":                   # should = OR w/ a summed score
+                        [                           # array = multiple clauses can be used
+                            {
+                                "match":            # match query searches all tokens from
+                                {                   # message anywhere in doc text, we set
+                                    "message":      # the minimum limit to match = 50%
+                                    {
+                                        "query" : message,
+                                        "auto_generate_synonyms_phrase_query" : "false",
+                                        "fuzziness" : "0",
+                                        "max_expansions" : "1",
+                                        "lenient" : "false",
+                                        "operator" : "OR",
+                                        "minimum_should_match" : "50%",
+                                        "zero_terms_query" : "none"
+                                    }
+                                }
+                            },
                         ]
                     }
                 },
+                "size" : "0"                        # no docs returned, just aggregation
             },
         )
-        
-        for hits in total_hits_q["aggregations"]["matched_cases"]["buckets"]:
-            if not hits["key"] == "unknown":
-                total_hits += 1
-        
-        for hits in total_hits_q["aggregations"]["unknown_cases"]["buckets"]:
-            total_hits += 1
+        # val_to_print = json.dumps(total_hits_q, indent=4)
+        # logging.critical(str(val_to_print))
+        total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
 
-        total_no_hits_q = es.search(
+        total_all_q = es.search(
             index="logjam",
-            _source="false",
             body={
-                "aggs": {
-                    "matched_cases": {"terms": {"field": "node_name.keyword"}},
-                    "unknown_cases": {"filters": {
-                        "filters": {"unknowns" :{"term" :{"node_name":"unknown"}},
-                        }},
-                        "aggs": {"case_number": {"terms" :{"field":"case.keyword"}}
-                        }}
+                "aggs":                             # aggregate our query below
+                {
+                    "by_nodename_and_casenumber":   # name of aggregation
+                    {
+                        "composite":                # composite combines two fields
+                        {
+                            "size" : "10000",       # forces composite to return all pairs
+                            "sources":
+                            [                       # all pairs of nodename and casenum
+                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
+                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
+                            ]
+                        }
+                    }
                 },
+                
+                "query":                            # query that will be agregated
+                {
+                    "match_all" : {}                # all docs considered/matched
+                },
+                "size" : "0"                        # no docs returned, just aggregation
             }
         )
-
-        for hits in total_no_hits_q["aggregations"]["unknown_cases"]["buckets"]:
-            total_no_hits += 1
-
-        for hits in total_no_hits_q["aggregations"]["matched_cases"]["buckets"]:
-            if not hits["key"] == "unknown":
-                total_no_hits += 1
+        # val_to_print = json.dumps(total_all_q, indent=4)
+        # logging.critical(str(val_to_print))
+        total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
-        total_no_hits -= total_hits
+        total_no_hits = total_all - total_hits
 
     return jsonify(
         [

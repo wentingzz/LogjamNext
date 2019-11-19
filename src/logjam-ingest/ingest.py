@@ -94,8 +94,8 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
+    log_format = "%(asctime)s %(process)d %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
 
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
