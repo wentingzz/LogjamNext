@@ -222,9 +222,8 @@ class Scan:
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert entry.exists(), "Entry should exist on system"
 
-        self.last_path = entry.relpath
+        self.last_path = entry.relpath              # trust caller to provide valid entry
 
         self._save_state_to_file(force_save=False)
 
