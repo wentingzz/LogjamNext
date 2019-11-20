@@ -19,7 +19,7 @@ import shutil
 import stat
 import conans
 import gzip
-import pyunpack
+import patoolib
 
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
@@ -132,9 +132,9 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         error_flag = False
         try:                                    # exception handling here only
-            pyunpack.Archive(src).extractall(dest)
+            patoolib.extract_archive(src, outdir=dest)
         except Exception as e:
-            logging.critical("Error during pyunpack extraction: %s", e)
+            logging.critical("Error during patool 7zip extraction: %s", e)
             error_flag = True                   # just log it and skip it
         
         if not error_flag:
