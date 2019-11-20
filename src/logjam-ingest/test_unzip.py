@@ -59,9 +59,28 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_tar', 'tar.txt')))
 
     def test_zip(self):
-        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_zip.zip'), self.tmpdir)
-        self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_zip')))
-        self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_zip', 'zip.txt')))
+        src_file = os.path.join(self.tmpdir, "hello_zip.zip")
+        dest_dir = self.tmpdir
+        dest_unzipped_dir = os.path.join(dest_dir, "hello_zip")
+        if os.path.exists(dest_unzipped_dir):
+            shutil.rmtree(dest_unzipped_dir)
+        
+        unzip.recursive_unzip(src_file, dest_dir)
+        self.assertTrue(os.path.isdir(dest_dir))
+        self.assertTrue(os.path.isdir(dest_unzipped_dir))
+        self.assertTrue(os.path.isfile(dest_unzipped_dir, 'zip.txt')))
+    
+    def test_zip_deep_path(self):
+        src_file = os.path.join(self.tmpdir, "hello_zip.zip")
+        dest_dir = os.path.join(self.tmpdir, "dirA", "dirB", "dirC")
+        dest_unzipped_dir = os.path.isdir(os.path.join(dest_dir, "hello_zip"))
+        if os.path.exists(dest_unzipped_dir):
+            shutil.rmtree(dest_unzipped_dir)
+        
+        unzip.recursive_unzip(src_file, dest_dir)
+        self.assertTrue(os.path.isdir(dest_dir))
+        self.assertTrue(os.path.isdir(dest_unzipped_dir))
+        self.assertTrue(os.path.isfile(dest_unzipped_dir, "zip.txt"))
     
     def test_7z(self):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
