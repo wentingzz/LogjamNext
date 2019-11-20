@@ -95,7 +95,7 @@ class QuantumEntry:
     def dirpath(self):
         """ Absolute directory location of this entry """
         return os.path.dirname(self.abspath)
-        
+    
     @property
     def basename(self):
         """ Returns the base name of the entry as defined by `os.path.basename` """
