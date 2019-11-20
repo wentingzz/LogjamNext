@@ -49,7 +49,7 @@ class QuantumEntryTestCase(unittest.TestCase):
         self.assertEqual(".", entry.srcpath)
         self.assertEqual("dir/dir/dir", entry.relpath)
         self.assertNotEqual("./dir/dir/dir", entry.abspath)     # can't know absolute path
-        self.assertEqual("./dir/dir", entry.absdirpath)         # can't know absolute path
+        self.assertNotEqual("./dir/dir", entry.absdirpath)      # can't know absolute path
         self.assertEqual("dir/dir", entry.reldirpath)
         self.assertEqual("dir", entry.basename)
         self.assertEqual("dir", entry.filename)
@@ -59,7 +59,7 @@ class QuantumEntryTestCase(unittest.TestCase):
         self.assertEqual(".", entry.srcpath)
         self.assertEqual("dir/dir/dir", entry.relpath)
         self.assertNotEqual("./dir/dir/dir", entry.abspath)     # can't know absolute path
-        self.assertEqual("./dir/dir", entry.absdirpath)         # can't know absolute path
+        self.assertNotEqual("./dir/dir", entry.absdirpath)      # can't know absolute path
         self.assertEqual("dir/dir", entry.reldirpath)
         self.assertEqual("dir", entry.basename)
         self.assertEqual("dir", entry.filename)
