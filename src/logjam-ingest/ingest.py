@@ -57,7 +57,6 @@ graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
 
-
 def main():
     """
     Recursively walks the directories of the inspection
@@ -96,8 +95,8 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
+    log_format = "%(asctime)s %(process)d %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
 
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
@@ -164,32 +163,35 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     lock = multiprocessing.Manager().Lock()
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
-        futures = []
         
         search_dir = paths.QuantumEntry(input_dir, "")
+        
         for entry in incremental.list_unscanned_entries(search_dir, ""):
             if entry.is_dir():
                 case_num = fields.get_case_number(entry.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
                     logging.debug("Search case directory: %s", entry.relpath)
-                    futures.append(executor.submit(search_case_directory, scan, entry.abspath, case_num, lock))
+                    executor.submit(search_case_directory, scan, entry.abspath, case_num)
                 else:
                     logging.debug("Ignored non-StorageGRID directory: %s", entry.relpath)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.relpath)
-        
-        for f in futures:
-            print(f.result())
     
+    tmp_dirs = sorted(os.listdir(history_dir))
+    for history_file in tmp_dirs:
+        filename, _ = os.path.splitext(history_file)
+        if 'log' in filename:
+            break
+        unzip.delete_file(os.path.join(history_dir, history_file))
+        scan.just_scanned_this_path(os.path.join(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
         scan.complete_scan()
-        
     return
 
 
-def search_case_directory(scan_obj, case_dir, case_num, lock):
+def search_case_directory(scan_obj, case_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
@@ -206,16 +208,12 @@ def search_case_directory(scan_obj, case_dir, case_num, lock):
     case_dir = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
     logging.debug("Recursing into case directory: %s", case_dir.relpath)
     recursive_search(child_scan, es_obj, fields_obj, case_dir)
+    global graceful_abort
     if graceful_abort:
         child_scan.premature_exit()
     else:
         child_scan.complete_scan()
-        lock.acquire()
-        scan_obj.just_scanned_this_entry(case_dir)
-        lock.release()
         unzip.delete_file(child_scan.history_log_file)
-        unzip.delete_file(child_scan.history_active_file)
-        
     return
 
 

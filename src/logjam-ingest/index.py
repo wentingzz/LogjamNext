@@ -29,7 +29,8 @@ def set_data(file_path, send_time, fields_obj):
                     '_source': {
                         'case': fields_obj.case_num,
                         'node_name': fields_obj.node_name,
-                        'storagegrid_version': fields_obj.sg_ver,
+                        'major_version': fields_obj.sg_ver[0],
+                        'minor_version': fields_obj.sg_ver[1],
                         'platform': fields_obj.platform,
                         'categorize_time': send_time,
                         'message': line.decode('utf-8')
