@@ -148,7 +148,7 @@ class QuantumEntryTestCase(unittest.TestCase):
         entry = paths.QuantumEntry("/", "dir/.git")
         self.assertEqual(".git", entry.filename)
         
-        entry = paths.QuantumEnry("/tmp", "")
+        entry = paths.QuantumEntry("/tmp", "")
         self.assertEqual("", entry.filename)
     
     def test_extension(self):
