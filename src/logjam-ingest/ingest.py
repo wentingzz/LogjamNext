@@ -135,7 +135,6 @@ def get_es_connection():
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
         raise Exception("Unable to connect to Elasticsearch")
-#         return None
     elif not es.indices.exists(index.INDEX_NAME):
         with open(mappings_path) as mappings_file:
             mappings = mappings_file.read()
