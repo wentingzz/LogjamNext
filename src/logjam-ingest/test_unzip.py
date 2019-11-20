@@ -68,7 +68,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         unzip.recursive_unzip(src_file, dest_dir)
         self.assertTrue(os.path.isdir(dest_dir))
         self.assertTrue(os.path.isdir(dest_unzipped_dir))
-        self.assertTrue(os.path.isfile(dest_unzipped_dir, 'zip.txt'))
+        self.assertTrue(os.path.isfile(os.path.join(dest_unzipped_dir, 'zip.txt')))
     
     def test_zip_deep_path(self):
         src_file = os.path.join(self.tmpdir, "hello_zip.zip")
@@ -80,7 +80,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         unzip.recursive_unzip(src_file, dest_dir)
         self.assertTrue(os.path.isdir(dest_dir))
         self.assertTrue(os.path.isdir(dest_unzipped_dir))
-        self.assertTrue(os.path.isfile(dest_unzipped_dir, "zip.txt"))
+        self.assertTrue(os.path.isfile(os.path.join(dest_unzipped_dir, "zip.txt")))
     
     def test_7z(self):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
