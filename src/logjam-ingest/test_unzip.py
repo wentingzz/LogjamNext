@@ -73,7 +73,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def test_zip_deep_path(self):
         src_file = os.path.join(self.tmpdir, "hello_zip.zip")
         dest_dir = os.path.join(self.tmpdir, "dirA", "dirB", "dirC")
-        dest_unzipped_dir = os.path.isdir(os.path.join(dest_dir, "hello_zip"))
+        dest_unzipped_dir = os.path.join(dest_dir, "hello_zip")
         if os.path.exists(dest_unzipped_dir):
             shutil.rmtree(dest_unzipped_dir)
         
