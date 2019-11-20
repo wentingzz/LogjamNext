@@ -21,6 +21,9 @@ import conans
 import gzip
 import patoolib
 
+import patoolib_patch
+patoolib_patch.patch_7z(patoolib)
+
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
@@ -258,4 +261,3 @@ def strip_zip_ext(path):
         return prior
     else:
         return path
-
