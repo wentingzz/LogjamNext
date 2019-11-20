@@ -175,7 +175,7 @@ class Scan:
         
         os.makedirs(self.history_dir, exist_ok=True)# make sure history dir is ready
         open(self.history_active_file, 'a').close() # make sure active file is ready
-        open(self.history_log_file, 'a').close()
+        open(self.history_log_file, 'a').close()    # make sure log file is ready
 
     def _update_from_scan_record(self, scan_record):
         """
@@ -332,7 +332,7 @@ def append_scan_record(path, scan_record):
 
 class WorkerScan(Scan):
     def __init__(self, input_dir, history_dir, scratch_dir, history_active_file, history_log_file, safe_time):
-        """ Constructs a Scan which operates on the given input directory. """
+        """ Constructs a WorkerScan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
         self.safe_time = safe_time
@@ -358,10 +358,12 @@ class WorkerScan(Scan):
         open(self.history_log_file, 'a').close()    # make sure log file is ready
         
 class ManagerScan(Scan):
+    """ Represents an active ManagerScan of the input directory. """
     def premature_exit(self):
         """
-        Program needs to halt the scan prematurely. Write out information
-        to history files so that it can hopefully be picked up next time.
+        Program needs to halt the scan prematurely. Delete all the worker
+        history files that has been done. Write out information to history
+        files so that it can hopefully be picked up next time.
         """
         assert not self._is_closed(), "Scan was internally closed"
         
@@ -374,11 +376,12 @@ class ManagerScan(Scan):
             self.just_scanned_this_path(os.path.join(self.input_dir, filename))
 
         self._close()                           # internally close the Scan
-    
+
     def complete_scan(self):
         """
         Completes the scan, writing out information to the history files
-        to show that the scan was completed.
+        to show that the scan was completed. Deletes all the worker history
+        files
         """
         assert not self._is_closed(), "Scan was internally closed"
 
