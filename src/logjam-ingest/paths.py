@@ -33,7 +33,7 @@ class QuantumEntry:
     
     def __truediv__(self, new_path):
         """ Returns a new QuantumEntry object where new_path is appended to the relative path """
-        assert isinstance(new_path, str), "Can only append str")
+        assert isinstance(new_path, str), "Can only append str"
         
         return QuantumEntry(self.srcpath, os.path.join(self.relpath, new_path))
     
