@@ -7,6 +7,8 @@ Utility file system path functionality, such as the QuantumEntry class.
 
 import os
 
+import unzip
+
 
 class QuantumEntry:
     """
@@ -90,9 +92,22 @@ class QuantumEntry:
         return os.path.join(self.srcpath, self.relpath)
     
     @property
+    def dirpath(self):
+        """ Absolute directory location of this entry """
+        return os.path.dirname(self.abspath)
+    
+    @property
     def basename(self):
         """ Returns the base name of the entry as defined by `os.path.basename` """
         return os.path.basename(self.relpath)
+    
+    @property
+    def filename(self):
+        """
+        Returns the filename of the entry. Defined as the basename minus the
+        extension.
+        """
+        return os.path.splitext(os.path.basename(self.relpath))[0]
     
     @property
     def extension(self):
@@ -107,6 +122,10 @@ class QuantumEntry:
         """ Returns whether this entry exists on the file system """
         return os.path.exists(self.abspath)
     
+    def exists_in(self, new_src):
+        """ """
+        return QuantumEntry(new_src, self.relpath).exists()
+    
     def is_dir(self):
         """ Returns whether this entry is a directory """
         return os.path.isdir(self.abspath)
@@ -114,4 +133,16 @@ class QuantumEntry:
     def is_file(self):
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
+    
+    def delete(self):
+        """ Attempts to delete the file refernced by this QuantumEntry """
+        
+        if not self.exists():
+            return True
+        
+        if self.is_file():
+            return unzip.delete_file(self.abspath)
+        
+        if self.is_dir():
+            return unzip.delete_directory(self.abspath)
 
