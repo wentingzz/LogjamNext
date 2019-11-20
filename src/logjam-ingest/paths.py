@@ -27,22 +27,19 @@ class QuantumEntry:
     
     def __eq__(self, other):
         """ Returns whether two QuantumEntry objects are equal """
-        if not isinstance(other, QuantumEntry):
-            raise NotImplementedError("Can only compare QuantumEntry")
+        assert isinstance(other, QuantumEntry), "Can only compare QuantumEntry"
         
         return self.srcpath == other.srcpath and self.relpath == other.relpath
     
     def __truediv__(self, new_path):
         """ Returns a new QuantumEntry object where new_path is appended to the relative path """
-        if not isinstance(new_path, str):
-            raise NotImplementedError("Can only append str")
+        assert isinstance(new_path, str), "Can only append str"
         
         return QuantumEntry(self.srcpath, os.path.join(self.relpath, new_path))
     
     def __itruediv__(self, new_path):
         """ Appends new_path to this QuantumEntry object's relative path """
-        if not isinstance(new_path, str):
-            raise NotImplementedError("Can only append str")
+        assert isinstance(new_path, str), "Can only append str"
         
         self.relpath = os.path.join(self.relpath, new_path)
         return self
@@ -55,6 +52,8 @@ class QuantumEntry:
     @srcpath.setter
     def srcpath(self, source):
         """ Sets the source directory for this entry """
+        assert isinstance(source, str), "Can only assign str to srcpath"
+        
         self._source = source
         self._srcpath_trim_trailing_slash()
     
@@ -71,6 +70,7 @@ class QuantumEntry:
     @relpath.setter
     def relpath(self, relative):
         """ Sets the relative directory for this entry """
+        assert isinstance(relative, str), "Can only assign str to relpath"
         assert not relative.startswith("/"), "Cannot start with '/' : "+relative
         
         self._relative = relative
