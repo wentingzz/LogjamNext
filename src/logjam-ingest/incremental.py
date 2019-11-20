@@ -219,7 +219,6 @@ class Scan:
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "Path should exist on system"
 
         self.last_path = path
 
