@@ -80,7 +80,7 @@ class QuantumEntryTestCase(unittest.TestCase):
         self.assertEqual("./dir/dir", entry.relpath)
         self.assertEqual("/dir/dir", entry.abspath)
         self.assertEqual("/dir", entry.absdirpath)
-        self.assertEqual("dir", entry.reldirpath)
+        self.assertEqual("./dir", entry.reldirpath)
         self.assertEqual("dir", entry.basename)
         self.assertEqual("dir", entry.filename)
         self.assertEqual("", entry.extension)
