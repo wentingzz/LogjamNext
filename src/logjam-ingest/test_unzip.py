@@ -1,3 +1,12 @@
+"""
+@author Wenting Zheng
+@author Jeremy Schmidt
+@author Nathaniel Brooks
+
+Tests the utility unzipping function and its helper functions.
+"""
+
+
 import unittest
 import os
 import time
@@ -7,17 +16,16 @@ import stat
 import gzip
 import subprocess
 
-import utils
+import unzip
 
 
-# coverage report: 72-74, 85-87, 104-106, 112-113, 
 class RecursiveUnzipTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         dirname = os.path.dirname(os.path.realpath(__file__))
         cls.tmpdir = os.path.join(dirname, "test-" + str(int(time.time())))
-        cls.srcdir = os.path.join(dirname, "test-data", "Utils")
+        cls.srcdir = os.path.join(dirname, "test-data", "Unzip")
         os.mkdir(cls.tmpdir)
         
         shutil.make_archive(os.path.join(cls.tmpdir, 'hello_zip'), 'zip', os.path.join(cls.srcdir, 'hello_zip'))
@@ -38,35 +46,34 @@ class RecursiveUnzipTestCase(unittest.TestCase):
 
     def test_targz(self):
         # Call recursive unzip
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_targz.tar.gz'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz')))
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz', 'folder')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_targz', 'folder', 'targz.txt')))
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_targz', 'hello_zip')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_targz', 'hello_zip', 'zip.txt')))
 
-
     def test_tar(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_tar.tar'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_tar.tar'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_tar')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_tar', 'tar.txt')))
 
     def test_zip(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_zip.zip'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_zip.zip'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_zip')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_zip', 'zip.txt')))
     
     def test_7z(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_7z')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_7z', '7z.txt')))
 
     def test_gz(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_gz')))
 
     def test_corrupt_tgz(self):
-        utils.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
         # Should have an error but handle gracefully. Output file should not exist.
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'corrupt')))
 
@@ -92,23 +99,15 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         os.remove(existing_file)
         assert not os.path.isfile(existing_file)
 
-        utils.recursive_unzip(archive_path, self.tmpdir)
+        unzip.recursive_unzip(archive_path, self.tmpdir)
 
         assert not os.path.isfile(existing_file)
-
-
-
-
-
 
     @classmethod
     def tearDownClass(cls):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
 
-
-
-# coverage report: 150-170
 
 class DeleteFileTestCase(unittest.TestCase):
     @classmethod
@@ -119,13 +118,13 @@ class DeleteFileTestCase(unittest.TestCase):
 
     def test_invalidFile(self):
         try:
-            utils.delete_file(self.tmpdir)
-            self.fail("utils.delete_file deletes a directory")
+            unzip.delete_file(self.tmpdir)
+            self.fail("unzip.delete_file deletes a directory")
         except Exception as exc:
             pass
         
         try:
-            utils.delete_file(os.path.join(self.tmpdir, 'invalid_path'))
+            unzip.delete_file(os.path.join(self.tmpdir, 'invalid_path'))
             self.fail(os.path.join(self.tmpdir, 'invalid_path') + " should not exist")
         except Exception as exc:
             pass
@@ -136,7 +135,7 @@ class DeleteFileTestCase(unittest.TestCase):
         file.close()
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'copy.txt')))
         os.chmod(os.path.join(self.tmpdir, 'copy.txt'), stat.S_IRUSR)
-        utils.delete_file(os.path.join(self.tmpdir, 'copy.txt'))
+        unzip.delete_file(os.path.join(self.tmpdir, 'copy.txt'))
         self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'copy.txt')))
             
     @classmethod
@@ -144,7 +143,7 @@ class DeleteFileTestCase(unittest.TestCase):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
 
-# coverage report: 188-203
+
 class DeleteDirectoryTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -156,7 +155,7 @@ class DeleteDirectoryTestCase(unittest.TestCase):
 
     def test_invalidDirectory(self):
         os.chmod(self.tmpsubdir, stat.S_IREAD)
-        utils.delete_directory(self.tmpsubdir)
+        unzip.delete_directory(self.tmpsubdir)
         self.assertFalse(os.access(os.path.join(self.tmpdir, "copy.txt"), os.W_OK))
 
     @classmethod
@@ -165,5 +164,23 @@ class DeleteDirectoryTestCase(unittest.TestCase):
         shutil.rmtree(cls.tmpdir)
         pass
 
+
+class ExtensionStrippingTestCase(unittest.TestCase):
+    """ Tests the zip extension strippping functions """
+    
+    def test_strip_all_zip_exts(self):
+        self.assertEqual("/f", unzip.strip_all_zip_exts("/f.tgz.tar.zip.zip.gz"))
+        self.assertEqual("b.png", unzip.strip_all_zip_exts("b.png.zip.7z.gz"))
+        self.assertEqual(".git.ziip", unzip.strip_all_zip_exts(".git.ziip.zip"))
+    
+    def test_strip_zip_ext(self):
+        self.assertEqual("/dir/dir/img.jpg", unzip.strip_zip_ext("/dir/dir/img.jpg.zip"))
+        self.assertEqual("/.git", unzip.strip_zip_ext("/.git"))
+        self.assertEqual("./pack.tar.gz", unzip.strip_zip_ext("./pack.tar.gz.zip"))
+        self.assertEqual("./f", unzip.strip_zip_ext("./f.7z"))
+        self.assertEqual("./x.tar", unzip.strip_zip_ext("./x.tar.tgz"))
+
+
 if __name__ == '__main__':
     unittest.main()
+

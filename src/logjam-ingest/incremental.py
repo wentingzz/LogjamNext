@@ -150,15 +150,21 @@ class ScanRecord:
 class Scan:
     """ Represents an active scan of the input directory. """
 
-    def __init__(self, input_dir, history_dir):
+    def __init__(self, input_dir, history_dir, scratch_dir, history_active_file = "scan-history-active.txt", history_log_file = "scan-history-log.txt", safe_time = None):
         """ Constructs a Scan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
-        self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
-        self.input_dir = input_dir                  # these 5 fields immutable after init
+        if safe_time:
+            self.safe_time = safe_time
+        else:
+            self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
+        self.input_dir = input_dir                  # these 6 fields immutable after init
         self.history_dir = history_dir
-        self.history_active_file = os.path.join(history_dir, "scan-history-active.txt")
-        self.history_log_file = os.path.join(history_dir, "scan-history-log.txt")
+        self.history_active_file = os.path.join(history_dir, history_active_file)
+        self.history_log_file = os.path.join(history_dir, history_log_file)
+        os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
+        self.scratch_dir = scratch_dir              # will own subdirectories for R/W
+        
 
         self.last_path = ""
         self.last_history_update = TimePeriod.ancient_history()
@@ -213,7 +219,6 @@ class Scan:
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "Path should exist on system"
 
         self.last_path = path
 

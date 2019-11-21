@@ -28,19 +28,22 @@ import sqlite3
 import sys
 import time
 import signal
+import concurrent.futures
+import multiprocessing
 
 from elasticsearch import Elasticsearch, helpers
 from conans import tools
 from pyunpack import Archive
 
 import incremental
-import utils
+import unzip
 import index
 import fields
 
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
 intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
@@ -48,13 +51,10 @@ mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 validExtensions = [".txt", ".log"]
 # Valid extentionless files used in special cases
 validFiles = ["syslog", "messages", "system_commands"]
-# Valid zip formats
-validZips = [".gz", ".tgz", ".tar", ".zip", ".7z"]
 
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
-
 
 def main():
     """
@@ -81,6 +81,8 @@ def main():
         print('ingestion_directory is not a directory')
         sys.exit(1)
 
+    get_es_connection()
+    
     tmp_scratch_folder = '-'.join(["scratch-space",str(int(time.time()))])+'/'
     if args.scratch_space is not None:
         scratch_dir = os.path.join(os.path.abspath(args.scratch_space), tmp_scratch_folder)
@@ -94,8 +96,8 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_format = "%(asctime)s %(filename)s line %(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S", level=args.log_level)
+    log_format = "%(asctime)s %(process)d %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
 
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
@@ -104,15 +106,6 @@ def main():
     es_logger.setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-    es = Elasticsearch([es_host], verify_certs = True)
-    if not es.ping():
-        logging.critical("Unable to connect to Elasticsearch")
-        es = None
-    elif not es.indices.exists(index.INDEX_NAME):
-        with open(mappings_path) as mappings_file:
-            mappings = mappings_file.read()
-        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
-        es.indices.create(index.INDEX_NAME, body=mappings)
 
 
     def signal_handler(signum, frame):
@@ -125,7 +118,7 @@ def main():
     try:
         # Ingest the directories
         logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir, es)
+        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
@@ -136,10 +129,20 @@ def main():
     
     finally:
         logging.info("Cleaning up scratch space")
-        utils.delete_directory(scratch_dir)         # always delete scratch_dir
+        unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
+def get_es_connection():
+    es = Elasticsearch([es_host], verify_certs = True)
+    if not es.ping():
+        raise Exception("Unable to connect to Elasticsearch")
+    elif not es.indices.exists(index.INDEX_NAME):
+        with open(mappings_path) as mappings_file:
+            mappings = mappings_file.read()
+        logging.info("Index %s did not exist. Creating.", index.INDEX_NAME)
+        es.indices.create(index.INDEX_NAME, body=mappings)
+    return es
 
-def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
+def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
     Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
@@ -147,7 +150,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
     """
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
-    scan = incremental.Scan(input_dir, history_dir)
+    scan = incremental.Scan(input_dir, history_dir, scratch_dir)
     
     try:
         entities = os.listdir(input_dir)
@@ -155,41 +158,57 @@ def ingest_log_files(input_dir, scratch_dir, history_dir, es = None):
         logging.critical("Error during os.listdir(%s): %s", input_dir, e)
         entities = []
     entities = sorted(entities)
+    lock = multiprocessing.Manager().Lock()
     
-    for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
-            continue                                    # skip, haven't reached last_path
-        
-        entity = entities[e]
-        full_path = os.path.join(input_dir,entity)
-        if os.path.isdir(full_path):
-            case_num = fields.get_case_number(entity)
-            if case_num != None:
-                search_case_directory(scan, full_path, scratch_dir, es, case_num)
+    with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
+        for e in range(len(entities)):
+            if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+                continue                                # skip, haven't reached last_path
+
+            entity = entities[e]
+            full_path = os.path.join(input_dir,entity)
+            if os.path.isdir(full_path):
+                case_num = fields.get_case_number(entity)
+                if case_num != None:
+                    executor.submit(search_case_directory, scan, full_path, case_num)
+                else:
+                    logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
-                logging.debug("Ignored non-StorageGRID directory: %s", full_path)
-        else:
-            logging.debug("Ignored non-StorageGRID file: %s", full_path)
-    
+                logging.debug("Ignored non-StorageGRID file: %s", full_path)
+    tmp_dirs = sorted(os.listdir(history_dir))
+    for history_file in tmp_dirs:
+        filename, _ = os.path.splitext(history_file)
+        if 'log' in filename:
+            break
+        unzip.delete_file(os.path.join(history_dir, history_file))
+        scan.just_scanned_this_path(os.path.join(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
         scan.complete_scan()
-        
     return
 
 
-def search_case_directory(scan_obj, search_dir, scratch_dir, es_obj, case_num):
+def search_case_directory(scan_obj, search_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    return recursive_search(scan_obj, search_dir, scratch_dir, es_obj, case_num)
+    child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    es_obj = get_es_connection()
+    recursive_search(child_scan, search_dir, es_obj, case_num)
+    global graceful_abort
+    if graceful_abort:
+        child_scan.premature_exit()
+    else:
+        child_scan.complete_scan()
+        unzip.delete_file(child_scan.history_log_file)
+    return
 
 
-def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_dir=None):
+def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
     """
     Recursively go through directories to find log files. If compressed, then we need
     to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
@@ -236,10 +255,10 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
 
         if os.path.isdir(entity_path):
             if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
-                index.stash_node_in_elk(entity_path , case_num, es)
+                process_node(entity_path , case_num, es)
             else:
                 # Detected a directory, continue
-                recursive_search(scan, start, scratch_dir, es, case_num, os.path.join(depth, entity), scan_dir)
+                recursive_search(scan, start, es, case_num, os.path.join(depth, entity), scan_dir)
         
         elif os.path.isfile(entity_path):
             # Check timespan of scan (already scanned?)
@@ -247,28 +266,28 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
             # Case for regular file. Check for relevance, then ingest.
             elif extension in validExtensions or filename in validFiles:
-                if index.is_storagegrid(entity_path):
-                    index.stash_file_in_elk(entity_path, entity, case_num, es)
+                if fields.is_storagegrid(entity_path):
+                    process_unknown_file(entity_path, case_num, es)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
             # Case for archive. Recursively unzip and ingest contents.
-            elif extension in validZips:
+            elif extension in unzip.SUPPORTED_FILE_TYPES:
                 # TODO: Choose unique folder names per Logjam worker instance
                 # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scratch_dir, "tmp")
+                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp" + str(case_num))
                 os.makedirs(new_scratch_dir)
-                utils.recursive_unzip(entity_path, new_scratch_dir)
+                unzip.recursive_unzip(entity_path, new_scratch_dir)
                 f, e = os.path.splitext(entity)
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
-                    recursive_search(scan, unzip_folder, scratch_dir, es, case_num, None, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and index.is_storagegrid(unzip_folder):
+                    recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
+                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
 #                         random_files.append(unzip_folder)
-                    index.stash_file_in_elk(unzip_folder, os.path.basename(unzip_folder), case_num, es)
+                    process_unknown_file(unzip_folder, case_num, es)
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
-                utils.delete_directory(new_scratch_dir)
+                unzip.delete_directory(new_scratch_dir)
 
                 logging.debug("Added compressed archive to ELK: %s", entity_path)
             else:
@@ -282,6 +301,68 @@ def recursive_search(scan, start, scratch_dir, es, case_num, depth=None, scan_di
             scan.just_scanned_this_path(scan_dir)
         else:
             scan.just_scanned_this_path(entity_path)
+
+
+def process_node(lumber_dir, case_num, es = None):
+    """ Stashes a node in ELK stack;
+    lumber_dir : string
+        absolute path of the node
+    case_num : string
+        StorageGRID case number for this file
+    es: Elasticsearch
+        Elasticsearch instance
+    """
+    assert case_num != None, "Null reference"
+    assert case_num != "0", "Not a valid case number: "+case_num
+    
+    files = process_node_recursive(lumber_dir, [])
+    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields.NodeFields(case_num=case_num))
+    if es:
+        for file in files:
+            index.send_to_es(es, nodefields, file)
+    
+    return
+
+
+def process_node_recursive(lumber_dir, file_list):
+    """ Finds all the files in the node; returns all the content as a array
+    lumber_dir : string
+        absolute path of the node
+    file_list: array of string
+        array of the content. Each element is the content of a file in the node
+    """
+    for entry in os.listdir(lumber_dir):
+        entry_path = os.path.join(lumber_dir, entry)
+        name, extension = os.path.splitext(entry)
+        
+        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and fields.is_storagegrid(entry_path):
+            file_list.append(entry_path)
+        
+        elif os.path.isdir(entry_path):
+            process_node_recursive(entry_path, file_list)
+    
+    return file_list
+
+
+def process_unknown_file(file_path, case_num, es = None):
+    """ Stashes file in ELK stack; checks if duplicate, computes important
+    fields like log category, and prepares for ingest by Logstash.
+    file_path : string
+        absolute path of the file
+    case_num : string
+        StorageGRID case number for this file
+    es: Elasticsearch
+        Elasticsearch instance
+    """
+    assert os.path.isfile(file_path), "This is not a file: "+file_path
+    assert case_num != None, "Null reference"
+    assert case_num != "0", "Not a valid case number: "+case_num
+
+    nodefields = fields.NodeFields(case_num=case_num)            # only case for fields
+    if es:
+        index.send_to_es(es, nodefields, file_path)              # send as unknown node
+    
+    return
 
 
 if __name__ == "__main__":

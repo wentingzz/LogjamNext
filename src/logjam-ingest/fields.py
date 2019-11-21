@@ -6,20 +6,29 @@
 @author Wenting Zheng
 
 Functionality for extracting StorageGRID log fields (platform, version, etc.)
+and handling other StorageGRID related tasks such as identifying valid StorageGRID logs.
 """
 
 
 import re
 import os
+import logging
+
+import paths
 
 
 MISSING_CASE_NUM = "Unknown"
-MISSING_SG_VER = "Unknown"
+MISSING_SG_VER = (-1, -1)
 MISSING_PLATFORM = "Unknown"
 MISSING_CATEGORY = "other"
 MISSING_TIME_SPAN = "Unknown-Unknown"
 MISSING_NODE_NAME = "Unknown"
 MISSING_GRID_ID = "Unknown"
+
+HV_ENV_TO_PLATFORM = {                              # in file: HV_ENV = '"dict key"';
+    "vSphere" : "vSphere",                          # TODO: Container platform key is
+    "SGA" : "SGA",                                  # unknown
+}
 
 # List of all categories to sort log files by
 CATEGORIES = {
@@ -180,14 +189,14 @@ def get_storage_grid_version(lumber_dir):
             with open(sys_file, "r") as file:
                 for line in file:               # read system_commands line by line
                     if "storage-grid-release-" in line:
-                        return line[21: -1]     # return characters from line with version
+                        line = line.split(".")
+                        return (int(line[0][21:]), int(line[1]))     # return a tuple of major and minor version
         except:
             pass                                # count failure as missing SG Version
     
     return MISSING_SG_VER
 
 
-# TODO: implementation
 def get_platform(lumber_dir):
     """
     Gets the platform of the node from the specified lumberjack directory.
@@ -196,6 +205,16 @@ def get_platform(lumber_dir):
     return: string
         the platform if found, otherwise MISSING_PLATFORM
     """
+    user_data_file = paths.QuantumEntry(lumber_dir, "os/etc/user_data")
+    if user_data_file.is_file():
+        with open(user_data_file.abspath, "r") as fd:
+            for line in fd:
+                if "HV_ENV" in line and "=" in line:# has magic word (HV_ENV) & equals
+                    val = line.split("=")[1]        # take part after equals
+                    val = val.strip("\n\"\'; ")     # remove puncuation characters
+                    if val in HV_ENV_TO_PLATFORM:   # make sure mapping defined
+                        return HV_ENV_TO_PLATFORM[val]
+    
     return MISSING_PLATFORM
 
 
@@ -239,4 +258,22 @@ def extract_fields(lumber_dir, *, inherit_from):
     new_fields.inherit_missing_from(inherit_from)
     
     return new_fields
+
+
+def is_storagegrid(full_path):
+    """
+    Check if a file is StorageGRID file
+    """
+    if "bycast" in full_path:
+        return True
+
+    try:
+        with open(full_path) as searchfile:
+            for line in searchfile:
+                if "bycast" in line:
+                    return True
+    except Exception as e:
+        logging.warning('Error during "bycast" search: %s', str(e))
+    
+    return False
 
