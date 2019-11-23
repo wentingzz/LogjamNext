@@ -7,7 +7,7 @@ services:
     image: elasticsearch:7.3.2
     volumes:
        # Maps the Elasticsearch index onto the host rather than inside the container
-     - "/usr/share/elasticsearch/data/:/usr/share/elasticsearch/data/"
+     - "./data/elasticsearch:/usr/share/elasticsearch/data/"
        # Use Logjam's Elasticsearch configuration YAML file during setup
      - "./src/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
      - "./src/elasticsearch/unicast_hosts.txt:/usr/share/elasticsearch/config/unicast_hosts.txt"
