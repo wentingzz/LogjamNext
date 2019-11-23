@@ -1,5 +1,16 @@
-#index.highlight.max_analyzed_offset: 200mb
-http.max_content_length: 200mb
 cluster.name: logjam
-network.host: 0.0.0.0
-discovery.seed_providers: file
+# Must bind to all local interfaces to work inside docker
+network.bind_host: 0.0.0.0
+
+# Set the IP of one or more nodes that *could* be the master.
+# If more than one, they will sort it out among themselves.
+#cluster.initial_master_nodes:
+#  - sd-vm24.csc.ncsu.edu
+
+# Set to the external IP of *this* host (one that other nodes can reach it by)
+#network.publish_host: sd-vm24.csc.ncsu.edu
+
+# List ALL nodes in the cluster by their externally accessible IP
+#discovery.seed_hosts:
+#  - sd-vm24.csc.ncsu.edu
+#  - sd-vm25.csc.ncsu.edu
