@@ -4,13 +4,13 @@ network.bind_host: 0.0.0.0
 
 # Set the IP of one or more nodes that *could* be the master.
 # If more than one, they will sort it out among themselves.
-#cluster.initial_master_nodes:
-#  - sd-vm24.csc.ncsu.edu
+cluster.initial_master_nodes:
+  - 152.14.85.174
 
 # Set to the external IP of *this* host (one that other nodes can reach it by)
-#network.publish_host: sd-vm24.csc.ncsu.edu
+network.publish_host: 152.14.85.174
 
 # List ALL nodes in the cluster by their externally accessible IP
-#discovery.seed_hosts:
-#  - sd-vm24.csc.ncsu.edu
-#  - sd-vm25.csc.ncsu.edu
+discovery.seed_hosts:
+  - 152.14.85.174
+  - 152.14.85.175
