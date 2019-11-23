@@ -9,14 +9,13 @@ services:
        # Maps the Elasticsearch index onto the host rather than inside the container
      - "/usr/share/elasticsearch/data/:/usr/share/elasticsearch/data/"
        # Use Logjam's Elasticsearch configuration YAML file during setup
-     - "./src/elasticsearch/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml"
+     - "./src/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+     - "./src/elasticsearch/unicast_hosts.txt:/usr/share/elasticsearch/config/unicast_hosts.txt"
     ports:
         # Elasticsearch's REST APIs
       - "9200:9200"
         # Elasticsearch node communication inside a cluster
       - "9300:9300"
-    environment:
-      "discovery.type": "single-node"
 
   logjam-ui:
     build:

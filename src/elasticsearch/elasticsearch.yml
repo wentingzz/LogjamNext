@@ -1,2 +1,5 @@
 #index.highlight.max_analyzed_offset: 200mb
 http.max_content_length: 200mb
+cluster.name: logjam
+network.host: 0.0.0.0
+discovery.seed_providers: file
