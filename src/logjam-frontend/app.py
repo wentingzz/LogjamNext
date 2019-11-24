@@ -31,9 +31,9 @@ def index():
 def get_platforms():
     return jsonify(
         [
-            {"text": "vSphere", "value": "vSphere"},
-            {"text": "Container Only", "value": "Container Only"},
-            {"text": "StorageGRID appliance", "value": "StorageGRID appliance"},
+            "vSphere",
+            "Container Only",
+            "StorageGRID appliance",
         ]
     )
 
@@ -42,7 +42,7 @@ def get_platforms():
 def get_versions():
     return jsonify(
         [
-            "Pre-10.2", "10.2", "10.3", "10.4", "11.0",
+            "Pre-10", "10.0", "10.1", "10.2", "10.3", "10.4", "11.0",
             "11.1", "11.2", "11.3", "11.4",
 
         ]
@@ -53,206 +53,69 @@ def get_versions():
 def get_query():
     if not request.json or not "logText" in request.json:
         abort(400)
+
+    total_hits=0
+    total_no_hits=0
+
+    request_body = { 
+            "aggs":{
+                "by_nodename_and_casenumber":{ "composite":{
+                    "size":"10000",
+                    "sources":[
+                        {"sorting_by_node":{"terms":{"field":"node_name"}}},
+                        {"sorting_by_case":{"terms":{"field":"case"}}}
+                    ]
+                }}
+            },
+            "query":{ "bool":{ "filter":[], "must":[{"match_all":{}}],}},
+            "size":"0"}
+
     message = request.json["logText"]
 
     platform = request.json.get("platform")
 
-    version = request.json.get("storagegrid_version")
-
-    total_hits = 0
-    total_no_hits = 0
-
-    if version:
-        total_hits_q = es.search(
-            index="logjam",
-            _source="false",
-            body={
-                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query":
-                {
-                    "bool":
-                    {
-                        "filter":
-                        [
-                            {
-                                "term":
-                                {
-                                    "storagegrid_version":
-                                    {
-                                        "value" : version
-                                    }
-                                }
-                            },                            
-                            # {
-                                # "term":
-                                # {
-                                    # "platform":
-                                    # {
-                                        # "value" : platform
-                                    # }
-                                # }
-                            # },
-                        ],
-                        
-                        "should":
-                        [
-                            {
-                                "match":
-                                {
-                                    "message":
-                                    {
-                                        "query" : message,
-                                        "auto_generate_synonyms_phrase_query" : "false",
-                                        "fuzziness" : "0",
-                                        "max_expansions" : "1",
-                                        "lenient" : "false",
-                                        "operator" : "OR",
-                                        "minimum_should_match" : "50%",
-                                        "zero_terms_query" : "none"
-                                    }
-                                }
-                            },
-                        ]
-                    }
-                },
-            },
-        )
-
-        for hits in total_hits_q["aggregations"]["cases"]["buckets"]:
-            total_hits += 1
-
-        total_no_hits_q = es.search(
-            index="logjam",
-            _source="false",
-            body={
-                "aggs": {"cases": {"terms": {"field": "node_name.keyword"}}},
-                "query":
-                {
-                    "bool":
-                    {
-                        "filter":
-                        [
-                            {
-                                "term":
-                                {
-                                    "storagegrid_version":
-                                    {
-                                        "value" : version
-                                    }
-                                }
-                            },
-                            # {
-                                # "term":
-                                # {
-                                    # "platform":
-                                    # {
-                                        # "value" : platform
-                                    # }
-                                # }
-                            # },
-                        ],
-                        
-                        "should":
-                        [
-                            {
-                                "match_all" : {}
-                            }
-                        ]
-                    }
-                },
-            },
-        )
-
-        for hits in total_no_hits_q["aggregations"]["cases"]["buckets"]:
-            total_no_hits += 1
-        
-        total_no_hits -= total_hits
-
-    else:
-        total_hits_q = es.search(
-            index="logjam",
-            _source="false",
-            body={
-                "aggs":                             # aggregate our query below
-                {
-                    "by_nodename_and_casenumber":   # name of aggregation
-                    {
-                        "composite":                # composite combines two fields
-                        {
-                            "size" : "10000",       # forces composite to return all pairs
-                            "sources":
-                            [                       # all pairs of nodename and casenum
-                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
-                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
-                            ]
-                        }
-                    }
-                },
-                
-                "query":                            # query that will be aggregated
-                {
-                    "bool":                         # use bool query type
-                    {
-                        "should":                   # should = OR w/ a summed scored
-                        [                           # array = multiple clauses can be used
-                            {
-                                "match":            # match query searches all tokens from
-                                {                   # message anywhere in doc text, we set
-                                    "message":      # the minimum limit to match = 50%
-                                    {
-                                        "query" : message,
-                                        "auto_generate_synonyms_phrase_query" : "false",
-                                        "fuzziness" : "0",
-                                        "max_expansions" : "1",
-                                        "lenient" : "false",
-                                        "operator" : "OR",
-                                        "minimum_should_match" : "50%",
-                                        "zero_terms_query" : "none"
-                                    }
-                                }
-                            },
-                        ]
-                    }
-                },
-                "size" : "0"                        # no docs returned, just aggregation
-            },
-        )
-        val_to_print = json.dumps(total_hits_q, indent=4)
-        logging.critical(str(val_to_print))
-        total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
-
-        total_all_q = es.search(
-            index="logjam",
-            body={
-                "aggs":                             # aggregate our query below
-                {
-                    "by_nodename_and_casenumber":   # name of aggregation
-                    {
-                        "composite":                # composite combines two fields
-                        {
-                            "size" : "10000",       # forces composite to return all pairs
-                            "sources":
-                            [                       # all pairs of nodename and casenum
-                                { "sorting_by_the_node" : {"terms":{"field":"node_name"}} },
-                                { "sorting_by_the_case" : {"terms":{"field":"case"}} }
-                            ]
-                        }
-                    }
-                },
-                
-                "query":                            # query that will be agregated
-                {
-                    "match_all" : {}                # all docs considered/matched
-                },
-                "size" : "0"                        # no docs returned, just aggregation
-            }
-        )
-        val_to_print = json.dumps(total_all_q, indent=4)
-        logging.critical(str(val_to_print))
-        total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
+    version = request.json.get("sgVersion")
     
-        total_no_hits = total_all - total_hits
+    if version == "Pre-10":
+        request_body["query"]["bool"]["filter"].append(
+            {"range":{"major_version":{"gt":0,"lt":10}}})
 
+    elif version and version != "All Versions":
+        v=version.split('.')
+        major_version=v[0]
+        minor_version=v[1]
+        request_body["query"]["bool"]["filter"].append(
+            {"term":{"major_version":{"value":major_version}}})
+        request_body["query"]["bool"]["filter"].append(
+            {"term":{"minor_version":{"value":minor_version}}})
+
+    if platform != "All Platforms":
+        request_body["query"]["bool"]["filter"].append(
+            {"term":{"platform":{"value":platform}}})
+
+    total_all_q= es.search(
+        index="logjam",    
+        body=request_body)
+
+    request_body["query"]["bool"]["must"]={
+        "match":{ "message":{
+            "query":message,
+            "auto_generate_synonyms_phrase_query":"false",
+            "fuzziness":"0",
+            "max_expansions":"1",
+            "minimum_should_match":"75%",
+        }}
+    }
+    total_hits_q = es.search(
+        index="logjam",
+        body=request_body)
+        
+    total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
+    
+    total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
+    
+    total_no_hits = total_all - total_hits
+    
     return jsonify(
         [
             {
