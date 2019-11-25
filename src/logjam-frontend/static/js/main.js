@@ -75,9 +75,9 @@ var vm = new Vue({
     el: "#app",
     data: {
         platforms: [
-            {text: "All Platforms", value: null},
+            "All Platforms"
         ],
-        platform: null,
+        platform: "All Platforms",
         versions: [
             "All Versions"
 	],
@@ -132,8 +132,7 @@ var vm = new Vue({
             }
 
             this.charts = [];
-
-            this.$http.post('/matchData', {logText: this.logText}).then( response => {
+            this.$http.post('/matchData', {logText: this.logText, sgVersion: this.sgVersion, platform: this.platform}).then( response => {
                 this.charts = response.body;
             }, response => {
                 alert("Error getting occurrences: " + response.status + "\n" + response.json());
