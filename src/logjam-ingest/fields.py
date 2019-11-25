@@ -177,23 +177,31 @@ def get_case_number(case_dir):
 def get_storage_grid_version(lumber_dir):
     """
     Gets the version of the node from the specified lumberjack directory.
+    Example: if a line has storage-grid-release-10.4.100-12345678.0224,
+    The major and major version would be 10 and the minor version is 4
+
     lumber_dir: string
         the path of the specified lumberjack directory
-    return: string
-        the version if found, therwise MISSING SG_VER
+    return: tuple of major version and minor version if
+            the version if found, otherwise MISSING SG_VER
     """
+    SG_RELEASE = "storage-grid-release-"
     sys_file = os.path.join(lumber_dir, "system_commands")
-    
-    if os.path.isfile(sys_file):                # use system_commands file to find version
+
+    # use system_commands file to find version
+    if os.path.isfile(sys_file):
         try:
             with open(sys_file, "r") as file:
-                for line in file:               # read system_commands line by line
-                    if "storage-grid-release-" in line:
-                        line = line.split(".")
-                        return (int(line[0][21:]), int(line[1]))     # return a tuple of major and minor version
-        except:
-            pass                                # count failure as missing SG Version
-    
+                # read system_commands line by line
+                for line in file:
+                    if SG_RELEASE in line:
+                        _, version = line.split(SG_RELEASE)
+                        major, minor, *_ = version.split(".")
+                        # return a tuple of major and minor version
+                        return (int(major), int(minor))
+        except Exception as e:
+            logging.warning("Error while parsing storagegrid version: %s", str(e))
+
     return MISSING_SG_VER
 
 
