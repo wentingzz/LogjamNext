@@ -8,6 +8,8 @@ Utility file for incremental scanning.
 import os
 import time
 
+import paths
+
 
 seconds_between_automatic_history_updates = 120
 
@@ -150,15 +152,18 @@ class ScanRecord:
 class Scan:
     """ Represents an active scan of the input directory. """
 
-    def __init__(self, input_dir, history_dir, scratch_dir):
+    def __init__(self, input_dir, history_dir, scratch_dir, history_active_file = "scan-history-active.txt", history_log_file = "scan-history-log.txt", safe_time = None):
         """ Constructs a Scan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
-        self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
+        if safe_time:
+            self.safe_time = safe_time
+        else:
+            self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
         self.input_dir = input_dir                  # these 6 fields immutable after init
         self.history_dir = history_dir
-        self.history_active_file = os.path.join(history_dir, "scan-history-active.txt")
-        self.history_log_file = os.path.join(history_dir, "scan-history-log.txt")
+        self.history_active_file = os.path.join(history_dir, history_active_file)
+        self.history_log_file = os.path.join(history_dir, history_log_file)
         os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
         self.scratch_dir = scratch_dir              # will own subdirectories for R/W
         
@@ -216,7 +221,6 @@ class Scan:
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "Path should exist on system"
 
         self.last_path = path
 
@@ -233,6 +237,10 @@ class Scan:
 
         modification_time = os.path.getmtime(path)
         return modification_time in self.time_period
+
+    def list_unscanned_entries(self, dir):
+        """ Returns generator that yields unscanned entries, just forwards arguments """
+        return list_unscanned_entries(dir, self.last_path)
 
     def complete_scan(self):
         """
@@ -292,6 +300,61 @@ class Scan:
         append_scan_record(self.history_log_file, new_record)
         overwrite_scan_record(self.history_active_file, new_record)
         self.last_history_update = cur_time
+
+
+def list_unscanned_entries(dir, last_path):
+    """
+    Returns a generator that yields each entry in the directory that
+    has not been scanned. An entry is determined to have been scanned if
+    it should have been considered before the `last_path` based ONLY on its relative
+    path. To determine if a path shoudl be considered first, it is sorted in
+    alphabetically DESCENDING order (Z -> A). This has the side effect of making
+    longer child paths appear before parent paths (since they will be scanned first).
+    Allows this function to determine a single total order for recursive scanning;
+    search every path in reverse alphabetical order, starting from child
+    entries to parent entries.
+    """
+    assert isinstance(dir, paths.QuantumEntry)
+    assert isinstance(last_path, str)
+    #print("Searching \"", dir.relpath, "\" given last path \"", last_path, "\"")
+                                            # list of all entries in alphabetical order
+    entry_names = sorted_recursive_order(os.listdir(dir.abspath))
+    
+    for e in range(len(entry_names)):       # iterate in order
+        entry = dir/entry_names[e]          # find entry
+        
+        if last_path == "":
+            #print("Returning",entry.relpath)
+            yield dir/entry_names[e]        # yields new QuantumEntry w/ unscanned path
+            continue                        # valid entry, no last_path = nothing scanned
+        
+        if e+1 != len(entry_names) and (dir/entry_names[e+1]).relpath >= last_path:
+            #print("Skipping",entry.relpath)
+            continue                        # skip entry, next path still before last_path
+            
+        if (dir/entry_names[e]).relpath >= last_path:
+            #print("Skipping",entry.relpath)
+            continue                        # skip entry, it is still before the last_path
+        
+        if True:
+            #print("Returning",entry.relpath)
+            yield dir/entry_names[e]        # yields new QuantumEntry w/ unscanned path
+            continue                        # valid entry, found correct insert loc
+
+
+def sorted_recursive_order(entry_names):
+    """
+    Sorts the list of entry names in recursive order. Recursive order is
+    defined as reverse alphabetical with directories listed immediately after
+    their children.
+    """
+    assert not next((True for entry_name in entry_names if entry_name.endswith("/")), False),\
+        "Use normal dir representation, no slash at the end!"
+    
+    entry_names = [entry_name+"/" for entry_name in entry_names]
+    entry_names = sorted(entry_names, reverse=True)
+    entry_names = [entry_name[:-1] for entry_name in entry_names]
+    return entry_names
 
 
 def extract_last_scan_record(path):

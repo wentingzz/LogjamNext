@@ -53,7 +53,8 @@ class NodeFieldsTestCase(unittest.TestCase):
         
         f = fields.NodeFields.from_lumberjack_dir(lumber_dir)
         self.assertEqual(fields.MISSING_CASE_NUM, f.case_num)
-        self.assertEqual("100.100.100-12345678.0224.asdfg12345", f.sg_ver)
+        self.assertEqual(100, f.sg_ver[0])
+        self.assertEqual(100, f.sg_ver[1])
         self.assertEqual(fields.MISSING_PLATFORM, f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, f.category)
         self.assertEqual("2015-2017", f.time_span)
@@ -244,7 +245,8 @@ class ExtractFieldsTestCase(unittest.TestCase):
         try:
             lumber_dir = os.path.join(TEST_DATA_DIR, "2234567890", "grid_id_293977", "node_name_paris", "2018-2019")
             version = fields.get_storage_grid_version(lumber_dir)
-            self.assertEqual(version, '100.100.100-12345678.0224.asdfg12345')
+            self.assertEqual(version[0], 100)
+            self.assertEqual(version[1], 100)
         except Exception as exc:
             self.fail(exc)
 
@@ -255,11 +257,60 @@ class ExtractFieldsTestCase(unittest.TestCase):
             self.fail(exc)
     
     def test_get_platform(self):
-        try:
-            platform = fields.get_platform(os.path.join(TEST_DATA_DIR, "nonexistant_dir"))
-            self.assertEqual(fields.MISSING_PLATFORM, platform)
-        except Exception as exc:
-            self.fail(exc)
+        # Test get platform with no os/etc directory
+        lumber_dir = os.path.join(self.tmp_dir, "443251", "rio", "2012-2013")
+        lumber_file = os.path.join(lumber_dir, "lumberjack.log")
+        os.makedirs(lumber_dir)
+        open(lumber_file, "a").close()
+        self.assertTrue(os.path.isdir(lumber_dir))
+        self.assertTrue(os.path.isfile(lumber_file))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc directory, but no user_data file
+        etc_dir = os.path.join(lumber_dir, "os", "etc")
+        os.makedirs(etc_dir)
+        self.assertTrue(os.path.isdir(etc_dir))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file, but no data
+        user_file = os.path.join(etc_dir, "user_data")
+        open(user_file, "a").close()
+        self.assertTrue(os.path.isfile(user_file))
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but no good data
+        with open(user_file, "w") as fd:
+            fd.write("unfortunately there is no information here\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("BOBBY=TALL\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("JOHN=SHORT\n")
+            fd.write("  HV_ENV : NOT GIVEN\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data file but bad data
+        with open(user_file, "w") as fd:
+            fd.write("  HV_ENV   =    \'\"BAD_TYPE\"\';\n")
+            fd.write("SG_PARTY=EXCITING\n")
+        self.assertEqual(fields.MISSING_PLATFORM, fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data & a good type!
+        with open(user_file, "w") as fd:
+            fd.write("SG_RULE=ON\n")
+            fd.write("  HV_ENV   =    \'\"SGA\"\';\n")
+        self.assertEqual("SGA", fields.get_platform(lumber_dir))
+        
+        # Test get platform with os/etc/user_data & a good type!
+        with open(user_file, "w") as fd:
+            fd.write("SG_THING=OTHER\n")
+            fd.write("HV_ENV=vSphere")
+        self.assertEqual("vSphere", fields.get_platform(lumber_dir))
     
     def test_get_time_span(self):
         try:
@@ -327,7 +378,8 @@ class ExtractFieldsTestCase(unittest.TestCase):
         
         new_f = fields.extract_fields(lumber_dir, inherit_from=old_f)
         self.assertEqual("2001399485", new_f.case_num)
-        self.assertEqual("100.100.100-12345678.0224.asdfg12345", new_f.sg_ver)
+        self.assertEqual(100, new_f.sg_ver[0])
+        self.assertEqual(100, new_f.sg_ver[1])
         self.assertEqual(fields.MISSING_PLATFORM, new_f.platform)
         self.assertEqual(fields.MISSING_CATEGORY, new_f.category)
         self.assertEqual("2015-2017", new_f.time_span)
