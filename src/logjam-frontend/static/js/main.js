@@ -85,7 +85,8 @@ var vm = new Vue({
         logText: "",
         hasError: false,
         errors: [],
-        charts: {}
+        charts: {},
+	hasResults: true
     },
     created: function () {
         // Fetch versions from server
@@ -130,10 +131,16 @@ var vm = new Vue({
             if (!this.checkForm()) {
                 return;
             }
-
-            this.charts = [];
+	
+	    this.charts = []
             this.$http.post('/matchData', {logText: this.logText, sgVersion: this.sgVersion, platform: this.platform}).then( response => {
-                this.charts = response.body;
+		    if (response.body[0]["values"][1] != 0) {
+		    	this.hasResults = true;
+			this.charts = response.body;
+		    }
+		    else {
+			this.hasResults = false;
+		    }
             }, response => {
                 alert("Error getting occurrences: " + response.status + "\n" + response.json());
             });

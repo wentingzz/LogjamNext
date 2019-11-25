@@ -62,8 +62,8 @@ def get_query():
                 "by_nodename_and_casenumber":{ "composite":{
                     "size":"10000",
                     "sources":[
-                        {"sorting_by_node":{"terms":{"field":"node_name"}}},
-                        {"sorting_by_case":{"terms":{"field":"case"}}}
+                        {"sorting_by_node":{"terms":{"field":"node_name.keyword"}}},
+                        {"sorting_by_case":{"terms":{"field":"case.keyword"}}}
                     ]
                 }}
             },
