@@ -46,8 +46,6 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     src = os.path.abspath(src)
     dest = os.path.abspath(dest)
     os.makedirs(dest, exist_ok=True)
-    assert os.path.exists(dest), "Destination does not exist: "+dest
-    assert os.path.isdir(dest), "Destination should be a dir: "+dest
 
     # Capture the modified time of the archive to force it upon its contents
     try:
