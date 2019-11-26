@@ -239,7 +239,7 @@ def recursive_search(scan, es, nodefields, cur_dir):
                 scan.just_scanned_this_entry(entry)     # log the scan
                 continue                                # continue, next entry
             else:
-                logging.debug("Unpack archive, path open: %s", entry.abspath)
+                logging.debug("Unpack archive, path open: %s", scratch_entry.abspath)
             
             assert not scratch_entry.exists(), "Entry should not be there"
             unzip.recursive_unzip(entry.abspath, scratch_entry.dirpath)
