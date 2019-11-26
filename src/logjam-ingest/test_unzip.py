@@ -9,8 +9,9 @@ Tests the utility unzipping function and its helper functions.
 
 import unittest
 import os
-import time
 import shutil
+import signal
+import time
 import tarfile
 import stat
 import gzip
@@ -38,6 +39,10 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         process = subprocess.call(['7z', 'a', os.path.join(cls.tmpdir, 'hello_7z.7z'), os.path.join(cls.srcdir, 'hello_7z', '7z.txt'), '-mx9'], stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
         # Prepare compressed data for each test gz tgz
         # (zip, gz, tar.gz, 7z, tar) plus multiple layer versions
+
+        # Preapare a password-protected 7z
+        subprocess.call(['7z', 'a', os.path.join(cls.tmpdir, 'password_7z.7z'), os.path.join(cls.srcdir, 'password_7z', 'password_7z.txt'), '-mx9', "-pPassword123"])
+
 
         # Prepare a corrupt tar.gz
         with open(os.path.join(cls.tmpdir, "corrupt.tar.gz"), "wb") as corrupt_file:
@@ -86,6 +91,23 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_7z.7z'), self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, 'hello_7z')))
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_7z', '7z.txt')))
+
+    def test_password_7z(self):
+        timed_out = False
+        def timeout_handler(signum, frame):
+            nonlocal timed_out  # Pull flag from outer scope
+            timed_out = True
+            raise Exception("Received timeout signal")
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+
+        signal.alarm(10)  # Send timeout signal in 10 seconds
+        unzip.recursive_unzip(os.path.join(self.tmpdir, 'password_7z.7z'), self.tmpdir)
+
+        # Unzip should fail, but it musn't hang.
+        if timed_out:
+            self.fail("Extracting password-protected 7zip hung for too long")
+
 
     def test_gz(self):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)

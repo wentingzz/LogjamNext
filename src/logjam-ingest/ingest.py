@@ -19,21 +19,15 @@ Terminology:
 
 
 import argparse
-import gzip
 import logging
 import os
-import re
-import shutil
-import sqlite3
 import sys
 import time
 import signal
 import concurrent.futures
 import multiprocessing
 
-from elasticsearch import Elasticsearch, helpers
-from conans import tools
-from pyunpack import Archive
+from elasticsearch import Elasticsearch
 
 import incremental
 import unzip
