@@ -188,11 +188,12 @@ def search_case_directory(scan_obj, search_dir, case_num):
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
+    if graceful_abort:
+        return
     child_scan = incremental.WorkerScan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
     if child_scan:
         es_obj = get_es_connection()
         recursive_search(child_scan, search_dir, es_obj, case_num)
-        global graceful_abort
         if graceful_abort:
             child_scan.premature_exit()
         else:
