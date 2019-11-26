@@ -440,12 +440,12 @@ class FilterFilesTestCase(unittest.TestCase):
             mystery_file = base_dir/"fileX.txt"
             with open(myster_file.abspath, "w") as fd:
                 fd.write("Some text\nSome text\nSome text\nEnd\n")
-            self.assertFalse(fields.is_storagegrid(empty_fields, mystery_file)
+            self.assertFalse(fields.is_storagegrid(empty_fields, mystery_file))
             
             mystery_file = base_dir/"fileX.txt"
             with open(myster_file.abspath, "w") as fd:
                 fd.write("Some text\nSome text\nSome OH MY GOSH IT'S THE WORD bycast\nEnd\n")
-            self.assertTrue(fields.is_storagegrid(empty_fields, mystery_file)
+            self.assertTrue(fields.is_storagegrid(empty_fields, mystery_file))
         
         if True:
             found_fields = fields.NodeFields(node_name="LondonTY5")
@@ -461,12 +461,12 @@ class FilterFilesTestCase(unittest.TestCase):
             mystery_file = base_dir/"fileX.txt"
             with open(myster_file.abspath, "w") as fd:
                 fd.write("Some text\nSome text\nSome text\nEnd\n")
-            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file)
+            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file))
             
             mystery_file = base_dir/"fileX.txt"
             with open(myster_file.abspath, "w") as fd:
                 fd.write("Some text\nSome text\nSome OH MY GOSH IT'S THE WORD bycast\nEnd\n")
-            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file)
+            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file))
         
         return
 
