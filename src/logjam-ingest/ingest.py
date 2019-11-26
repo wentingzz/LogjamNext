@@ -41,11 +41,6 @@ MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
-# Valid extensions to ingest
-validExtensions = [".txt", ".log"]
-# Valid extentionless files used in special cases
-validFiles = ["syslog", "messages", "system_commands"]
-
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
@@ -259,7 +254,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
             if not scan.should_consider_file(entity_path):
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
             # Case for regular file. Check for relevance, then ingest.
-            elif extension in validExtensions or filename in validFiles:
+            elif extension in fields.VALID_LOG_EXTENSIONS or filename in fields.VALID_LOG_FILENAMES:
                 if fields.contains_bycast(entity_path):
                     process_unknown_file(entity_path, case_num, es)
                 else:
@@ -275,7 +270,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
                     recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.contains_bycast(unzip_folder):
+                elif os.path.isfile(unzip_folder) and (e in fields.VALID_LOG_EXTENSIONS or os.path.basename(f) in fields.VALID_LOG_FILENAMES) and fields.contains_bycast(unzip_folder):
                     process_unknown_file(unzip_folder, case_num, es)
                 
                 assert os.path.exists(entity_path), "Should still exist"
@@ -328,7 +323,7 @@ def process_node_recursive(lumber_dir, file_list):
         entry_path = os.path.join(lumber_dir, entry)
         name, extension = os.path.splitext(entry)
         
-        if os.path.isfile(entry_path) and (extension in validExtensions or name in validFiles) and fields.contains_bycast(entry_path):
+        if os.path.isfile(entry_path) and (extension in fields.VALID_LOG_EXTENSIONS or name in fields.VALID_LOG_FILENAMES) and fields.contains_bycast(entry_path):
             file_list.append(entry_path)
         
         elif os.path.isdir(entry_path):
