@@ -14,8 +14,6 @@ import logging
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
-import fields
-
 
 INDEX_NAME = "logjam"
 
@@ -51,14 +49,14 @@ def send_to_es(es_obj, fields_obj, file_path):
     
     try:
         error = False
-        logging.debug("Indexing %s to Elasticsearch", file_path)
+        logging.debug("Indexing: %s", file_path)
         for success, info in helpers.parallel_bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
             if not success:
                 error = True
         if error:
-            logging.critical("Unable to index %s to Elasticsearch", file_path)
+            logging.critical("Unable to index: %s", file_path)
         else:
-            logging.debug("Indexed %s to Elasticsearch", file_path)
+            logging.debug("Indexed: %s", file_path)
 
     except elasticsearch.exceptions.ConnectionError:
         logging.critical("Connection error sending doc %s to elastic search (file too big?)", file_path)
