@@ -32,7 +32,7 @@ def get_platforms():
     return jsonify(
         [
             "vSphere",
-            "Container Only",
+            "Container",
             "StorageGRID appliance",
         ]
     )
@@ -90,6 +90,8 @@ def get_query():
             {"term":{"minor_version":{"value":minor_version}}})
 
     if platform != "All Platforms":
+        if platform == "StorageGRID appliance":
+            platform = "SGA"
         request_body["query"]["bool"]["filter"].append(
             {"term":{"platform":{"value":platform}}})
 
