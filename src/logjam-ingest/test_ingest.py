@@ -69,10 +69,10 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
     def test_unzip_into_scratch_dir(self):
         
         input_dir = os.path.join(self.tmp_dir, "mnt/nfs")
-        os.makedirs(input_dir, exists_ok=True)
+        os.makedirs(input_dir, exist_ok=True)
         
         scratch_dir = os.path.join(self.tmp_dir, "tmp/scratch_space1777")
-        os.makedirs(scratch_dir, exists_ok=True)
+        os.makedirs(scratch_dir, exist_ok=True)
         
         
         # shutil.make_archive(
