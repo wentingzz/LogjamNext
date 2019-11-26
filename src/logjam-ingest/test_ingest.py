@@ -100,7 +100,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         
         self.assertEqual(scratch_dir, archiveB_txt.srcpath)
         self.assertEqual("archiveB.txt", archiveB_txt.relpath)
-        self.assertTure(archiveB_txt.exists())
+        self.assertTrue(archiveB_txt.exists())
         
         with open(archiveB_txt.abspath, "r") as fd:
             self.assertEqual("This is a GZIP file\n", fd.read())
