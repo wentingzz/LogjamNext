@@ -132,7 +132,7 @@ var vm = new Vue({
                 return;
             }
 	
-	    this.charts = []
+	    this.charts = [];
             this.$http.post('/matchData', {logText: this.logText, sgVersion: this.sgVersion, platform: this.platform}).then( response => {
 		    if (response.body[0]["values"][1] != 0) {
 		    	this.hasResults = true;
