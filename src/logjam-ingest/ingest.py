@@ -317,7 +317,7 @@ def process_node(lumber_dir, case_num, es = None):
     return
 
 
-def process_node_recursive(lumber_dir, file_list, nodefields):
+def process_node_recursive(lumber_dir, file_list):
     """ Finds all the files in the node; returns all the content as a array
     lumber_dir : string
         absolute path of the node
