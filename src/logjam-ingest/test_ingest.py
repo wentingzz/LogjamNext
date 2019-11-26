@@ -69,25 +69,23 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertTrue(not os.path.exists(self.tmp_dir))
 
     def test_unzip_into_scratch_dir(self):
-        
         input_dir = os.path.join(self.tmp_dir, "mnt/nfs")
         os.makedirs(input_dir, exist_ok=True)
         
         scratch_dir = os.path.join(self.tmp_dir, "tmp/scratch_space1777")
         os.makedirs(scratch_dir, exist_ok=True)
         
-        
-        
+        # Make a .zip file
         dir_to_compress = os.path.join(scratch_dir, "a", "b", "c", "dir")
         os.makedirs(dir_to_compress, exist_ok=True)
-        file_A = os.path.join(dir_to_compress, "fileA.txt")
-        with open(file_A, "w") as fd:
+        with open(os.path.join(dir_to_compress, "fileA.txt"), "w") as fd:
             fd.write("This is a text file\n")
-        archiveA_zip = paths.QuantumEntry(scratch_dir, dir_to_compress)
         shutil.make_archive(
-            base_name=archiveA.abspath,
+            base_name=dir_to_compress,
             format="zip",
-            root_dir=archiveA.abspath)
+            root_dir=dir_to_compress)
+        
+        archiveA_zip = paths.QuantumEntry(scratch_dir, os.path.join("a","b","c","dir"))
         
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
@@ -103,12 +101,12 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         
         self.assertEqual(archiveA_zip, archiveA_dir)
         
-        
-        
-        file_to_compress = "archiveB.txt.gz"
-        archiveB_gz = paths.QuantumEntry(input_dir, file_to_compress)
+        # Make a .gz file
+        file_to_compress = os.path.join(input_dir, "archiveB.txt.gz")
         with gzip.open(archiveB_gz.abspath, "wb") as fd:
             fd.write("This is a GZIP file\n".encode())
+        
+        archiveB_gz = paths.QuantumEntry(input_dir, "archiveB.txt.gz")
         
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
