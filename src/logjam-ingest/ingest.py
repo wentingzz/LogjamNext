@@ -226,32 +226,25 @@ def recursive_search(scan, es, nodefields, cur_dir):
     for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
         
         if not scan.should_consider_entry(entry):       # check, has been scanned?
-            logging.debug("Skip file, outside timespan: %s", entry.abspath)
+            logging.debug("Skipping file, outside timespan: %s", entry.abspath)
             scan.just_scanned_this_entry(entry)         # log the scan
             continue                                    # continue, next entry
         
         if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
-            scratch_entry = paths.QuantumEntry(scan.scratch_dir, entry.relpath)
-            scratch_entry.relpath = unzip.strip_all_zip_exts(scratch_entry.relpath)
-            
-            if scratch_entry.exists() or scratch_entry.exists_in(scan.input_dir):
-                logging.debug("Skip archive, already unpacked: %s", entry.abspath)
+            scratch_entry = unzip_into_scratch_dir(scan.input_dir, scan.scratch_dir, entry)
+            if scratch_entry == entry:
+                logging.debug("Skipping archive, already unpacked: %s", entry.abspath)
                 scan.just_scanned_this_entry(entry)     # log the scan
                 continue                                # continue, next entry
             else:
-                logging.debug("Unpack archive, path open: %s", scratch_entry.abspath)
-            
-            assert not scratch_entry.exists(), "Entry should not be there"
-            unzip.recursive_unzip(entry.abspath, scratch_entry.dirpath)
-            assert scratch_entry.exists(), "Entry should have been created"
-            
-            entry = scratch_entry                       # override old entry
+                logging.debug("Unpacked archive, path open: %s", scratch_entry.abspath)
+                entry = scratch_entry                   # override old entry
         
         if entry.is_file():
             if fields.is_storagegrid(nodefields, entry):
                 index.send_to_es(es, nodefields, entry.abspath)
             else:
-                logging.debug("Skip Non-StorageGRID file: %s", entry.abspath)
+                logging.debug("Skipped Non-StorageGRID file: %s", entry.abspath)
         
         elif entry.is_dir():
             try:
@@ -261,7 +254,7 @@ def recursive_search(scan, es, nodefields, cur_dir):
                 logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
         
         else:                                           # it wasn't a dir or file?
-            logging.debug("Skip unknown entry: %s", entry.abspath)
+            logging.debug("Skipped unknown entry: %s", entry.abspath)
         
         if entry.srcpath == scan.scratch_dir:           # if entry inside scratch
             logging.debug("Delete unpacked archive: %s", entry.abspath)
