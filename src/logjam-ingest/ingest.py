@@ -297,7 +297,7 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
     
     assert not scratch_entry.exists(), "Scratch entry should not exist"
     unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
-    assert scratch_entry.exits(), "Scratch entry should have been created"
+    assert scratch_entry.exists(), "Scratch entry should have been created"
     
     return scratch_entry                            # return unzipped entry
 
