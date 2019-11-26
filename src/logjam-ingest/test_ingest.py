@@ -13,6 +13,7 @@ import unittest
 import sqlite3
 
 import ingest
+import paths
 
 
 CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
