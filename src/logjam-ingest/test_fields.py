@@ -423,6 +423,10 @@ class FilterFilesTestCase(unittest.TestCase):
         except Exception as exc:
             self.fail(exc)
         
+        cur_work_dir = os.getcwd()
+        
+        os.chdir(self.tmp_dir)
+        
         mystery_file = paths.QuantumEntry(self.tmp_dir, "byc-vast")
         self.assertFalse(fields.contains_bycast(mystery_file.relpath))
         
@@ -435,6 +439,8 @@ class FilterFilesTestCase(unittest.TestCase):
         with open(mystery_file.abspath, "w") as fd:
             fd.write("Some text\nbycast!\n")
         self.assertTrue(fields.contains_bycast(mystery_file.relpath))
+        
+        os.chdir(cur_work_dir)
     
     def test_is_storagegrid_related(self):
         base_dir = paths.QuantumEntry(self.tmp_dir, "")
