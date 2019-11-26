@@ -44,12 +44,12 @@ CATEGORIES = {
     "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
 }
 
-VALID_EXTENSIONS = [                                # extensions to use outside lumberjack
+EXTENSIONS_OUTSIDE_LUMBER = [                       # extensions to use outside lumberjack
     ".txt",
     ".log",
 ]
 
-VALID_FILENAMES = [                                 # filenames to use outside lumberjack
+FILENAMES_OUTSIDE_LUMBER = [                        # filenames to use outside lumberjack
     "syslog",
     "messages",
     "system_commands",
@@ -314,8 +314,8 @@ def is_storagegrid(nodefields, entry):
         return True                                 # all relevant inside lumberjack dir
         
     else:                                           # no name, outside lumberjack dir
-        valid_ext = entry.extension in VALID_EXTENSIONS
-        valid_name = entry.filename in VALID_FILENAMES
+        valid_ext = entry.extension in EXTENSIONS_OUTSIDE_LUMBER
+        valid_name = entry.filename in FILENAMES_OUTSIDE_LUMBER
         valid_path = valid_ext or valid_name
         return valid_path and contains_bycast(entry.abspath)
 

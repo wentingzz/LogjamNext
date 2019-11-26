@@ -42,11 +42,6 @@ MAX_WORKERS = None
 
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
-# Valid extensions to ingest
-validExtensions = [".txt", ".log"]
-# Valid extentionless files used in special cases
-validFiles = ["syslog", "messages", "system_commands"]
-
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
@@ -228,16 +223,12 @@ def recursive_search(scan, es, nodefields, cur_dir):
         logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.relpath)
         nodefields = fields.extract_fields(cur_dir.abspath, inherit_from=nodefields)
     
-    logging.debug("Inspecting all entries in: %s", cur_dir.relpath)
-    
     for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
         
         if not scan.should_consider_entry(entry):       # check, has been scanned?
             logging.debug("Skip file, outside timespan: %s", entry.relpath)
             scan.just_scanned_this_entry(entry)         # log the scan
             continue                                    # continue, next entry
-        else:
-            logging.debug("Consider entry, inside timespan: %s", entry.relpath)
         
         if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
             scratch_entry = paths.QuantumEntry(scan.scratch_dir, entry.relpath)
@@ -256,17 +247,13 @@ def recursive_search(scan, es, nodefields, cur_dir):
             
             entry = scratch_entry                       # override old entry
         
-        if entry.is_file():                             # entry is a file
-            if entry.extension in validExtensions or entry.filename in validFiles:
-                if fields.is_storagegrid(entry.abspath):# check for relevance, then ingest
-                    logging.debug("Index log file: %s", entry.relpath)
-                    index.send_to_es(es, nodefields, entry.abspath)
-                else:
-                    logging.debug("Skip non-storagegrid file: %s", entry.relpath)
-            else:                                       # bad file extension, skip
-                logging.debug("Skip file, bad extension (%s): %s", entry.extension, entry.relpath)
+        if entry.is_file():
+            if fields.is_storagegrid(nodefields, entry):
+                index.send_to_es(es, nodefields, entry.abspath)
+            else:
+                logging.debug("Skip Non-StorageGRID file: %s", entry.relpath)
         
-        elif entry.is_dir():                            # detect a directory, continue
+        elif entry.is_dir():
             try:
                 logging.debug("Recursing into directory: %s", entry.relpath)
                 recursive_search(scan, es, nodefields, entry)
