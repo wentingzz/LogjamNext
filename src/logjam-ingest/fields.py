@@ -44,12 +44,12 @@ CATEGORIES = {
     "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
 }
 
-EXTENSIONS_OUTSIDE_LUMBER = [                       # extensions to use outside lumberjack
+VALID_LOG_EXTENSIONS = [                       # extensions to use outside lumberjack
     ".txt",
     ".log",
 ]
 
-FILENAMES_OUTSIDE_LUMBER = [                        # filenames to use outside lumberjack
+VALID_LOG_FILENAMES = [                        # filenames to use outside lumberjack
     "syslog",
     "messages",
     "system_commands",
@@ -303,19 +303,22 @@ def contains_bycast(entry_path):
 
 def is_storagegrid(nodefields, entry):
     """
-    Determines whether the entry is related to StorageGRID, based on the
-    fields extracted in the NodeFields object and attributes of the entry,
-    such as its extension, filename, and contents.
+    Determines whether the entry is related to StorageGRID. Rejects files without
+    a correct extension or filename. If the file is outside a lumberjack directory,
+    it additionally performs a full bycast search on the path & contents.
     """
     assert isinstance(nodefields, NodeFields), "Wrong argument type"
     assert isinstance(entry, paths.QuantumEntry), "Wrong argument type"
     
+    valid_ext = entry.extension in VALID_LOG_EXTENSIONS
+    valid_name = entry.filename in VALID_LOG_FILENAMES
+    valid_path = valid_ext or valid_name
+    
+    if not valid_path:
+        return False                                # always drop bad extensions/names
+    
     if nodefields.node_name != MISSING_NODE_NAME:   # name found, inside lumberjack dir
-        return True                                 # all relevant inside lumberjack dir
-        
+        return True
     else:                                           # no name, outside lumberjack dir
-        valid_ext = entry.extension in EXTENSIONS_OUTSIDE_LUMBER
-        valid_name = entry.filename in FILENAMES_OUTSIDE_LUMBER
-        valid_path = valid_ext or valid_name
         return valid_path and contains_bycast(entry.abspath)
 
