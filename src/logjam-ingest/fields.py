@@ -44,6 +44,17 @@ CATEGORIES = {
     "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
 }
 
+VALID_EXTENSIONS = [                                # extensions to use outside lumberjack
+    ".txt",
+    ".log",
+]
+
+VALID_FILENAMES = [                                 # filenames to use outside lumberjack
+    "syslog",
+    "messages",
+    "system_commands",
+]
+
 
 class NodeFields:
     """
