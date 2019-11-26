@@ -16,6 +16,7 @@ import gzip
 import subprocess
 
 import fields
+import paths
 
 
 CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -390,24 +391,82 @@ class ExtractFieldsTestCase(unittest.TestCase):
 class FilterFilesTestCase(unittest.TestCase):
     """ Tests functions that filter StorageGRID files """
     
-    def test_is_storagegrid(self):
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+    
+    def test_contains_bycast(self):
         try:
-            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log')))
+            self.assertTrue(fields.contains_bycast(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
 
         try:
-            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR,'1234567890', 'bycast.log')))
+            self.assertTrue(fields.contains_bycast(os.path.join(TEST_DATA_DIR,'1234567890', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
 
         try:
-            self.assertFalse(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'system_commands.txt')))
+            self.assertFalse(fields.contains_bycast(os.path.join(TEST_DATA_DIR, '1234567890', 'system_commands.txt')))
         except Exception as exc:
             self.fail(exc)
 
         try:
-            self.assertTrue(fields.is_storagegrid(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log', 'bycast.log')))
+            self.assertTrue(fields.contains_bycast(os.path.join(TEST_DATA_DIR, '1234567890', 'bycast.log', 'bycast.log')))
         except Exception as exc:
             self.fail(exc)
+    
+    def test_is_storagegrid_related(self):
+        base_dir = paths.QuantumEntry(self.tmp_dir, "")
+        
+        if True:
+            empty_fields = fields.NodeFields()
+            
+            self.assertFalse(fields.is_storagegrid(empty_fields, base_dir/"dir"/"dir"))
+            self.assertFalse(fields.is_storagegrid(empty_fields, base_dir/"dir"))
+            self.assertFalse(fields.is_storagegrid(empty_fields, base_dir))
+            
+            self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"bycast.txt"))
+            self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"dir"/"bycast.txt"))
+            self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"123bycast123.txt"))
+            self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"bycast"/"system_commands"))
+            
+            mystery_file = base_dir/"fileX.txt"
+            with open(myster_file.abspath, "w") as fd:
+                fd.write("Some text\nSome text\nSome text\nEnd\n")
+            self.assertFalse(fields.is_storagegrid(empty_fields, mystery_file)
+            
+            mystery_file = base_dir/"fileX.txt"
+            with open(myster_file.abspath, "w") as fd:
+                fd.write("Some text\nSome text\nSome OH MY GOSH IT'S THE WORD bycast\nEnd\n")
+            self.assertTrue(fields.is_storagegrid(empty_fields, mystery_file)
+        
+        if True:
+            found_fields = fields.NodeFields(node_name="LondonTY5")
+            
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"/"dir"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir))
+            
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"bycast"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"/"bycast"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"123bycast123"))
+            
+            mystery_file = base_dir/"fileX.txt"
+            with open(myster_file.abspath, "w") as fd:
+                fd.write("Some text\nSome text\nSome text\nEnd\n")
+            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file)
+            
+            mystery_file = base_dir/"fileX.txt"
+            with open(myster_file.abspath, "w") as fd:
+                fd.write("Some text\nSome text\nSome OH MY GOSH IT'S THE WORD bycast\nEnd\n")
+            self.assertTrue(fields.is_storagegrid(found_fields, mystery_file)
+        
+        return
 

@@ -14,8 +14,6 @@ import logging
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
-import fields
-
 
 INDEX_NAME = "logjam"
 
