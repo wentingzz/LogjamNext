@@ -83,7 +83,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         #    root_dir=input_dir
         
         archiveB_gz = paths.QuantumEntry(input_dir, "archiveB.txt.gz")
-        with gzip.open(archiveB_gz.abspath, "rb") as fd:
+        with gzip.open(archiveB_gz.abspath, "wb") as fd:
             fd.write("This is a GZIP file\n".encode())
             
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
@@ -101,4 +101,9 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertEqual(scratch_dir, archiveB_txt.srcpath)
         self.assertEqual("archiveB.txt", archiveB_txt.relpath)
         self.assertTure(archiveB_txt.exists())
+        
+        with open(archiveB_txt.abspath, "r") as fd:
+            self.assertEqual("This is a GZIP file\n", fd.read())
+        
+        pass
 
