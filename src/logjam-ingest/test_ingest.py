@@ -107,7 +107,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         
         # Make a .gz file
         file_to_compress = os.path.join(input_dir, "archiveB.txt.gz")
-        with gzip.open(archiveB_gz.abspath, "wb") as fd:
+        with gzip.open(file_to_compress, "wb") as fd:
             fd.write("This is a GZIP file\n".encode())
         
         archiveB_gz = paths.QuantumEntry(input_dir, "archiveB.txt.gz")
