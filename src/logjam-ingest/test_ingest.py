@@ -77,15 +77,38 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         os.makedirs(scratch_dir, exist_ok=True)
         
         
-        # shutil.make_archive(
-        #    base_name="archiveA",
-        #    format="zip",
-        #    root_dir=input_dir
         
-        archiveB_gz = paths.QuantumEntry(input_dir, "archiveB.txt.gz")
+        dir_to_compress = os.path.join(scratch_dir, "a", "b", "c", "dir")
+        file_A = os.path.join(dir_to_compress, "fileA.txt")
+        with open(file_A, "w") as fd:
+            fd.write("This is a text file\n")
+        archiveA_zip = paths.QuantumEntry(scratch_dir, dir_to_compress)
+        shutil.make_archive(
+            base_name=archiveA.abspath,
+            format="zip",
+            root_dir=archiveA.abspath)
+        
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
+        self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir")))
+        self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir")))
+        
+        archiveA_dir = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveA_zip)
+        
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
+        self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir")))
+        self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir")))
+        
+        self.assertEqual(archiveA_zip, archiveA_dir)
+        
+        
+        
+        file_to_compress = "archiveB.txt.gz"
+        archiveB_gz = paths.QuantumEntry(input_dir, file_to_compress)
         with gzip.open(archiveB_gz.abspath, "wb") as fd:
             fd.write("This is a GZIP file\n".encode())
-            
+        
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(input_dir, "archiveB.txt")))
@@ -101,7 +124,6 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertEqual(scratch_dir, archiveB_txt.srcpath)
         self.assertEqual("archiveB.txt", archiveB_txt.relpath)
         self.assertTrue(archiveB_txt.exists())
-        
         with open(archiveB_txt.abspath, "r") as fd:
             self.assertEqual("This is a GZIP file\n", fd.read())
         
