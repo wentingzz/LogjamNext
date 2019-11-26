@@ -14,8 +14,6 @@ import logging
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
-import fields
-
 
 INDEX_NAME = "logjam"
 
@@ -48,6 +46,9 @@ def send_to_es(es_obj, fields_obj, file_path):
     fields. The system time of the call is also attached and sent.
     """
     send_time = int(round(time.time() * 1000))  # Epoch milliseconds
+    
+    if not es_obj:                              # no ES connection ready, just return
+        return
     
     try:
         error = False
