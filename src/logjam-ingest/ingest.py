@@ -275,8 +275,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
                     recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
-                 elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.contains_bycast(unzip_folder):
-#                         random_files.append(unzip_folder)
+                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.contains_bycast(unzip_folder):
                     process_unknown_file(unzip_folder, case_num, es)
                 
                 assert os.path.exists(entity_path), "Should still exist"
