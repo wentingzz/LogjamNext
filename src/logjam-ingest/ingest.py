@@ -173,7 +173,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
         if 'log' in filename:
             break
         unzip.delete_file(os.path.join(history_dir, history_file))
-        scan.just_scanned_this_path(os.path.join(input_dir, filename))
+        scan.just_scanned_this_entry(paths.QuantumEntry(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
