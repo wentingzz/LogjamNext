@@ -95,7 +95,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
-        self.assertFalse(not os.path.exists(os.path.join(input_dir, "archiveB.txt")))
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "archiveB.txt")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "archiveB.txt")))
         
         self.assertEqual(scratch_dir, archiveB_txt.srcpath)
