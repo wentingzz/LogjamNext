@@ -38,38 +38,62 @@ class QuantumEntryTestCase(unittest.TestCase):
         entry = paths.QuantumEntry("/mnt/nfs", "2001387465/dir/dir/log.txt")
         self.assertEqual("/mnt/nfs", entry.srcpath)
         self.assertEqual("2001387465/dir/dir/log.txt", entry.relpath)
-        self.assertEqual("/mnt/nfs/2001387465/dir/dir/log.txt", entry.fullpath)
         self.assertEqual("/mnt/nfs/2001387465/dir/dir/log.txt", entry.abspath)
+        self.assertEqual("/mnt/nfs/2001387465/dir/dir", entry.absdirpath)
+        self.assertEqual("2001387465/dir/dir", entry.reldirpath)
+        self.assertEqual("log.txt", entry.basename)
+        self.assertEqual("log", entry.filename)
+        self.assertEqual(".txt", entry.extension)
         
         entry = paths.QuantumEntry(".", "dir/dir/dir/")
         self.assertEqual(".", entry.srcpath)
         self.assertEqual("dir/dir/dir", entry.relpath)
-        self.assertEqual("./dir/dir/dir", entry.fullpath)
-        self.assertNotEqual("./dir/dir/dir", entry.abspath)    # can't know absolute path
+        self.assertNotEqual("./dir/dir/dir", entry.abspath)     # can't know absolute path
+        self.assertNotEqual("./dir/dir", entry.absdirpath)      # can't know absolute path
+        self.assertEqual("dir/dir", entry.reldirpath)
+        self.assertEqual("dir", entry.basename)
+        self.assertEqual("dir", entry.filename)
+        self.assertEqual("", entry.extension)
         
         entry = paths.QuantumEntry("./", "dir/dir/dir/")
         self.assertEqual(".", entry.srcpath)
         self.assertEqual("dir/dir/dir", entry.relpath)
-        self.assertEqual("./dir/dir/dir", entry.fullpath)
-        self.assertNotEqual("./dir/dir/dir", entry.abspath)    # can't know absolute path
+        self.assertNotEqual("./dir/dir/dir", entry.abspath)     # can't know absolute path
+        self.assertNotEqual("./dir/dir", entry.absdirpath)      # can't know absolute path
+        self.assertEqual("dir/dir", entry.reldirpath)
+        self.assertEqual("dir", entry.basename)
+        self.assertEqual("dir", entry.filename)
+        self.assertEqual("", entry.extension)
         
         entry = paths.QuantumEntry("/", "dir/dir")
         self.assertEqual("/", entry.srcpath)
         self.assertEqual("dir/dir", entry.relpath)
-        self.assertEqual("/dir/dir", entry.fullpath)
         self.assertEqual("/dir/dir", entry.abspath)
+        self.assertEqual("/dir", entry.absdirpath)
+        self.assertEqual("dir", entry.reldirpath)
+        self.assertEqual("dir", entry.basename)
+        self.assertEqual("dir", entry.filename)
+        self.assertEqual("", entry.extension)
         
         entry = paths.QuantumEntry("/", "./dir/dir")
         self.assertEqual("/", entry.srcpath)
         self.assertEqual("./dir/dir", entry.relpath)
-        self.assertEqual("/./dir/dir", entry.fullpath)
         self.assertEqual("/dir/dir", entry.abspath)
+        self.assertEqual("/dir", entry.absdirpath)
+        self.assertEqual("./dir", entry.reldirpath)
+        self.assertEqual("dir", entry.basename)
+        self.assertEqual("dir", entry.filename)
+        self.assertEqual("", entry.extension)
         
         entry = paths.QuantumEntry("/mnt/", "../dir/dir/")
         self.assertEqual("/mnt", entry.srcpath)
         self.assertEqual("../dir/dir", entry.relpath)
-        self.assertEqual("/mnt/../dir/dir", entry.fullpath)
         self.assertEqual("/dir/dir", entry.abspath)
+        self.assertEqual("/dir", entry.absdirpath)
+        self.assertEqual("../dir", entry.reldirpath)
+        self.assertEqual("dir", entry.basename)
+        self.assertEqual("dir", entry.filename)
+        self.assertEqual("", entry.extension)
         
         try:
             entry = paths.QuantumEntry("/", "/dir/dir")
@@ -107,6 +131,25 @@ class QuantumEntryTestCase(unittest.TestCase):
         entry /= "../tmp"
         self.assertEqual("./dir/dir/../tmp", entry.relpath)
         self.assertEqual("/dir/tmp", entry.abspath)
+    
+    def test_filename(self):
+        entry = paths.QuantumEntry("/", "dir/dir")
+        self.assertEqual("dir", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "txt.txt.txt")
+        self.assertEqual("txt.txt", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/dir/file.q")
+        self.assertEqual("file", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/dir/file.zip.gz.jpg")
+        self.assertEqual("file.zip.gz", entry.filename)
+        
+        entry = paths.QuantumEntry("/", "dir/.git")
+        self.assertEqual(".git", entry.filename)
+        
+        entry = paths.QuantumEntry("/tmp", "")
+        self.assertEqual("", entry.filename)
     
     def test_extension(self):
         entry = paths.QuantumEntry("/", "dir/dir")
@@ -147,12 +190,45 @@ class QuantumEntryTestCase(unittest.TestCase):
         
         entry = paths.QuantumEntry("/", ".dir/dir.tar.gz")
         self.assertEqual(".gz", entry.extension)
+        
+        entry = paths.QuantumEntry("/tmp", "")
+        self.assertEqual("", entry.extension)
     
     def test_exists(self):
         entry = paths.QuantumEntry(self.tmp_dir, str(int(time.time())))
         self.assertFalse(entry.exists())
         self.assertFalse(entry.is_dir())
         self.assertFalse(entry.is_file())
+    
+    def test_exists_in(self):
+        dir1 = paths.QuantumEntry(self.tmp_dir, str(int(time.time())))
+        self.assertFalse(dir1.exists())
+        os.makedirs(dir1.abspath)
+        self.assertTrue(dir1.exists())
+        
+        dir2 = paths.QuantumEntry(self.tmp_dir, str(int(time.time())+1000))
+        self.assertFalse(dir2.exists())
+        os.makedirs(dir2.abspath)
+        self.assertTrue(dir2.exists())
+        
+        entry1 = paths.QuantumEntry(dir1.abspath, "file.txt")
+        entry2 = paths.QuantumEntry(dir2.abspath, "file.txt")
+        self.assertFalse(entry1.exists())
+        self.assertFalse(entry2.exists())
+        self.assertFalse(entry1.exists_in(entry2.srcpath))
+        self.assertFalse(entry2.exists_in(entry1.srcpath))
+        
+        open(entry1.abspath, "a").close()
+        self.assertTrue(entry1.exists())
+        self.assertFalse(entry2.exists())
+        self.assertFalse(entry1.exists_in(entry2.srcpath))
+        self.assertTrue(entry2.exists_in(entry1.srcpath))
+        
+        open(entry2.abspath, "a").close()
+        self.assertTrue(entry1.exists())
+        self.assertTrue(entry2.exists())
+        self.assertTrue(entry1.exists_in(entry2.srcpath))
+        self.assertTrue(entry2.exists_in(entry1.srcpath))
     
     def test_is_dir(self):
         folder_path = os.path.join(self.tmp_dir, "folder")
