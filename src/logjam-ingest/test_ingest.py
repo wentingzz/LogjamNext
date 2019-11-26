@@ -79,6 +79,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         
         
         dir_to_compress = os.path.join(scratch_dir, "a", "b", "c", "dir")
+        os.makedirs(dir_to_compress, exist_ok=True)
         file_A = os.path.join(dir_to_compress, "fileA.txt")
         with open(file_A, "w") as fd:
             fd.write("This is a text file\n")
