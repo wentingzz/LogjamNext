@@ -259,8 +259,7 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
             if not scan.should_consider_file(entity_path):
                 logging.debug("Skipping file %s outside scan timespan", entity_path)
             # Case for regular file. Check for relevance, then ingest.
-            elif extension in validExtensions or filename in validFiles:
-                if fields.is_storagegrid(entity_path):
+            elif fields.is_storagegrid(fields.NodeFields(), paths.QuantumEntry(search_dir, entity):
                     process_unknown_file(entity_path, case_num, es)
                 else:
                     logging.debug("Skipping non-storagegrid file %s", entity_path)
@@ -275,9 +274,9 @@ def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
                 unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
                 if os.path.isdir(unzip_folder):
                     recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
-#                         random_files.append(unzip_folder)
-                    process_unknown_file(unzip_folder, case_num, es)
+                elif os.path.isfile(unzip_folder):
+                    if (e in validExtensions or os.path.basename(f) in validFiles) and fields.is_storagegrid(unzip_folder):
+                        process_unknown_file(unzip_folder, case_num, es)
                 
                 assert os.path.exists(entity_path), "Should still exist"
                 assert os.path.exists(new_scratch_dir), "Should still exist"
