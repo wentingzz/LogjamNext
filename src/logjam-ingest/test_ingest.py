@@ -11,6 +11,7 @@ import shutil
 import time
 import unittest
 import sqlite3
+import gzip
 
 import ingest
 import paths
