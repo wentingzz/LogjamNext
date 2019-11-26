@@ -19,21 +19,15 @@ Terminology:
 
 
 import argparse
-import gzip
 import logging
 import os
-import re
-import shutil
-import sqlite3
 import sys
 import time
 import signal
 import concurrent.futures
 import multiprocessing
 
-from elasticsearch import Elasticsearch, helpers
-from conans import tools
-from pyunpack import Archive
+from elasticsearch import Elasticsearch
 
 import incremental
 import unzip
@@ -82,6 +76,8 @@ def main():
         print('ingestion_directory is not a directory')
         sys.exit(1)
 
+    get_es_connection()
+    
     tmp_scratch_folder = '-'.join(["scratch-space",str(int(time.time()))])+'/'
     if args.scratch_space is not None:
         scratch_dir = os.path.join(os.path.abspath(args.scratch_space), tmp_scratch_folder)
@@ -134,8 +130,7 @@ def main():
 def get_es_connection():
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
-        logging.critical("Unable to connect to Elasticsearch")
-        return None
+        raise Exception("Unable to connect to Elasticsearch")
     elif not es.indices.exists(index.INDEX_NAME):
         with open(mappings_path) as mappings_file:
             mappings = mappings_file.read()

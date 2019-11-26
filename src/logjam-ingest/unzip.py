@@ -19,7 +19,10 @@ import shutil
 import stat
 import conans
 import gzip
-import pyunpack
+import patoolib
+
+import patoolib_patch
+patoolib_patch.patch_7z(patoolib)
 
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
@@ -46,8 +49,6 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     src = os.path.abspath(src)
     dest = os.path.abspath(dest)
     os.makedirs(dest, exist_ok=True)
-    assert os.path.exists(dest), "Destination does not exist: "+dest
-    assert os.path.isdir(dest), "Destination should be a dir: "+dest
 
     # Capture the modified time of the archive to force it upon its contents
     try:
@@ -133,9 +134,9 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         error_flag = False
         try:                                    # exception handling here only
-            pyunpack.Archive(src).extractall(dest)
+            patoolib.extract_archive(src, outdir=dest)
         except Exception as e:
-            logging.critical("Error during pyunpack extraction: %s", e)
+            logging.critical("Error during patool 7zip extraction: %s", e)
             error_flag = True                   # just log it and skip it
         
         if not error_flag:
@@ -259,4 +260,3 @@ def strip_zip_ext(path):
         return prior
     else:
         return path
-
