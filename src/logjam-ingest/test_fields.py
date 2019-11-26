@@ -451,6 +451,7 @@ class FilterFilesTestCase(unittest.TestCase):
             self.assertFalse(fields.is_storagegrid(empty_fields, base_dir/"dir"/"dir"))
             self.assertFalse(fields.is_storagegrid(empty_fields, base_dir/"dir"))
             self.assertFalse(fields.is_storagegrid(empty_fields, base_dir))
+            self.assertFalse(fields.is_storagegrid(empty_fields, base_dir/"thing.log"))
             
             self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"bycast.txt"))
             self.assertTrue(fields.is_storagegrid(empty_fields, base_dir/"dir"/"bycast.txt"))
@@ -470,13 +471,13 @@ class FilterFilesTestCase(unittest.TestCase):
         if True:
             found_fields = fields.NodeFields(node_name="LondonTY5")
             
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"/"dir"))
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"))
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir))
+            self.assertFalse(fields.is_storagegrid(found_fields, base_dir/"dir"/"dir"))
+            self.assertFalse(fields.is_storagegrid(found_fields, base_dir/"dir"))
+            self.assertFalse(fields.is_storagegrid(found_fields, base_dir))
             
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"bycast"))
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"/"bycast"))
-            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"123bycast123"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"thing.log"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"dir"/"os.txt"))
+            self.assertTrue(fields.is_storagegrid(found_fields, base_dir/"system_commands"))
             
             mystery_file = base_dir/"fileX.txt"
             with open(mystery_file.abspath, "w") as fd:
