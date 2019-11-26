@@ -75,6 +75,8 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         scratch_dir = os.path.join(self.tmp_dir, "tmp/scratch_space1777")
         os.makedirs(scratch_dir, exist_ok=True)
         
+        
+        
         # Make a .zip file
         dir_to_compress = os.path.join(scratch_dir, "a", "b", "c", "dir")
         os.makedirs(dir_to_compress, exist_ok=True)
@@ -85,7 +87,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
             format="zip",
             root_dir=dir_to_compress)
         
-        archiveA_zip = paths.QuantumEntry(scratch_dir, os.path.join("a","b","c","dir"))
+        archiveA_zip = paths.QuantumEntry(scratch_dir, os.path.join("a","b","c","dir.zip"))
         
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
@@ -100,6 +102,8 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir")))
         
         self.assertEqual(archiveA_zip, archiveA_dir)
+        
+        
         
         # Make a .gz file
         file_to_compress = os.path.join(input_dir, "archiveB.txt.gz")
