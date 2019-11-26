@@ -161,7 +161,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
         for e in range(len(entities)):
-            if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+            if e != len(entities) and os.path.join(input_dir, entities[e]) <= scan.last_path:
                 continue                                # skip, haven't reached last_path
 
             entity = entities[e]

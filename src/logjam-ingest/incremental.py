@@ -373,7 +373,8 @@ class ManagerScan(Scan):
             if 'log' in filename:
                 break
             unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
-            self.just_scanned_this_path(os.path.join(self.input_dir, filename))
+            self.last_path = os.path.join(self.input_dir, filename)
+            self._save_state_to_file(force_save=True)
 
         self._close()                           # internally close the Scan
 
