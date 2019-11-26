@@ -52,3 +52,51 @@ class FullIngestTestCase(unittest.TestCase):
         
         return
 
+
+class RecursiveHelperFuncTestCase(unittest.TestCase):
+    """ Test case class for recursive helper functions """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+
+    def test_unzip_into_scratch_dir(self):
+        
+        input_dir = os.path.join(self.tmp_dir, "mnt/nfs")
+        os.makedirs(input_dir, exists_ok=True)
+        
+        scratch_dir = os.path.join(self.tmp_dir, "tmp/scratch_space1777")
+        os.makedirs(scratch_dir, exists_ok=True)
+        
+        
+        # shutil.make_archive(
+        #    base_name="archiveA",
+        #    format="zip",
+        #    root_dir=input_dir
+        
+        archiveB_gz = paths.QuantumEntry(input_dir, "archiveB.txt.gz")
+        with gzip.open(archiveB_gz.abspath, "rb") as fd:
+            fd.write("This is a GZIP file\n".encode())
+            
+        self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
+        self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
+        self.assertFalse(os.path.exists(os.path.join(input_dir, "archiveB.txt")))
+        self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt")))
+        
+        archiveB_txt = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveB_gz)
+        
+        self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
+        self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
+        self.assertFalse(not os.path.exists(os.path.join(input_dir, "archiveB.txt")))
+        self.assertTrue(os.path.exists(os.path.join(scratch_dir, "archiveB.txt")))
+        
+        self.assertEqual(scratch_dir, archiveB_txt.srcpath)
+        self.assertEqual("archiveB.txt", archiveB_txt.relpath)
+        self.assertTure(archiveB_txt.exists())
+

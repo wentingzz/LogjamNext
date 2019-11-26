@@ -273,6 +273,35 @@ def recursive_search(scan, es, nodefields, cur_dir):
     return                                              # done searching this cur_dir
 
 
+def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
+    """
+    Unzips the compressed file into the provided scratch directory. If the file
+    has already been decompressed, return the compressed file unchanged. Uses the
+    relative path of the file to mimic a structure under the scratch directory.
+    For example:
+                       Source       - Relative
+    compressed_entry = /mnt/srv/nfs - 2001589801/var/os/dir.zip  ---.
+       scratch_entry = /tmp/scratch - 2001589801/var/os/dir  <------'
+    """
+    assert isinstance(input_dir, str)
+    assert isinstance(scratch_dir, str)
+    assert isinstance(compressed_file, paths.QuantumEntry)
+    assert compressed_entry.isfile(), "Compressed entry should be a file"
+    assert compressed_entry.srcpath in [input_dir, scratch_dir], "Source should be input/scratch"
+    
+    stripped_rel_path = unzip.strip_all_zip_exts(compressed_entry.relpath)
+    scratch_entry = paths.QuantumEntry(scratch_dir, stripped_rel_path)
+    
+    if scratch_entry.exists_in(input_dir) or scratch_entry.exists_in(scratch_dir):
+        return compressed_entry                     # already exists, return unchanged
+    
+    assert not scratch_entry.exists(), "Scratch entry should not exist"
+    unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.dirpath)
+    assert scratch_entry.exits(), "Scratch entry should have been created"
+    
+    return scratch_entry                            # return unzipped entry
+
+
 if __name__ == "__main__":
     main()
 
