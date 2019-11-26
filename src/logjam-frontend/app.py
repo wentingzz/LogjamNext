@@ -21,7 +21,6 @@ ELASTICSEARCH_PORT = os.environ.get("ELASTICSEARCH_PORT", 9200)
 app = Flask(__name__)
 es = Elasticsearch([{"host": ELASTICSEARCH_HOST, "port": ELASTICSEARCH_PORT}])
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -34,6 +33,7 @@ def get_platforms():
             "vSphere",
             "Container",
             "StorageGRID appliance",
+            "Unknown",
         ]
     )
 
@@ -43,7 +43,7 @@ def get_versions():
     return jsonify(
         [
             "Pre-10", "10.0", "10.1", "10.2", "10.3", "10.4", "11.0",
-            "11.1", "11.2", "11.3", "11.4",
+            "11.1", "11.2", "11.3", "11.4","Unknown",
 
         ]
     )
@@ -81,9 +81,13 @@ def get_query():
             {"range":{"major_version":{"gt":0,"lt":10}}})
 
     elif version and version != "All Versions":
-        v=version.split('.')
-        major_version=v[0]
-        minor_version=v[1]
+        if version == "Unknown":
+            major_version=-1
+            minor_version=-1
+        else:
+            v=version.split('.')
+            major_version=v[0]
+            minor_version=v[1]
         request_body["query"]["bool"]["filter"].append(
             {"term":{"major_version":{"value":major_version}}})
         request_body["query"]["bool"]["filter"].append(
@@ -93,7 +97,7 @@ def get_query():
         if platform == "StorageGRID appliance":
             platform = "SGA"
         request_body["query"]["bool"]["filter"].append(
-            {"term":{"platform":{"value":platform}}})
+            {"term":{"platform.keyword":{"value":platform}}})
 
     total_all_q= es.search(
         index="logjam",    
