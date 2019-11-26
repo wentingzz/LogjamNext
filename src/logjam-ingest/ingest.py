@@ -286,7 +286,7 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
     assert isinstance(input_dir, str)
     assert isinstance(scratch_dir, str)
     assert isinstance(compressed_entry, paths.QuantumEntry)
-    assert compressed_entry.isfile(), "Compressed entry should be a file"
+    assert compressed_entry.is_file(), "Compressed entry should be a file"
     assert compressed_entry.srcpath in [input_dir, scratch_dir], "Source should be input/scratch"
     
     stripped_rel_path = unzip.strip_all_zip_exts(compressed_entry.relpath)
