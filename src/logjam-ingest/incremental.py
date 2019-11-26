@@ -349,6 +349,9 @@ class WorkerScan(Scan):
         self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
         
         file_exists = os.path.exists(self.history_active_file)
+        if file_exists and not os.path.exists(self.history_log_file):
+            return None
+        
         if file_exists and os.stat(self.history_active_file).st_size != 0:
             last_scan = extract_last_scan_record(self.history_active_file)
             self._update_from_scan_record(last_scan)# update from previous scans
