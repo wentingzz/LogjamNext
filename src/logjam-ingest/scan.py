@@ -9,12 +9,12 @@ This script will be used to recursively search through and unzip directories as 
 and output files with extensions .log and .txt to Logjam
 
 Terminology:
-  Input Directory       - the original directory ingest.py searches through, it should
+  Input Directory       - the original directory scan.py searches through, it should
                           be treated as read-only
-  Scratch Directory     - a directory that ingest.py unzips compressed files into, owned
-                          by ingest.py (can R/W there)
-  Category Directory    - the final directories where ingest.py copies/places files for
-                          Logstash to consume, owned by ingest.py (can R/W there)
+  Scratch Directory     - a directory that scan.py unzips compressed files into, owned
+                          by scan.py (can R/W there)
+  Category Directory    - the final directories where scan.py copies/places files for
+                          Logstash to consume, owned by scan.py (can R/W there)
 """
 
 
@@ -62,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
-    parser.add_argument(dest='ingestion_directory', action='store',
+    parser.add_argument(dest='input_dir', action='store',
                         help='Directory to ingest files from')
     parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
                         help='Directory to output StorageGRID files to')
@@ -70,9 +70,9 @@ def main():
                         help='Scratch space directory to unzip files into')
     args = parser.parse_args()
 
-    if not os.path.isdir(args.ingestion_directory):
+    if not os.path.isdir(args.input_dir):
         parser.print_usage()
-        print('ingestion_directory is not a directory')
+        print('input_dir is not a directory')
         sys.exit(1)
 
     get_es_connection()
@@ -111,8 +111,8 @@ def main():
 
     try:
         # Ingest the directories
-        logging.debug("Ingesting %s", args.ingestion_directory)
-        ingest_log_files(args.ingestion_directory, scratch_dir, history_dir)
+        logging.debug("Ingesting %s", args.input_dir)
+        ingest_log_files(args.input_dir, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
