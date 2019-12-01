@@ -63,7 +63,7 @@ def main():
     parser.add_argument('--log-level', dest='log_level', default='DEBUG',
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='input_dir', action='store',
-                        help='Directory to ingest files from')
+                        help='Directory to scan for StorageGRID files')
     parser.add_argument('-o', '--output-dir', dest='output_directory', action='store',
                         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
@@ -110,13 +110,13 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     try:
-        # Ingest the directories
-        logging.debug("Ingesting %s", args.input_dir)
+        # ingest_log_files from the input directory
+        logging.debug("Scanning: %s", args.input_dir)
         ingest_log_files(args.input_dir, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
-            logging.info("Finished ingesting")
+            logging.info("Finished scanning")
     
     except Exception as e:
         raise e

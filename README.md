@@ -35,7 +35,7 @@ docker-compose up -d
 This will create a network with two containers: one for elasticsearch, and one for our frontend: logjam-ui. The containers will run in the background and can be stopped at any time by running `docker-compose down` from the same directory. Stopping them this way will also cleanup docker resources (such as network interfaces) which are no longer needed. Alternatively, plain `docker` commands (ps, run, stop) can be used to control the containers if desired.
 
 
-## Running `ingest.py` on host machine
+## Running `scan.py` on host machine
 
 Create virtual environment
 ```bash
@@ -48,15 +48,15 @@ Install dependencies
 pip install -r ./src/logjam-ingest/requirements.txt
 ```
 
-Run ingest script on input data:
+Run scan script on input data:
 ```bash
-python ./src/logjam-ingest/ingest.py [input_directory]
+python ./src/logjam-ingest/scan.py [input_directory]
 ```
 
-Ingest script arguments:
+Scan script arguments:
 ```
 positional arguments:
-  input_directory   Directory to ingest files from
+  input_directory   Directory to scan for StorageGRID files
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -111,8 +111,8 @@ See the [Elastic Search documentation](https://www.elastic.co/guide/en/elasticse
 If you used the provided docker-compose file, the UI runs on port 80 of the host. Visit the web address of the host in your browser access the logjam ui. From here, you can paste a section of log to query for results on how frequently similar sections occur across StorageGRID nodes.
 
 
-## Alternative: Running `ingest.py` with Docker
-We have prepared a Dockerfile for the ingest script which can be used in place of running in a "real" Python environment. This should work but considering the effort involved with mounting volumes into the container, this method is currently not the simplest.
+## Alternative: Running `scan.py` with Docker
+We have prepared a Dockerfile for the scan script which can be used in place of running in a "real" Python environment. This should work but considering the effort involved with mounting volumes into the container, this method is currently not the simplest.
 
 ```bash
 docker build -t logjam .
