@@ -197,10 +197,10 @@ def search_case_directory(scan_obj, input_dir, case_num):
         es_obj = get_es_connection()
         fields_obj = fields.NodeFields(case_num=case_num)
     
-        case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, case_num)
-        assert case_dir_entry.exists(), "Case directory does not exist!"
-        logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
-        recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
+        case_dir = paths.QuantumEntry(scan_obj.input_dir, case_num)
+        assert case_dir.exists(), "Case directory does not exist!"
+        logging.debug("Recursing into case directory: %s", case_dir.abspath)
+        recursive_search(child_scan, es_obj, fields_obj, case_dir)
     
         if graceful_abort:
             child_scan.premature_exit()
