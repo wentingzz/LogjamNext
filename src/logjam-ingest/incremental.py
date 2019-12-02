@@ -318,6 +318,7 @@ def list_unscanned_entries(dir, last_path):
     #print("Searching \"", dir.relpath, "\" given last path \"", last_path, "\"")
                                             # list of all entries in alphabetical order
     entry_names = sorted_recursive_order(os.listdir(dir.abspath))
+    
     for e in range(len(entry_names)):       # iterate in order
         entry = dir/entry_names[e]          # find entry
         
