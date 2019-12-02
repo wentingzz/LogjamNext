@@ -1,3 +1,9 @@
+/**
+ * @author Jeremy Schmidt
+ *
+ * Creates the pie-charts and handles the UI layout
+ */
+
 // vue-resources for http requests
 Vue.use(VueResource);
 
@@ -28,7 +34,7 @@ Vue.component('pie-chart', {
     },
     data: function() {
         return {
-            // Config template for a pie chart. Data and labels will be filled in upon instantiation
+            // Config template for a pie chart. Data and labels will be filled upon instantiation
             config: {
                 type: 'pie',
                 data: {
@@ -124,7 +130,7 @@ var vm = new Vue({
         },
         getOccurrences(event) {
             /**
-             * Make an API call to query for the given log text. Server should return data on what charts to display.
+             * Make an API call querying for the given logs. Should return data on what to display
              */
 
             if (!this.checkForm()) {
@@ -132,7 +138,9 @@ var vm = new Vue({
             }
 
             this.charts = [];
-            this.$http.post('/matchData', {logText: this.logText, sgVersion: this.sgVersion, platform: this.platform}).then( response => {
+            this.$http.post('/matchData', 
+		{ logText: this.logText, sgVersion: this.sgVersion, platform: this.platform }
+	    ).then( response => {
                 this.charts = response.body;
             }, response => {
                 alert("Error getting occurrences: " + response.status + "\n" + response.json());

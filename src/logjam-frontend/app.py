@@ -57,6 +57,7 @@ def get_query():
     total_hits=0
     total_no_hits=0
 
+    # Standard Elasticsearch query aggregating by nodename and case number
     request_body = { 
             "aggs":{
                 "by_nodename_and_casenumber":{ "composite":{
@@ -75,11 +76,13 @@ def get_query():
     platform = request.json.get("platform")
 
     version = request.json.get("sgVersion")
-    
+
+    # If version is Pre-10, add a range query to the body for version filtering between 0 and 10
     if version == "Pre-10":
         request_body["query"]["bool"]["filter"].append(
             {"range":{"major_version":{"gt":0,"lt":10}}})
 
+    # Otherwise if there is a version selected, add it to the query to be filtered by version
     elif version and version != "All Versions":
         v=version.split('.')
         major_version=v[0]
@@ -89,14 +92,16 @@ def get_query():
         request_body["query"]["bool"]["filter"].append(
             {"term":{"minor_version":{"value":minor_version}}})
 
+    # If a platform is selected, add to query to filter by platform
     if platform != "All Platforms":
         request_body["query"]["bool"]["filter"].append(
             {"term":{"platform":{"value":platform}}})
 
+    # Calculate total number of logs with the given filters
     total_all_q= es.search(
         index="logjam",    
         body=request_body)
-
+    # Add the specific log text to match 75% of it
     request_body["query"]["bool"]["must"]={
         "match":{ "message":{
             "query":message,
@@ -106,14 +111,18 @@ def get_query():
             "minimum_should_match":"75%",
         }}
     }
+    # Calculate total number of logs that match the message with the given filters
     total_hits_q = es.search(
         index="logjam",
         body=request_body)
-        
+    
+    # Number of aggregations that matched the message with the given filters
     total_hits = len(total_hits_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
+    # Number of total aggregations with the given filters
     total_all = len(total_all_q["aggregations"]["by_nodename_and_casenumber"]["buckets"])
     
+    # Number of aggregations that did not match the message with the given filters
     total_no_hits = total_all - total_hits
     
     return jsonify(

@@ -1,4 +1,6 @@
 """
+@author Jeremy Schmidt
+
 Download external JavaScript and CSS for hosting
 """
 import os.path
