@@ -156,7 +156,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                 case_num = fields.get_case_number(entry.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
                     logging.debug("Search case directory: %s", entry.abspath)
-                    futures.append(executor.submit(search_case_directory, scan, entry.abspath, case_num))
+                    futures.append(executor.submit(search_case_directory, scan, input_dir, case_num))
                     
                     assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
                     
@@ -166,7 +166,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
         
         for future in futures:
-            future.result()
+            print(future.result())
     
     if graceful_abort:
         scan.premature_exit()
@@ -175,45 +175,36 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     return
 
 
-def search_case_directory(scan_obj, case_dir, case_num):
+def search_case_directory(scan_obj, input_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-
     
-    try:
-
-
-        global graceful_abort
+    global graceful_abort
+    if graceful_abort:
+        return
+        
+    assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
+    
+    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    assert child_scan.input_dir == scan_obj.input_dir
+    
+    if not child_scan.already_scanned:
+        es_obj = get_es_connection()
+        fields_obj = fields.NodeFields(case_num=case_num)
+    
+        case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, case_num)
+        logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
+        recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
+    
         if graceful_abort:
-            return
-            
-        assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
-        
-        child_scan = incremental.WorkerScan(case_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-        
-        if not child_scan.already_scanned:
-            es_obj = get_es_connection()
-            fields_obj = fields.NodeFields(case_num=case_num)
-        
-            case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
-            logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
-            recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
-        
-            if graceful_abort:
-                child_scan.premature_exit()
-            else:
-                child_scan.complete_scan()
-                unzip.delete_file(child_scan.history_log_file)
-    
-    except Exception as e:
-        print(e)
-        raise e
-    
-    print("------------------------ NO EXCEPTIONS!!!!!!!! ALL DONE -------------")
+            child_scan.premature_exit()
+        else:
+            child_scan.complete_scan()
+            unzip.delete_file(child_scan.history_log_file)
     
     return
 
