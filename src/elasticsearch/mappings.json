@@ -19,10 +19,10 @@
             },
             "major_version": {
                 "type": "integer"        
-	    },
-	    "minor_version": {
-		"type": "integer"
-	    }
+            },
+            "minor_version": {
+                "type": "integer"
+            }
         }
     }
 }
