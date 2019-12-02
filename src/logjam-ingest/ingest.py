@@ -165,8 +165,9 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
         
+        # Needed in order to properly raise bubbled exceptions from child process
         for future in futures:
-            print(future.result())
+            future.result()
     
     if graceful_abort:
         scan.premature_exit()
@@ -197,6 +198,7 @@ def search_case_directory(scan_obj, input_dir, case_num):
         fields_obj = fields.NodeFields(case_num=case_num)
     
         case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, case_num)
+        assert case_dir_entry.exists(), "Case directory does not exist!"
         logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
         recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
     
