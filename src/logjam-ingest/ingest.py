@@ -182,28 +182,38 @@ def search_case_directory(scan_obj, case_dir, case_num):
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
+
     
-    global graceful_abort
-    if graceful_abort:
-        return
-        
-    assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
-    
-    child_scan = incremental.WorkerScan(case_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-    
-    if not child_scan.already_scanned:
-        es_obj = get_es_connection()
-        fields_obj = fields.NodeFields(case_num=case_num)
-    
-        case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
-        logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
-        recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
-    
+    try:
+
+
+        global graceful_abort
         if graceful_abort:
-            child_scan.premature_exit()
-        else:
-            child_scan.complete_scan()
-            unzip.delete_file(child_scan.history_log_file)
+            return
+            
+        assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
+        
+        child_scan = incremental.WorkerScan(case_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+        
+        if not child_scan.already_scanned:
+            es_obj = get_es_connection()
+            fields_obj = fields.NodeFields(case_num=case_num)
+        
+            case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
+            logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
+            recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
+        
+            if graceful_abort:
+                child_scan.premature_exit()
+            else:
+                child_scan.complete_scan()
+                unzip.delete_file(child_scan.history_log_file)
+    
+    except Exception as e:
+        print(e)
+        raise e
+    
+    print("------------------------ NO EXCEPTIONS!!!!!!!! ALL DONE -------------")
     
     return
 
