@@ -44,7 +44,7 @@ mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
 graceful_abort = False
 #elasticsearch host
-es_host = 'http://localhost:9200/'
+es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
 def main():
     """
@@ -149,14 +149,18 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     except OSError as e:
         logging.critical("Error during os.listdir(%s): %s", input_dir, e)
         entities = []
+
+    total_cases = len(entities)
     entities = sorted(entities)
     lock = multiprocessing.Manager().Lock()
-    
+
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
-        
+
         search_dir = paths.QuantumEntry(input_dir, "")
-        
+
+        case_count = 0
         for entry in incremental.list_unscanned_entries(search_dir, ""):
+            case_count += 1
             if entry.is_dir():
                 case_num = fields.get_case_number(entry.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
