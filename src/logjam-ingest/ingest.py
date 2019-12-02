@@ -123,7 +123,6 @@ def main():
 
 
 def get_es_connection():
-    return None
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
         raise Exception("Unable to connect to Elasticsearch")
