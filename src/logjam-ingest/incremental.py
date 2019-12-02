@@ -440,6 +440,8 @@ class ManagerScan(Scan):
             filename, _ = os.path.splitext(worker_history_file)
             if os.path.exists(os.path.join(self.history_dir, filename + '-log' + ".txt")):
                 break
+            if 'scan-history' in filename:
+                continue
             unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
             self.last_path = os.path.join(self.input_dir, filename)
             self._save_state_to_file(force_save=True)
