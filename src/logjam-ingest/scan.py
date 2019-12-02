@@ -106,12 +106,12 @@ def main():
 
     try:
         # ingest_log_files from the input directory
-        logging.debug("Scanning: %s", args.input_dir)
+        logging.debug("Ingesting: %s", args.input_dir)
         ingest_log_files(args.input_dir, scratch_dir, history_dir)
         if graceful_abort:
             logging.info("Graceful abort successful")
         else:
-            logging.info("Finished scanning")
+            logging.info("Finished ingesting")
     
     except Exception as e:
         raise e
