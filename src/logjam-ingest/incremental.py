@@ -294,7 +294,7 @@ class Scan:
             return
         
         new_record = self._to_scan_record()
-        #assert new_record.is_complete() == (self.last_path == ""), "Bad completion status"
+        assert new_record.is_complete() == (self.last_path == ""), "Bad completion status"
         
         append_scan_record(self.history_log_file, new_record)
         overwrite_scan_record(self.history_active_file, new_record)
