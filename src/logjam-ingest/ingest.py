@@ -144,13 +144,8 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
     scan = incremental.ManagerScan(input_dir, history_dir, scratch_dir)
-    
-    try:
-        entities = os.listdir(input_dir)
-    except OSError as e:
-        logging.critical("Error during os.listdir(%s): %s", input_dir, e)
-        entities = []
     assert os.path.exists(scan.history_log_file)
+    
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
         
         search_dir = paths.QuantumEntry(input_dir, "")
