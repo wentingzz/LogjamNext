@@ -44,6 +44,17 @@ CATEGORIES = {
     "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
 }
 
+VALID_LOG_EXTENSIONS = [                       # extensions to use outside lumberjack
+    ".txt",
+    ".log",
+]
+
+VALID_LOG_FILENAMES = [                        # filenames to use outside lumberjack
+    "syslog",
+    "messages",
+    "system_commands",
+]
+
 
 class NodeFields:
     """
@@ -268,15 +279,19 @@ def extract_fields(lumber_dir, *, inherit_from):
     return new_fields
 
 
-def is_storagegrid(full_path):
+def contains_bycast(entry_path):
     """
-    Check if a file is StorageGRID file
+    Returns true if the entry in question has the text string `bycast` in either
+    its path or its contents. If the entry is a directory, only check its path.
     """
-    if "bycast" in full_path:
+    if "bycast" in entry_path:
         return True
+    
+    if not os.path.exists(entry_path) or os.path.isdir(entry_path):
+        return False
 
     try:
-        with open(full_path) as searchfile:
+        with open(entry_path, "r") as searchfile:
             for line in searchfile:
                 if "bycast" in line:
                     return True
@@ -284,4 +299,26 @@ def is_storagegrid(full_path):
         logging.warning('Error during "bycast" search: %s', str(e))
     
     return False
+
+
+def is_storagegrid(nodefields, entry):
+    """
+    Determines whether the entry is related to StorageGRID. Rejects files without
+    a correct extension or filename. If the file is outside a lumberjack directory,
+    it additionally performs a full bycast search on the path & contents.
+    """
+    assert isinstance(nodefields, NodeFields), "Wrong argument type"
+    assert isinstance(entry, paths.QuantumEntry), "Wrong argument type"
+    
+    valid_ext = entry.extension in VALID_LOG_EXTENSIONS
+    valid_name = entry.filename in VALID_LOG_FILENAMES
+    valid_path = valid_ext or valid_name
+    
+    if not valid_path:
+        return False                                # always drop bad extensions/names
+    
+    if nodefields.node_name != MISSING_NODE_NAME:   # name found, inside lumberjack dir
+        return True
+    else:                                           # no name, outside lumberjack dir
+        return valid_path and contains_bycast(entry.abspath)
 
