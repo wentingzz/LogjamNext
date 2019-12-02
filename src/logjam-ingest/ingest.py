@@ -148,6 +148,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
         
+        futures = []
         search_dir = paths.QuantumEntry(input_dir, "")
         for entry in incremental.list_unscanned_entries(search_dir, os.path.basename(scan.last_path)):
             
@@ -155,7 +156,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                 case_num = fields.get_case_number(entry.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
                     logging.debug("Search case directory: %s", entry.abspath)
-                    executor.submit(search_case_directory, scan, entry.abspath, case_num)
+                    futures.append(executor.submit(search_case_directory, scan, entry.abspath, case_num))
                     
                     assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
                     
@@ -163,6 +164,9 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                     logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
+         
+         for future in futures:
+            future.result()
     
     if graceful_abort:
         scan.premature_exit()
