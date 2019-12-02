@@ -164,8 +164,8 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                     logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
-         
-         for future in futures:
+        
+        for future in futures:
             future.result()
     
     if graceful_abort:
