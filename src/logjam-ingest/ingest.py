@@ -46,6 +46,7 @@ graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
 
+
 def main():
     """
     Recursively walks the directories of the inspection
@@ -158,14 +159,16 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             if entry.is_dir():
                 case_num = fields.get_case_number(entry.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
-                    logging.debug("Search case directory: %s", entry.relpath)
+                    logging.debug("Search case directory: %s", entry.abspath)
                     executor.submit(search_case_directory, scan, entry.abspath, case_num)
-                    assert os.path.exists(scan.history_log_file), case_num
+                    
+                    assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
+                    
                 else:
-                    logging.debug("Ignored non-StorageGRID directory: %s", entry.relpath)
+                    logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
-
-                logging.debug("Ignored non-StorageGRID file: %s", full_path)
+                logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
+    
     if graceful_abort:
         scan.premature_exit()
     else:
@@ -180,23 +183,29 @@ def search_case_directory(scan_obj, case_dir, case_num):
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
+    
+    global graceful_abort
     if graceful_abort:
         return
+        
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
     
     child_scan = incremental.WorkerScan(case_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    
     if not child_scan.already_scanned:
         es_obj = get_es_connection()
         fields_obj = fields.NodeFields(case_num=case_num)
     
-        case_dir = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
-        logging.debug("Recursing into case directory: %s", case_dir.relpath)
-        recursive_search(child_scan, es_obj, fields_obj, case_dir)
+        case_dir_entry = paths.QuantumEntry(scan_obj.input_dir, os.path.basename(case_dir))
+        logging.debug("Recursing into case directory: %s", case_dir_entry.abspath)
+        recursive_search(child_scan, es_obj, fields_obj, case_dir_entry)
+    
         if graceful_abort:
             child_scan.premature_exit()
         else:
             child_scan.complete_scan()
             unzip.delete_file(child_scan.history_log_file)
+    
     return
 
 
