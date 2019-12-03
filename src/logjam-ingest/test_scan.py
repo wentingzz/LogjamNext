@@ -2,7 +2,7 @@
 @author Jeremy Schmidt
 @author Nathaniel Brooks
 
-Unit tests for top-level ingestion script
+Unit tests for the top-level scan script
 """
 
 
@@ -13,7 +13,7 @@ import unittest
 import sqlite3
 import gzip
 
-import ingest
+import scan
 import paths
 
 
@@ -21,8 +21,8 @@ CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Scan")
 
 
-class FullIngestTestCase(unittest.TestCase):
-    """ Test case class for ingest unit tests """
+class FullScanTestCase(unittest.TestCase):
+    """ Test case for a full heavyweight scan """
 
     data_dir = os.path.join(CODE_SRC_DIR, "test-data")
 
@@ -36,7 +36,7 @@ class FullIngestTestCase(unittest.TestCase):
 
 
     def test_basic_ingest(self):
-        """ Run the full ingest process on a simple set of inputs """
+        """ Run the full ingest_log_files process on a simple set of inputs """
         # Establish paths under the test's temp directory
         input_dir = os.path.join(self.data_dir, "Scan")
         categ_dir = os.path.join(self.tmp_dir, "categories")
@@ -47,10 +47,10 @@ class FullIngestTestCase(unittest.TestCase):
             for file in files:
                 os.utime(os.path.join(basepath,file), times=(time.time(),0))
 
-        # Run ingest on sample data
-        ingest.ingest_log_files(input_dir, scratch_dir, history_dir)
+        # Run ingest_log_files on sample data
+        scan.ingest_log_files(input_dir, scratch_dir, history_dir)
 
-        # TODO: Verify ingest worked now that category folders are gone
+        # TODO: Verify ingest_log_files worked now that category folders are gone
         
         return
 
@@ -94,7 +94,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir")))
         
-        archiveA_dir = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveA_zip)
+        archiveA_dir = scan.unzip_into_scratch_dir(input_dir, scratch_dir, archiveA_zip)
         
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
@@ -117,7 +117,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(input_dir, "archiveB.txt")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt")))
         
-        archiveB_txt = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveB_gz)
+        archiveB_txt = scan.unzip_into_scratch_dir(input_dir, scratch_dir, archiveB_gz)
         
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))
