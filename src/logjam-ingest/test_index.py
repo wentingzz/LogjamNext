@@ -31,7 +31,7 @@ CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Index")
 
 
-def mock_elasticsearch_api(test_obj, docs, *, allow_timeouts=False):
+def mock_elasticsearch_api(test_obj, docs):
     """
     Mocks a running Elasticsearch instance serving API calls.
     Responds to bulk requests for now.
@@ -133,42 +133,6 @@ class IndexDataTestCase(unittest.TestCase):
         return
     
     def test_set_data_decode_error(self):
-        docs = [
-            {
-                "_source": {
-                    "case":"4007",
-                    "node_name":fields.MISSING_NODE_NAME,
-                    "major_version":fields.MISSING_SG_VER[0],
-                    "minor_version":fields.MISSING_SG_VER[1],
-                    "platform":fields.MISSING_PLATFORM,
-                    "categorize_time":1957,
-                    "message":"xyz\n",
-                },
-            },
-            {
-                "_source": {
-                    "case":"4007",
-                    "node_name":fields.MISSING_NODE_NAME,
-                    "major_version":fields.MISSING_SG_VER[0],
-                    "minor_version":fields.MISSING_SG_VER[1],
-                    "platform":fields.MISSING_PLATFORM,
-                    "categorize_time":1957,
-                    "message":"pqr\n",
-                },
-            },
-            {
-                "_source": {
-                    "case":"4007",
-                    "node_name":fields.MISSING_NODE_NAME,
-                    "major_version":fields.MISSING_SG_VER[0],
-                    "minor_version":fields.MISSING_SG_VER[1],
-                    "platform":fields.MISSING_PLATFORM,
-                    "categorize_time":1957,
-                    "message":"abc\n",
-                },
-            },
-        ]
-        
         xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
         with open(xxx_file, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
@@ -232,36 +196,6 @@ class IndexDataTestCase(unittest.TestCase):
         return
 
     def test_send_to_es_decode_error(self):
-        docs = [
-            {
-                "case":"4007",
-                "node_name":fields.MISSING_NODE_NAME,
-                "major_version":fields.MISSING_SG_VER[0],
-                "minor_version":fields.MISSING_SG_VER[1],
-                "platform":fields.MISSING_PLATFORM,
-                "categorize_time":1957,
-                "message":"xyz\n",
-            },
-            {
-                "case":"4007",
-                "node_name":fields.MISSING_NODE_NAME,
-                "major_version":fields.MISSING_SG_VER[0],
-                "minor_version":fields.MISSING_SG_VER[1],
-                "platform":fields.MISSING_PLATFORM,
-                "categorize_time":1957,
-                "message":"pqr\n",
-            },
-            {
-                "case":"4007",
-                "node_name":fields.MISSING_NODE_NAME,
-                "major_version":fields.MISSING_SG_VER[0],
-                "minor_version":fields.MISSING_SG_VER[1],
-                "platform":fields.MISSING_PLATFORM,
-                "categorize_time":1957,
-                "message":"abc\n",
-            },
-        ]
-        
         xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
         with open(xxx_file, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
@@ -269,7 +203,7 @@ class IndexDataTestCase(unittest.TestCase):
         self.assertTrue(os.path.isfile(xxx_file))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(mock_elasticsearch_api, self, docs)
+            future = executor.submit(mock_elasticsearch_api, self, None)
             
             es_obj = elasticsearch.Elasticsearch([{'host':'localhost','port':48982}], timeout=20)
             nodefields = fields.NodeFields(case_num="4007")
