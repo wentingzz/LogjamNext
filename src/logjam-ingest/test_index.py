@@ -96,7 +96,11 @@ class IndexDataTestCase(unittest.TestCase):
     
     def test_send_to_es(self):
         
-        def mock_elasticsearch_server():
+        def mock_elasticsearch_api():
+            """
+            Mocks a running Elasticsearch instance serving API calls.
+            Responds to bulk requests for now.
+            """
             with socket.socket() as list_sock:
                 list_sock.settimeout(10.0)
                 list_sock.bind(("localhost", 48982))
@@ -107,34 +111,27 @@ class IndexDataTestCase(unittest.TestCase):
                 s.settimeout(10.0)
                 
                 m = ""
-                while not m.endswith("}\n"):
+                while not m.endswith("}\n"):        # terrible loop condition, TODO: improve it!
                     m += s.recv(2048).decode()      # 2048 bytes is enough for testing
-                    #print(" ---- RECEIVED:", m[-100:].encode(), flush=True)
-                    
-                body = m[m.index("\r\n\r\n")+4:]
-                #print(" ------ HEADER:", m[:m.index("\r\n\r\n")].encode(), "\n", flush=True)
-                #print(" ------ BODY:", body.encode(), "\n", flush=True)
+                body = m[m.index("\r\n\r\n")+4:]    # body of HTML after 2 x "\r\n"
                 
-                for expec, real in zip(docs, (obj for obj in ndjson.loads(body) if "index" not in obj)):
+                for expec, real in zip(docs, (o for o in ndjson.loads(body) if "index" not in o)):
                     self.assertTrue("categorize_time" in real)
                     self.assertTrue("categorize_time" in expec)
-                    del real["categorize_time"]     # index time is unknown, no compare
+                    del real["categorize_time"]     # index time is unknown, can't compare
                     del expec["categorize_time"]
-                    self.assertEqual(expec, real)
+                    self.assertEqual(expec, real)   # exact match sent doc
                     
-                json_str = ndjson.dumps([{"items" : [] }])
-                payload = 'HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: application/json\r\n\r\n%s' % (len(json_str), json_str)
-                s.sendall(payload.encode())
-                #print(" ----- SENT:", payload.encode(),"\n",flush=True)
+                json_str = ndjson.dumps([ {"items" : []} ])
+                payload = ('HTTP/1.1 200 OK\r\nContent-Length: '+
+                    '%d\r\nContent-Type: application/json\r\n\r\n%s' %
+                    (len(json_str), json_str))
+                s.sendall(payload.encode())         # send fake response back (only items needed)
                 
-                while s.recv(2048):
+                while s.recv(2048):                 # feed from ES until connection closed
                     s.sendall("{}".encode())
-                    #data = s.recv(1024).decode()
-                    #if not data: break
-                    #print(" ---- RECEIVED:", data,flush=True)
-                    #s.sendall("Good".encode())
         
-        es_thread = threading.Thread(target=mock_elasticsearch_server)
+        es_thread = threading.Thread(target=mock_elasticsearch_api)
         es_thread.start()
         
         aaa_file = os.path.join(self.tmp_dir, "aaa.txt")
@@ -175,19 +172,12 @@ class IndexDataTestCase(unittest.TestCase):
             },
         ]
         
-        #with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        #    sock.connect(("localhost", 48982))
-        #    sock.sendall(b"Hello, network!")
-        
         es_obj = elasticsearch.Elasticsearch([{'host':'localhost','port':48982}], verify_certs=False, timeout=20)
         nodefields = fields.NodeFields(case_num="4007")
-        
         index.send_to_es(es_obj, nodefields, aaa_file)
-        #print("All sent", flush=True)
         
-        es_obj.transport.close()
-        
-        es_thread.join()
+        es_obj.transport.close()                    # IMPORTANT: force connection to close!
+        es_thread.join()                            # wait for mock API to finish
 
 
 if __name__ == '__main__':
