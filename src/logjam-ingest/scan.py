@@ -167,11 +167,12 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
         
         total_cases = len(futures)
         case_index = 0
-        # Needed in order to properly raise bubbled exceptions from child process
         for future in futures:
             case_index += 1
+            # Raise any exception from child process
             future.result()
-            logging.info("Finished case directory %i out of %i", case_index, total_cases)
+            if not graceful_abort:
+                logging.info("Finished case directory %i out of %i", case_index, total_cases)
     
     if graceful_abort:
         scan.premature_exit()
