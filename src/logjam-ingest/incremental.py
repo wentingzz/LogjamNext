@@ -7,6 +7,7 @@ Utility file for incremental scanning.
 
 import os
 import time
+import unzip
 
 import paths
 
@@ -152,22 +153,18 @@ class ScanRecord:
 class Scan:
     """ Represents an active scan of the input directory. """
 
-    def __init__(self, input_dir, history_dir, scratch_dir, history_active_file = "scan-history-active.txt", history_log_file = "scan-history-log.txt", safe_time = None):
+    def __init__(self, input_dir, history_dir, scratch_dir):
         """ Constructs a Scan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
-        if safe_time:
-            self.safe_time = safe_time
-        else:
-            self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
-        self.input_dir = input_dir                  # these 6 fields immutable after init
+        self.safe_time = int(time.time()) - 6 * 60  # 6 minutes before current time
+        self.input_dir = input_dir                  # these 5 fields immutable after init
         self.history_dir = history_dir
-        self.history_active_file = os.path.join(history_dir, history_active_file)
-        self.history_log_file = os.path.join(history_dir, history_log_file)
+        self.history_active_file = os.path.join(history_dir, "scan-history-active.txt")
+        self.history_log_file = os.path.join(history_dir, "scan-history-log.txt")
         scratch_dir = os.path.abspath(scratch_dir)  # force absolute
         os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
         self.scratch_dir = scratch_dir              # will own subdirectories for R/W
-        
 
         self.last_path = ""
         self.last_history_update = TimePeriod.ancient_history()
@@ -395,3 +392,81 @@ def append_scan_record(path, scan_record):
     with open(path, "a") as file:
         file.write(str(scan_record)+"\n")
 
+class WorkerScan(Scan):
+    def __init__(self, input_dir, history_dir, scratch_dir, history_active_file, history_log_file, safe_time):
+        """ Constructs a WorkerScan which operates on the given input directory. """
+        assert os.path.exists(input_dir), "File path must exist"
+
+        self.safe_time = safe_time
+        self.input_dir = input_dir                  # these 6 fields immutable after init
+        self.history_dir = history_dir
+        self.history_active_file = os.path.join(history_dir, history_active_file)
+        self.history_log_file = os.path.join(history_dir, history_log_file)
+        
+        file_exists = os.path.exists(self.history_active_file)
+        if file_exists and not os.path.exists(self.history_log_file):
+            self.already_scanned = True
+            return
+        else:
+            self.already_scanned = False
+        
+        os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
+        self.scratch_dir = scratch_dir              # will own subdirectories for R/W
+        
+        self.last_path = ""
+        self.last_history_update = TimePeriod.ancient_history()
+
+        self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
+        
+        if file_exists and os.stat(self.history_active_file).st_size != 0:
+            last_scan = extract_last_scan_record(self.history_active_file)
+            self._update_from_scan_record(last_scan)# update from previous scans
+        
+        os.makedirs(self.history_dir, exist_ok=True)# make sure history dir is ready
+        open(self.history_active_file, 'a').close() # make sure active file is ready
+        open(self.history_log_file, 'a').close()    # make sure log file is ready
+        
+class ManagerScan(Scan):
+    """ Represents an active ManagerScan of the input directory. """
+    def premature_exit(self):
+        """
+        Program needs to halt the scan prematurely. Delete all the worker
+        history files that has been done. Write out information to history
+        files so that it can hopefully be picked up next time.
+        """
+        assert not self._is_closed(), "Scan was internally closed"
+        
+        tmp_dirs = sorted(os.listdir(self.history_dir), reverse=True)
+        for worker_history_file in tmp_dirs:
+            filename, _ = os.path.splitext(worker_history_file)
+            if os.path.exists(os.path.join(self.history_dir, filename + '-log' + ".txt")):
+                break
+            if 'scan-history' in filename:
+                continue
+            unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
+            self.last_path = os.path.join(self.input_dir, filename)
+            self._save_state_to_file(force_save=True)
+
+        self._close()                           # internally close the Scan
+
+    def complete_scan(self):
+        """
+        Completes the scan, writing out information to the history files
+        to show that the scan was completed. Deletes all the worker history
+        files
+        """
+        assert not self._is_closed(), "Scan was internally closed"
+
+        self.last_path = ""
+
+        self._save_state_to_file(force_save=True)
+        for worker_history_file in os.listdir(self.history_dir):
+            try:
+                filename, _ = os.path.splitext(worker_history_file)
+                int(filename)
+                unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
+            except:
+                print(filename)
+                continue
+        self._close()                           # internally close the Scan
+        

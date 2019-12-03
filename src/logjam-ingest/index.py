@@ -50,7 +50,7 @@ def send_to_es(es_obj, fields_obj, file_path):
     try:
         error = False
         logging.debug("Indexing: %s", file_path)
-        for success, info in helpers.bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
+        for success, info in helpers.parallel_bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
             if not success:
                 error = True
         if error:
