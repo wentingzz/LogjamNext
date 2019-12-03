@@ -94,7 +94,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir")))
         
-        archiveA_dir = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveA_zip)
+        archiveA_dir = scan.unzip_into_scratch_dir(input_dir, scratch_dir, archiveA_zip)
         
         self.assertFalse(os.path.exists(os.path.join(input_dir, "a", "b", "c", "dir.zip")))
         self.assertTrue(os.path.exists(os.path.join(scratch_dir, "a", "b", "c", "dir.zip")))
@@ -117,7 +117,7 @@ class RecursiveHelperFuncTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(input_dir, "archiveB.txt")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt")))
         
-        archiveB_txt = ingest.unzip_into_scratch_dir(input_dir, scratch_dir, archiveB_gz)
+        archiveB_txt = scan.unzip_into_scratch_dir(input_dir, scratch_dir, archiveB_gz)
         
         self.assertTrue(os.path.exists(os.path.join(input_dir, "archiveB.txt.gz")))
         self.assertFalse(os.path.exists(os.path.join(scratch_dir, "archiveB.txt.gz")))

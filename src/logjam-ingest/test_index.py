@@ -123,9 +123,10 @@ class IndexDataTestCase(unittest.TestCase):
                     self.assertEqual(expec, real)   # exact match sent doc
                     
                 json_str = ndjson.dumps([ {"items" : []} ])
-                payload = ('HTTP/1.1 200 OK\r\nContent-Length: '+
-                    '%d\r\nContent-Type: application/json\r\n\r\n%s' %
-                    (len(json_str), json_str))
+                payload = (
+                    'HTTP/1.1 200 OK\r\n'+
+                    'Content-Length: %d\r\n'+
+                    'Content-Type: application/json\r\n\r\n%s') % (len(json_str), json_str)
                 s.sendall(payload.encode())         # send fake response back (only items needed)
                 
                 while s.recv(2048):                 # feed from ES until connection closed
