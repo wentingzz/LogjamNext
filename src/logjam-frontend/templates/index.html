@@ -62,17 +62,17 @@
 
             <div class="container" id="charts">
                 <div id="canvas-holder">
-                    <div class="col-sm-4" v-for="chart in charts">
-                        <pie-chart 
-                                          v-bind:title="chart.title"
-                                          v-bind:labels="chart.labels"
-                                          v-bind:values="chart.values">
-                        </pie-chart>
+		    <div v-if="!hasResults">No Results Found</div>
+		    <div v-else>
+                    	<div class="col-sm-4" v-for="chart in charts">
+                        	<pie-chart 
+                                	v-bind:title="chart.title"
+                                        v-bind:labels="chart.labels"
+                                        v-bind:values="chart.values">
+                        	</pie-chart>
+			</div>
                     </div>
                 </div>
-		<div v-if="charts.length == 0">
-			<p>No results found</p>
-		</div>
             </div>
             <script src="static/js/main.js"></script>
     </body>
