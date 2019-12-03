@@ -62,8 +62,8 @@ def get_query():
                 "by_nodename_and_casenumber":{ "composite":{
                     "size":"10000",
                     "sources":[
-                        {"sorting_by_node":{"terms":{"field":"node_name.keyword"}}},
-                        {"sorting_by_case":{"terms":{"field":"case.keyword"}}}
+                        {"sorting_by_node":{"terms":{"field":"node_name"}}},
+                        {"sorting_by_case":{"terms":{"field":"case"}}}
                     ]
                 }}
             },
@@ -97,7 +97,7 @@ def get_query():
         if platform == "StorageGRID appliance":
             platform = "SGA"
         request_body["query"]["bool"]["filter"].append(
-            {"term":{"platform.keyword":{"value":platform}}})
+            {"term":{"platform":{"value":platform}}})
 
     total_all_q= es.search(
         index="logjam",    
