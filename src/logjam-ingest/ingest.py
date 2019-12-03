@@ -33,6 +33,7 @@ import incremental
 import unzip
 import index
 import fields
+import paths
 
 
 code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
@@ -44,6 +45,7 @@ mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 graceful_abort = False
 #elasticsearch host
 es_host = 'http://localhost:9200/'
+
 
 def main():
     """
@@ -120,6 +122,7 @@ def main():
         logging.info("Cleaning up scratch space")
         unzip.delete_directory(scratch_dir)         # always delete scratch_dir
 
+
 def get_es_connection():
     es = Elasticsearch([es_host], verify_certs = True)
     if not es.ping():
@@ -131,6 +134,7 @@ def get_es_connection():
         es.indices.create(index.INDEX_NAME, body=mappings)
     return es
 
+
 def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
@@ -140,30 +144,31 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
     scan = incremental.ManagerScan(input_dir, history_dir, scratch_dir)
-    
-    try:
-        entities = os.listdir(input_dir)
-    except OSError as e:
-        logging.critical("Error during os.listdir(%s): %s", input_dir, e)
-        entities = []
-    entities = sorted(entities)
-    lock = multiprocessing.Manager().Lock()
+    assert os.path.exists(scan.history_log_file)
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
-        for e in range(len(entities)):
-            if e != len(entities) and os.path.join(input_dir, entities[e]) <= scan.last_path:
-                continue                                # skip, haven't reached last_path
-
-            entity = entities[e]
-            full_path = os.path.join(input_dir,entity)
-            if os.path.isdir(full_path):
-                case_num = fields.get_case_number(entity)
-                if case_num != None:
-                    executor.submit(search_case_directory, scan, full_path, case_num)
+        
+        futures = []
+        search_dir = paths.QuantumEntry(input_dir, "")
+        for entry in incremental.list_unscanned_entries(search_dir, os.path.basename(scan.last_path)):
+            
+            if entry.is_dir():
+                case_num = fields.get_case_number(entry.relpath)
+                if case_num != fields.MISSING_CASE_NUM:
+                    logging.debug("Search case directory: %s", entry.abspath)
+                    futures.append(executor.submit(search_case_directory, scan, input_dir, case_num))
+                    
+                    assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
+                    
                 else:
-                    logging.debug("Ignored non-StorageGRID directory: %s", full_path)
+                    logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
-                logging.debug("Ignored non-StorageGRID file: %s", full_path)
+                logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
+        
+        # Needed in order to properly raise bubbled exceptions from child process
+        for future in futures:
+            future.result()
+    
     if graceful_abort:
         scan.premature_exit()
     else:
@@ -171,181 +176,128 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     return
 
 
-def search_case_directory(scan_obj, search_dir, case_num):
+def search_case_directory(scan_obj, input_dir, case_num):
     """
     Searches the specified case directory for StorageGRID log files which have not
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
+    
+    global graceful_abort
     if graceful_abort:
         return
-    child_scan = incremental.WorkerScan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-    if child_scan:
+        
+    assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
+    
+    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    assert child_scan.input_dir == scan_obj.input_dir
+    
+    if not child_scan.already_scanned:
         es_obj = get_es_connection()
-        recursive_search(child_scan, search_dir, es_obj, case_num)
+        fields_obj = fields.NodeFields(case_num=case_num)
+    
+        case_dir = paths.QuantumEntry(scan_obj.input_dir, case_num)
+        assert case_dir.exists(), "Case directory does not exist!"
+        logging.debug("Recursing into case directory: %s", case_dir.abspath)
+        recursive_search(child_scan, es_obj, fields_obj, case_dir)
+    
         if graceful_abort:
             child_scan.premature_exit()
         else:
             child_scan.complete_scan()
             unzip.delete_file(child_scan.history_log_file)
+    
     return
 
 
-def recursive_search(scan, start, es, case_num, depth=None, scan_dir=None):
+def recursive_search(scan, es, nodefields, cur_dir):
     """
-    Recursively go through directories to find log files. If compressed, then we need
-    to unzip/unpack them. Possible file types include: .zip, .gzip, .tar, .tgz, and .7z
-    start : string
-        the start of the file path to traverse
-    depth : string
-        the sub-directories and sub-files associated with this directory
-    case_num : string
-        string for the case number of this case directory
+    Recursively searches directories for StorageGRID Nodes and Log Files. Unzips
+    compressed files as needed. Sends the log data to Elasticsearch via the 'es'.
     """
-    assert case_num != None, "Case number must be provided"
+    assert isinstance(nodefields, fields.NodeFields), "Wrong argument type"
+    assert isinstance(cur_dir, paths.QuantumEntry), "Wrong argument type"
+    assert cur_dir.is_dir(), "Entry is not a directory: " + cur_dir.abspath
     
-    if graceful_abort:
+    if graceful_abort:                                  # kick out if abort requested
         return
+    
+    if (cur_dir/"lumberjack.log").is_file():            # extract fields 1st
+        logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.relpath)
+        nodefields = fields.extract_fields(cur_dir.abspath, inherit_from=nodefields)
 
-    if not depth:
-        depth = ""
-    
-    if not scan_dir:
-        scan_dir = start
-
-    assert os.path.isdir(os.path.join(start, depth)), "This is not a directory: "+os.path.join(start, depth)
-    
-    # Loop over each file in the current directory\
-    search_dir = os.path.join(start, depth)
-    
-    try:
-        entities = os.listdir(search_dir)
-    except OSError as e:
-        logging.critical("Error during os.listdir(%s): %s", search_dir, e)
-        entities = []
-    entities = sorted(entities)
-    
-    for e in range(len(entities)):
-        if e+1 != len(entities) and os.path.join(search_dir, entities[e+1]) < scan.last_path:
-            continue                                    # skip, haven't reached last_path
-
-        entity = entities[e]
+    for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
+        if not scan.should_consider_entry(entry):       # check, has been scanned?
+            logging.debug("Skipping file, outside timespan: %s", entry.abspath)
+            scan.just_scanned_this_entry(entry)         # log the scan
+            continue                                    # continue, next entry
         
-        # Check for the file type to make sure it's not compressed
-        filename, extension = os.path.splitext(entity)
-        # Get the file's path in inspection dir
-        entity_path = os.path.join(search_dir, entity)
-
-        if os.path.isdir(entity_path):
-            if os.path.isfile(os.path.join(entity_path, 'lumberjack.log')):
-                process_node(entity_path , case_num, es)
+        if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
+            scratch_entry = unzip_into_scratch_dir(scan.input_dir, scan.scratch_dir, entry)
+            if scratch_entry == entry:
+                logging.debug("Skipping archive, already unpacked: %s", entry.abspath)
+                scan.just_scanned_this_entry(entry)     # log the scan
+                continue                                # continue, next entry
             else:
-                # Detected a directory, continue
-                recursive_search(scan, start, es, case_num, os.path.join(depth, entity), scan_dir)
+                logging.debug("Unpacked archive, path open: %s", scratch_entry.abspath)
+                entry = scratch_entry                   # override old entry
         
-        elif os.path.isfile(entity_path):
-            # Check timespan of scan (already scanned?)
-            if not scan.should_consider_file(entity_path):
-                logging.debug("Skipping file %s outside scan timespan", entity_path)
-            # Case for regular file. Check for relevance, then ingest.
-            elif extension in fields.VALID_LOG_EXTENSIONS or filename in fields.VALID_LOG_FILENAMES:
-                if fields.contains_bycast(entity_path):
-                    process_unknown_file(entity_path, case_num, es)
-                else:
-                    logging.debug("Skipping non-storagegrid file %s", entity_path)
-            # Case for archive. Recursively unzip and ingest contents.
-            elif extension in unzip.SUPPORTED_FILE_TYPES:
-                # TODO: Choose unique folder names per Logjam worker instance
-                # TODO: new_scratch_dir = new_unique_scratch_folder()
-                new_scratch_dir = os.path.join(scan.scratch_dir, "tmp" + str(case_num))
-                os.makedirs(new_scratch_dir)
-                unzip.recursive_unzip(entity_path, new_scratch_dir)
-                f, e = os.path.splitext(entity)
-                unzip_folder = os.path.join(new_scratch_dir, os.path.basename(f.replace('.tar', '')))
-                if os.path.isdir(unzip_folder):
-                    recursive_search(scan, unzip_folder, es, case_num, None, entity_path)
-                elif os.path.isfile(unzip_folder) and (e in fields.VALID_LOG_EXTENSIONS or os.path.basename(f) in fields.VALID_LOG_FILENAMES) and fields.contains_bycast(unzip_folder):
-                    process_unknown_file(unzip_folder, case_num, es)
-                
-                assert os.path.exists(entity_path), "Should still exist"
-                assert os.path.exists(new_scratch_dir), "Should still exist"
-                unzip.delete_directory(new_scratch_dir)
-
-                logging.debug("Added compressed archive to ELK: %s", entity_path)
+        if entry.is_file():
+            if fields.is_storagegrid(nodefields, entry):
+                index.send_to_es(es, nodefields, entry.abspath)
             else:
-                # Invalid file, continue
-                logging.debug("Skipping file %s with extension %s", entity_path, extension)
-        else:
-            # Previously ingested, continue
-            logging.debug("Already ingested %s", entity_path)
+                logging.debug("Skipped Non-StorageGRID file: %s", entry.abspath)
         
-        if 'tmp' in entity_path:
-            scan.just_scanned_this_path(scan_dir)
-        else:
-            scan.just_scanned_this_path(entity_path)
-
-
-def process_node(lumber_dir, case_num, es = None):
-    """ Stashes a node in ELK stack;
-    lumber_dir : string
-        absolute path of the node
-    case_num : string
-        StorageGRID case number for this file
-    es: Elasticsearch
-        Elasticsearch instance
-    """
-    assert case_num != None, "Null reference"
-    assert case_num != "0", "Not a valid case number: "+case_num
-    
-    files = process_node_recursive(lumber_dir, [])
-    nodefields = fields.extract_fields(lumber_dir, inherit_from=fields.NodeFields(case_num=case_num))
-    if es:
-        for file in files:
-            index.send_to_es(es, nodefields, file)
-    
-    return
-
-
-def process_node_recursive(lumber_dir, file_list):
-    """ Finds all the files in the node; returns all the content as a array
-    lumber_dir : string
-        absolute path of the node
-    file_list: array of string
-        array of the content. Each element is the content of a file in the node
-    """
-    for entry in os.listdir(lumber_dir):
-        entry_path = os.path.join(lumber_dir, entry)
-        name, extension = os.path.splitext(entry)
+        elif entry.is_dir():
+            try:
+                logging.debug("Recursing into directory: %s", entry.abspath)
+                recursive_search(scan, es, nodefields, entry)
+            except OSError as e:
+                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
         
-        if os.path.isfile(entry_path) and (extension in fields.VALID_LOG_EXTENSIONS or name in fields.VALID_LOG_FILENAMES) and fields.contains_bycast(entry_path):
-            file_list.append(entry_path)
+        else:                                           # it wasn't a dir or file?
+            logging.debug("Skipped unknown entry: %s", entry.abspath)
         
-        elif os.path.isdir(entry_path):
-            process_node_recursive(entry_path, file_list)
+        if entry.srcpath == scan.scratch_dir:           # if entry inside scratch
+            logging.debug("Delete unpacked archive: %s", entry.abspath)
+            entry.delete()                              # rm on FS (does not clear entry)
+        
+        scan.just_scanned_this_entry(entry)             # log the scan
+        continue                                        # continue, next entry
     
-    return file_list
+    return                                              # done searching this cur_dir
 
 
-def process_unknown_file(file_path, case_num, es = None):
-    """ Stashes file in ELK stack; checks if duplicate, computes important
-    fields like log category, and prepares for ingest by Logstash.
-    file_path : string
-        absolute path of the file
-    case_num : string
-        StorageGRID case number for this file
-    es: Elasticsearch
-        Elasticsearch instance
+def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
     """
-    assert os.path.isfile(file_path), "This is not a file: "+file_path
-    assert case_num != None, "Null reference"
-    assert case_num != "0", "Not a valid case number: "+case_num
-
-    nodefields = fields.NodeFields(case_num=case_num)            # only case for fields
-    if es:
-        index.send_to_es(es, nodefields, file_path)              # send as unknown node
+    Unzips the compressed file into the provided scratch directory. If the file
+    has already been decompressed, return the compressed file unchanged. Uses the
+    relative path of the file to mimic a structure under the scratch directory.
+    For example:
+                       Source       - Relative
+    compressed_entry = /mnt/srv/nfs - 2001589801/var/os/dir.zip  ---.
+       scratch_entry = /tmp/scratch - 2001589801/var/os/dir  <------'
+    """
+    assert isinstance(input_dir, str)
+    assert isinstance(scratch_dir, str)
+    assert isinstance(compressed_entry, paths.QuantumEntry)
+    assert compressed_entry.is_file(), "Compressed entry should be a file"
+    assert compressed_entry.srcpath in [input_dir, scratch_dir], \
+        "Source should be input/scratch\nsrcpath: %s\ninput_dir: %s\nscratch_dir: %s" % \
+        (compressed_entry.srcpath, input_dir, scratch_dir)
     
-    return
+    stripped_rel_path = unzip.strip_all_zip_exts(compressed_entry.relpath)
+    scratch_entry = paths.QuantumEntry(scratch_dir, stripped_rel_path)
+    
+    if scratch_entry.exists_in(input_dir) or scratch_entry.exists_in(scratch_dir):
+        return compressed_entry                     # already exists, return unchanged
+
+    assert not scratch_entry.exists(), "Scratch entry should not exist"
+    unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
+    assert scratch_entry.exists(), "Scratch entry should have been created"
+
+    return scratch_entry                            # return unzipped entry
 
 
 if __name__ == "__main__":

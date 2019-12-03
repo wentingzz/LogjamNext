@@ -162,6 +162,7 @@ class Scan:
         self.history_dir = history_dir
         self.history_active_file = os.path.join(history_dir, "scan-history-active.txt")
         self.history_log_file = os.path.join(history_dir, "scan-history-log.txt")
+        scratch_dir = os.path.abspath(scratch_dir)  # force absolute
         os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
         self.scratch_dir = scratch_dir              # will own subdirectories for R/W
 
@@ -211,28 +212,29 @@ class Scan:
             self.input_dir,
             self.last_path)
 
-    def just_scanned_this_path(self, path):
+    def just_scanned_this_entry(self, entry):
         """
-        Caller just scanned the given path, so update the internal last
+        Caller just scanned the given entry, so update the internal last
         scanned path variable and possibly write the file to our history file if
         enough time has passed.
         """
         assert not self._is_closed(), "Scan was internally closed"
 
-        self.last_path = path
+        self.last_path = entry.relpath              # trust caller to provide valid entry
 
         self._save_state_to_file(force_save=False)
 
-    def should_consider_file(self, path):
+    def should_consider_entry(self, entry):
         """
         Checks to see if the file denoted by path would be considered for this
         scan over the given time period.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert os.path.exists(path), "File should exist on system"
-        assert not os.path.isdir(path), "Path should point to a file"
+        assert entry.exists(), "Entry should exist on system"
+        if entry.is_dir():
+            return True
 
-        modification_time = os.path.getmtime(path)
+        modification_time = os.path.getmtime(entry.abspath)
         return modification_time in self.time_period
 
     def list_unscanned_entries(self, dir):
@@ -400,6 +402,14 @@ class WorkerScan(Scan):
         self.history_dir = history_dir
         self.history_active_file = os.path.join(history_dir, history_active_file)
         self.history_log_file = os.path.join(history_dir, history_log_file)
+        
+        file_exists = os.path.exists(self.history_active_file)
+        if file_exists and not os.path.exists(self.history_log_file):
+            self.already_scanned = True
+            return
+        else:
+            self.already_scanned = False
+        
         os.makedirs(scratch_dir, exist_ok=True)     # makes dirs if they don't exist
         self.scratch_dir = scratch_dir              # will own subdirectories for R/W
         
@@ -407,10 +417,6 @@ class WorkerScan(Scan):
         self.last_history_update = TimePeriod.ancient_history()
 
         self.time_period = TimePeriod(TimePeriod.ancient_history(), self.safe_time)
-        
-        file_exists = os.path.exists(self.history_active_file)
-        if file_exists and not os.path.exists(self.history_log_file):
-            return None
         
         if file_exists and os.stat(self.history_active_file).st_size != 0:
             last_scan = extract_last_scan_record(self.history_active_file)
@@ -430,11 +436,13 @@ class ManagerScan(Scan):
         """
         assert not self._is_closed(), "Scan was internally closed"
         
-        tmp_dirs = sorted(os.listdir(self.history_dir))
+        tmp_dirs = sorted(os.listdir(self.history_dir), reverse=True)
         for worker_history_file in tmp_dirs:
             filename, _ = os.path.splitext(worker_history_file)
-            if 'log' in filename:
+            if os.path.exists(os.path.join(self.history_dir, filename + '-log' + ".txt")):
                 break
+            if 'scan-history' in filename:
+                continue
             unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
             self.last_path = os.path.join(self.input_dir, filename)
             self._save_state_to_file(force_save=True)
