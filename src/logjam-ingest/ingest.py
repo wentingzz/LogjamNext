@@ -139,7 +139,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
-    scan = incremental.Scan(input_dir, history_dir, scratch_dir)
+    scan = incremental.ManagerScan(input_dir, history_dir, scratch_dir)
     
     try:
         entities = os.listdir(input_dir)
@@ -151,7 +151,7 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
     
     with concurrent.futures.ProcessPoolExecutor(max_workers = MAX_WORKERS) as executor:
         for e in range(len(entities)):
-            if e+1 != len(entities) and os.path.join(input_dir, entities[e+1]) < scan.last_path:
+            if e != len(entities) and os.path.join(input_dir, entities[e]) <= scan.last_path:
                 continue                                # skip, haven't reached last_path
 
             entity = entities[e]
@@ -164,13 +164,6 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                     logging.debug("Ignored non-StorageGRID directory: %s", full_path)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", full_path)
-    tmp_dirs = sorted(os.listdir(history_dir))
-    for history_file in tmp_dirs:
-        filename, _ = os.path.splitext(history_file)
-        if 'log' in filename:
-            break
-        unzip.delete_file(os.path.join(history_dir, history_file))
-        scan.just_scanned_this_path(os.path.join(input_dir, filename))
     if graceful_abort:
         scan.premature_exit()
     else:
@@ -185,15 +178,17 @@ def search_case_directory(scan_obj, search_dir, case_num):
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
     """
-    child_scan = incremental.Scan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
-    es_obj = get_es_connection()
-    recursive_search(child_scan, search_dir, es_obj, case_num)
-    global graceful_abort
     if graceful_abort:
-        child_scan.premature_exit()
-    else:
-        child_scan.complete_scan()
-        unzip.delete_file(child_scan.history_log_file)
+        return
+    child_scan = incremental.WorkerScan(search_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    if child_scan:
+        es_obj = get_es_connection()
+        recursive_search(child_scan, search_dir, es_obj, case_num)
+        if graceful_abort:
+            child_scan.premature_exit()
+        else:
+            child_scan.complete_scan()
+            unzip.delete_file(child_scan.history_log_file)
     return
 
 
