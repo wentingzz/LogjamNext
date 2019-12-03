@@ -101,6 +101,7 @@ def get_query():
     total_all_q= es.search(
         index="logjam",    
         body=request_body)
+
     # Add the specific log text to match 75% of it
     request_body["query"]["bool"]["must"]={
         "match":{ "message":{
@@ -111,6 +112,7 @@ def get_query():
             "minimum_should_match":"75%",
         }}
     }
+
     # Calculate total number of logs that match the message with the given filters
     total_hits_q = es.search(
         index="logjam",
