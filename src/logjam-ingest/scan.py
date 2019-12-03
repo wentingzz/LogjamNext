@@ -44,7 +44,7 @@ mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
 graceful_abort = False
 #elasticsearch host
-es_host = 'http://localhost:9200/'
+es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
 
 def main():
@@ -87,7 +87,7 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_format = "%(asctime)s %(process)d %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
 
     # Should not allow configuration of intermediate directory
@@ -165,9 +165,14 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
         
-        # Needed in order to properly raise bubbled exceptions from child process
+        total_cases = len(futures)
+        case_index = 0
         for future in futures:
+            case_index += 1
+            # Raise any exception from child process
             future.result()
+            if not graceful_abort:
+                logging.info("Finished case directory %i out of %i", case_index, total_cases)
     
     if graceful_abort:
         scan.premature_exit()
