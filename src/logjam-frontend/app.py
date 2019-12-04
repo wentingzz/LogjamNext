@@ -108,75 +108,11 @@ def get_query():
         request_body["query"]["bool"]["filter"].append(
             {"term":{"minor_version":{"value":minor_version}}})
 
-    else:
-        version_body = {
-            "aggs":{
-                "by_version":{
-                    "terms":{
-                        "size":10000,
-                        "field":"major_version"
-                    },
-                    "aggs":{
-                        "by_node":{"terms":{"field":"node_name"}}
-                    }
-                }
-            },
-            "query":{"bool":{"must":message_query}},
-            "size":0}
-        
-        version_q= es.search(
-            index="logjam",
-            body=version_body)
-        
-        version_buckets=version_q["aggregations"]["by_version"]["buckets"]
-        for bucket in version_buckets:
-            version_label = bucket["key"]
-            if version_label == -1:
-                version_label = "Unknown"
-            version_labels.append(version_label)
-            version_values.append(len(bucket["by_node"]["buckets"]))
-        
-        chart_list.append({
-            "title":"Occurances by version",
-            "labels": version_labels,
-            "values": version_values
-        })
-
     if platform != "All Platforms":
         if platform == "StorageGRID appliance":
             platform = "SGA"
         request_body["query"]["bool"]["filter"].append(
             {"term":{"platform":{"value":platform}}})
-    else:
-        platform_body={
-            "aggs":{
-                "by_platform":{
-                    "terms":{
-                        "size":10000,
-                        "field":"platform"
-                    },
-                    "aggs":{
-                        "by_node":{"terms":{"field":"node_name"}}
-                    }
-                }
-            },
-            "query":{"bool":{"must":message_query}},
-            "size":0}
-
-        platform_q= es.search(
-            index="logjam",
-            body=platform_body)
-
-        platform_buckets=platform_q["aggregations"]["by_platform"]["buckets"]
-        for bucket in platform_buckets:
-            platform_labels.append(bucket["key"])
-            platform_values.append(len(bucket["by_node"]["buckets"]))
-        
-        chart_list.append({
-            "title":"Occurances by platform",
-            "labels":platform_labels,
-            "values":platform_values
-        })
 
     total_all_q= es.search(
         index="logjam",    
@@ -199,6 +135,63 @@ def get_query():
         "labels": ["Occurs", "Does not occur"],
         "values": [total_hits, total_no_hits]
     })
-    
-    logging.critical(chart_list)
+   
+    if version == "All Versions":
+        request_body["aggs"]={
+            "by_version":{
+                "terms":{
+                    "size":10000,
+                    "field":"major_version"
+                },
+                "aggs":{
+                    "by_node":{"terms":{"field":"node_name"}}
+                }
+            }
+        }
+        version_q=es.search(
+            index="logjam",
+            body=request_body)
+
+        version_buckets=version_q["aggregations"]["by_version"]["buckets"]
+        for bucket in version_buckets:
+            version_label = bucket["key"]
+            if version_label == -1:
+                version_label = "Unknown"
+            version_labels.append(version_label)
+            version_values.append(len(bucket["by_node"]["buckets"]))
+
+        chart_list.append({
+            "title":"Occurances by Version",
+            "labels":version_labels,
+            "values":version_values
+        })
+
+    if platform == "All Platforms":
+        request_body["aggs"]={
+            "by_platform":{
+                "terms":{
+                    "size":10000,
+                    "field":"platform"
+                },
+                "aggs":{
+                    "by_node":{"terms":{"field":"node_name"}}
+                }
+            }
+        }
+
+        platform_q=es.search(
+            index="logjam",
+            body=request_body)
+        
+        platform_buckets=platform_q["aggregations"]["by_platform"]["buckets"]
+        for bucket in platform_buckets:
+            platform_labels.append(bucket["key"])
+            platform_values.append(len(bucket["by_node"]["buckets"]))
+
+        chart_list.append({
+            "title":"Occurances by Platform",
+            "labels":platform_labels,
+            "values":platform_values
+        })
+
     return jsonify(chart_list)
