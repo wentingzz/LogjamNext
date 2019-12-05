@@ -58,6 +58,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         archive_mtime = os.path.getmtime(src)
     except:
         logging.warning("Get mod time failed, skipping zipped file: %s", src)
+        # Do not change permissions, may not own file
         raise AcceptableException("Get mod time failed")      # raise exception
     
     def handle_extracted_file(path):
@@ -101,8 +102,9 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
             #delete_directory(dest)             # no basic dir clean up, leave for caller
-        elif os.path.exists(dest):
-            delete_directory(dest)
+        else:
+            if os.path.exists(dest):
+                delete_directory(dest)
             raise AcceptableException("Error during Conan unzip")
         
     elif extension == ".gz":
@@ -122,11 +124,12 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         if not error_flag:
             handle_extracted_file(dest) # Recurse for an archive, perform 'action' for a regular file
-        elif os.path.exists(dest):
-            if os.path.isdir(dest):
-                delete_directory(dest)
-            else:
-                delete_file(dest)
+        else:
+            if os.path.exists(dest):
+                if os.path.isdir(dest):
+                    delete_directory(dest)
+                else:
+                    delete_file(dest)
             raise AcceptableException("Error during GZip unzip")
     
     elif extension == ".7z":
@@ -145,8 +148,9 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
             #delete_directory(dest)             # no basic dir clean up, leave for caller
-        elif os.path.exists(dest):
-            delete_directory(dest)
+        else:
+            if os.path.exists(dest):
+                delete_directory(dest)
             raise AcceptableException("Error during patool 7zip extraction")
     
     else:
