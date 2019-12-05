@@ -159,12 +159,13 @@ def get_query():
                 version_label = "Unknown"
             version_labels.append(version_label)
             version_values.append(len(bucket["by_node"]["buckets"]))
-
-        chart_list.append({
-            "title":"Occurances by Version",
-            "labels":version_labels,
-            "values":version_values
-        })
+        
+        if version_values:
+            chart_list.append({
+                "title":"Occurances by Version",
+                "labels":version_labels,
+                "values":version_values
+            })
 
     if platform == "All Platforms":
         request_body["aggs"]={
@@ -188,10 +189,11 @@ def get_query():
             platform_labels.append(bucket["key"])
             platform_values.append(len(bucket["by_node"]["buckets"]))
 
-        chart_list.append({
-            "title":"Occurances by Platform",
-            "labels":platform_labels,
-            "values":platform_values
-        })
+        if platform_values:
+            chart_list.append({
+                "title":"Occurances by Platform",
+                "labels":platform_labels,
+                "values":platform_values
+            })
 
     return jsonify(chart_list)
