@@ -27,6 +27,9 @@ patoolib_patch.patch_7z(patoolib)
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
+class AcceptableException(Exception):
+    def __init___(self, arg):
+        Exception.__init__(self, arg)
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
     """
@@ -55,8 +58,8 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         archive_mtime = os.path.getmtime(src)
     except:
         logging.warning("Get mod time failed, skipping zipped file: %s", src)
-        pass                                    # no change permissions, may not own file
-        return                                  # just kill function, don't unzip
+        # Do not change permissions, may not own file
+        raise AcceptableException("Get mod time failed")      # raise exception
     
     def handle_extracted_file(path):
         """ Callback for each unzipped file """
@@ -65,7 +68,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         if not try_fs_operation(path, lambda p: os.utime(p, (time.time(), archive_mtime))):
             logging.warning("Set mod time failed, skipping file: %s", path)
             delete_file(path)
-            return                              
+            raise AcceptableException("Set mod time failed")
         
         if os.path.splitext(path)[1] in SUPPORTED_FILE_TYPES:
             recursive_unzip(path, os.path.dirname(path), action)
@@ -73,7 +76,6 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         else:
             action(path)                        # basic file, perform action
             #delete_file(path)                  # no basic file clean up, leave for caller
-        
         return
     
     extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
@@ -82,11 +84,15 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     
     if os.path.exists(dest):                    # file/dir already exists
         logging.warning("This path was already unzipped: %s", dest)
-        return                                  # skip the unzip step
+        raise AcceptableException("This path was already unzipped")
     
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
+        if "." in dest:
+            logging.critical("Unable to unzip the compressed file: %s", src)
+            raise AcceptableException("Unable to unzip")
+
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
@@ -100,8 +106,10 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
             #delete_directory(dest)             # no basic dir clean up, leave for caller
-        elif os.path.exists(dest):
-            delete_directory(dest)
+        else:
+            if os.path.exists(dest):
+                delete_directory(dest)
+            raise AcceptableException("Error during Conan unzip")
         
     elif extension == ".gz":
         logging.debug("Decompressing: %s", src)
@@ -120,11 +128,13 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         if not error_flag:
             handle_extracted_file(dest) # Recurse for an archive, perform 'action' for a regular file
-        elif os.path.exists(dest):
-            if os.path.isdir(dest):
-                delete_directory(dest)
-            else:
-                delete_file(dest)
+        else:
+            if os.path.exists(dest):
+                if os.path.isdir(dest):
+                    delete_directory(dest)
+                else:
+                    delete_file(dest)
+            raise AcceptableException("Error during GZip unzip")
     
     elif extension == ".7z":
         logging.debug("7z Decompressing: %s", src)
@@ -142,13 +152,14 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         if not error_flag:
             recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
             #delete_directory(dest)             # no basic dir clean up, leave for caller
-        elif os.path.exists(dest):
-            delete_directory(dest)
+        else:
+            if os.path.exists(dest):
+                delete_directory(dest)
+            raise AcceptableException("Error during patool 7zip extraction")
     
     else:
         logging.critical("This execution path should never be reached")
         raise Exception("Seemingly impossible execution path")
-    
     return
 
 

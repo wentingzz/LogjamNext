@@ -230,7 +230,9 @@ class Scan:
         scan over the given time period.
         """
         assert not self._is_closed(), "Scan was internally closed"
-        assert entry.exists(), "Entry should exist on system"
+        if entry.is_link():
+            return False
+        assert entry.exists(), "Entry should exist on system " + entry.abspath
         if entry.is_dir():
             return True
 
