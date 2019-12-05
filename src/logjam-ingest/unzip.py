@@ -20,7 +20,9 @@ import stat
 import conans
 import gzip
 import patoolib
+import subprocess
 
+import paths
 import patoolib_patch
 patoolib_patch.patch_7z(patoolib)
 
@@ -213,6 +215,25 @@ def try_fs_operation(path, func):
         return True                     # operation succeeded on 2nd try, return True
     except:
         return False                    # error occurred, couldn't fix it
+
+
+def unzip_zip(zip_file, dest_dir):
+    """
+    Unzips the provided zip file into the destination directory. Assumes
+    that Logjam does not own the zip file. If the zip file unzips into a single
+    file, then that is placed under dest_dir. Otherwise, place the unzipped contents
+    into a directory named after the filename portion of the zip file.
+    """
+    assert isinstance(zip_file, paths.QuantumEntry), "zip_file was not type QuantumEntry"
+    assert isinstance(dest_dir, str), "dest_dir was not type str"
+    assert zip_file.extension == ".zip", "zip_file had no .zip ext: " + zip_file.abspath
+    
+    dest_dir = os.path.abspath(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
+    
+    subprocess.run(["unzip", "-q", "./thing.zip", "-d", "."])
+    
+    
 
 
 def delete_file(path):
