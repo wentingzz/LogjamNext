@@ -149,7 +149,7 @@ var vm = new Vue({
 			this.hasResults = false;
 		    }
             }, response => {
-                alert("Error getting occurrences: " + response.status + "\n" + response.json());
+                alert("Error getting occurrences: " + response.status + "\n" + response.statusText);
             });
         }
     },
