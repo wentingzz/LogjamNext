@@ -7,6 +7,8 @@ Utility file system path functionality, such as the QuantumEntry class.
 
 import os
 
+import unzip
+
 
 class QuantumEntry:
     """
@@ -25,22 +27,19 @@ class QuantumEntry:
     
     def __eq__(self, other):
         """ Returns whether two QuantumEntry objects are equal """
-        if not isinstance(other, QuantumEntry):
-            raise NotImplementedError("Can only compare QuantumEntry")
+        assert isinstance(other, QuantumEntry), "Can only compare QuantumEntry"
         
         return self.srcpath == other.srcpath and self.relpath == other.relpath
     
     def __truediv__(self, new_path):
         """ Returns a new QuantumEntry object where new_path is appended to the relative path """
-        if not isinstance(new_path, str):
-            raise NotImplementedError("Can only append str")
+        assert isinstance(new_path, str), "Can only append str"
         
         return QuantumEntry(self.srcpath, os.path.join(self.relpath, new_path))
     
     def __itruediv__(self, new_path):
         """ Appends new_path to this QuantumEntry object's relative path """
-        if not isinstance(new_path, str):
-            raise NotImplementedError("Can only append str")
+        assert isinstance(new_path, str), "Can only append str"
         
         self.relpath = os.path.join(self.relpath, new_path)
         return self
@@ -53,6 +52,8 @@ class QuantumEntry:
     @srcpath.setter
     def srcpath(self, source):
         """ Sets the source directory for this entry """
+        assert isinstance(source, str), "Can only assign str to srcpath"
+        
         self._source = source
         self._srcpath_trim_trailing_slash()
     
@@ -69,6 +70,7 @@ class QuantumEntry:
     @relpath.setter
     def relpath(self, relative):
         """ Sets the relative directory for this entry """
+        assert isinstance(relative, str), "Can only assign str to relpath"
         assert not relative.startswith("/"), "Cannot start with '/' : "+relative
         
         self._relative = relative
@@ -85,27 +87,54 @@ class QuantumEntry:
         return os.path.abspath(os.path.join(self.srcpath, self.relpath))
     
     @property
-    def fullpath(self):
-        """ Returns the full path of the entry, which is the source + relative path """
-        return os.path.join(self.srcpath, self.relpath)
+    def absdirpath(self):
+        """ Absolute directory location of this entry """
+        return os.path.dirname(self.abspath)
+    
+    @property
+    def reldirpath(self):
+        """ Relative directory location of this entry """
+        return os.path.dirname(self.relpath)
     
     @property
     def basename(self):
-        """ Returns the base name of the entry as defined by `os.path.basename` """
+        """
+        Returns the base name of the entry as defined by `os.path.basename`.
+        Basename is taken from the relative path in the source directory. If
+        there is no relative path, an empty string is returned.
+        """
         return os.path.basename(self.relpath)
+    
+    @property
+    def filename(self):
+        """
+        Returns the filename of the entry. Defined as the basename minus the
+        extension. Taken from the relative path in the source directory. If
+        there is no relative path, an empty string is returned.
+        """
+        return os.path.splitext(os.path.basename(self.relpath))[0]
     
     @property
     def extension(self):
         """
         Returns the extension of the entry (if the extension exists) including
-        the dot before the extension name. Directories should not have an extension
-        and if so this function will return an empty string. Leading dots are ignored.
+        the dot before the extension name. Directories should not have an extension.
+        If there is no extension the function will return an empty string. Leading
+        dots are ignored. Extension is taken from the relative path in the source
+        directory. If there is no relative path, an empty string is returned.
         """
         return os.path.splitext(self.relpath)[1]
     
     def exists(self):
-        """ Returns whether this entry exists on the file system """
+        """ Returns whether this entry exists in its given source directory """
         return os.path.exists(self.abspath)
+    
+    def exists_in(self, new_src):
+        """ Returns whether this entry exists in a different source directory """
+        return QuantumEntry(new_src, self.relpath).exists()
+   
+    def is_link(self):
+        return os.path.islink(self.abspath)
     
     def is_dir(self):
         """ Returns whether this entry is a directory """
@@ -114,4 +143,19 @@ class QuantumEntry:
     def is_file(self):
         """ Returns whether this entry is a file """
         return os.path.isfile(self.abspath)
+    
+    def delete(self):
+        """
+        Attempts to delete the file refernced by this QuantumEntry.
+        Does not change this QuantumEntry. It will still point
+        to the same location on the file system.
+        """
+        if not self.exists():
+            return True
+        
+        if self.is_file():
+            return unzip.delete_file(self.abspath)
+        
+        if self.is_dir():
+            return unzip.delete_directory(self.abspath)
 

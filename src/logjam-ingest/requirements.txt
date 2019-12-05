@@ -1,5 +1,4 @@
 wheel
 conan
-pyunpack
-patool
+patool==1.12
 elasticsearch

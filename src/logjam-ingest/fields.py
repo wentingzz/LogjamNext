@@ -44,6 +44,17 @@ CATEGORIES = {
     "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
 }
 
+VALID_LOG_EXTENSIONS = [                       # extensions to use outside lumberjack
+    ".txt",
+    ".log",
+]
+
+VALID_LOG_FILENAMES = [                        # filenames to use outside lumberjack
+    "syslog",
+    "messages",
+    "system_commands",
+]
+
 
 class NodeFields:
     """
@@ -177,23 +188,31 @@ def get_case_number(case_dir):
 def get_storage_grid_version(lumber_dir):
     """
     Gets the version of the node from the specified lumberjack directory.
+    Example: if a line has storage-grid-release-10.4.100-12345678.0224,
+    The major and major version would be 10 and the minor version is 4
+
     lumber_dir: string
         the path of the specified lumberjack directory
-    return: string
-        the version if found, therwise MISSING SG_VER
+    return: tuple of major version and minor version if
+            the version if found, otherwise MISSING SG_VER
     """
+    SG_RELEASE = "storage-grid-release-"
     sys_file = os.path.join(lumber_dir, "system_commands")
-    
-    if os.path.isfile(sys_file):                # use system_commands file to find version
+
+    # use system_commands file to find version
+    if os.path.isfile(sys_file):
         try:
             with open(sys_file, "r") as file:
-                for line in file:               # read system_commands line by line
-                    if "storage-grid-release-" in line:
-                        line = line.split(".")
-                        return (int(line[0][21:]), int(line[1]))     # return a tuple of major and minor version
-        except:
-            pass                                # count failure as missing SG Version
-    
+                # read system_commands line by line
+                for line in file:
+                    if SG_RELEASE in line:
+                        _, version = line.split(SG_RELEASE)
+                        major, minor, *_ = version.split(".")
+                        # return a tuple of major and minor version
+                        return (int(major), int(minor))
+        except Exception as e:
+            logging.warning("Error while parsing storagegrid version: %s", str(e))
+
     return MISSING_SG_VER
 
 
@@ -260,15 +279,19 @@ def extract_fields(lumber_dir, *, inherit_from):
     return new_fields
 
 
-def is_storagegrid(full_path):
+def contains_bycast(entry_path):
     """
-    Check if a file is StorageGRID file
+    Returns true if the entry in question has the text string `bycast` in either
+    its path or its contents. If the entry is a directory, only check its path.
     """
-    if "bycast" in full_path:
+    if "bycast" in entry_path:
         return True
+    
+    if not os.path.exists(entry_path) or os.path.isdir(entry_path):
+        return False
 
     try:
-        with open(full_path) as searchfile:
+        with open(entry_path, "r") as searchfile:
             for line in searchfile:
                 if "bycast" in line:
                     return True
@@ -276,4 +299,26 @@ def is_storagegrid(full_path):
         logging.warning('Error during "bycast" search: %s', str(e))
     
     return False
+
+
+def is_storagegrid(nodefields, entry):
+    """
+    Determines whether the entry is related to StorageGRID. Rejects files without
+    a correct extension or filename. If the file is outside a lumberjack directory,
+    it additionally performs a full bycast search on the path & contents.
+    """
+    assert isinstance(nodefields, NodeFields), "Wrong argument type"
+    assert isinstance(entry, paths.QuantumEntry), "Wrong argument type"
+    
+    valid_ext = entry.extension in VALID_LOG_EXTENSIONS
+    valid_name = entry.filename in VALID_LOG_FILENAMES
+    valid_path = valid_ext or valid_name
+    
+    if not valid_path:
+        return False                                # always drop bad extensions/names
+    
+    if nodefields.node_name != MISSING_NODE_NAME:   # name found, inside lumberjack dir
+        return True
+    else:                                           # no name, outside lumberjack dir
+        return valid_path and contains_bycast(entry.abspath)
 
