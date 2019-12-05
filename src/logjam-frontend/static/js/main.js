@@ -17,7 +17,7 @@ function getColors(count) {
 
     var colors = [];
     for (i = 0; i < count; i++) {
-        colors.push(availableColors((colorIdx + i) % availableColors.length));
+        colors.push(availableColors[(colorIdx + i) % availableColors.length]);
     }
 
     colorIdx += count;
