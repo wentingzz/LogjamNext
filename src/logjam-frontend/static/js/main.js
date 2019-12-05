@@ -1,6 +1,7 @@
 // vue-resources for http requests
 Vue.use(VueResource);
 
+colorIdx = 0;
 function getColors(count) {
     /**
      * Returns a list of <count> unique colors in hex form
@@ -14,7 +15,9 @@ function getColors(count) {
         '#0053b5',
     ];
 
-    return availableColors.slice(0, count);
+    var colors =  availableColors.slice(0 + (colorIdx % availableColors.length), count);
+    colorIdx += count;
+    return colors
 }
 
 Vue.component('pie-chart', {
