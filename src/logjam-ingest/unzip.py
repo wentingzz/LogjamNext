@@ -79,7 +79,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         return
     
     extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
-    dest = os.path.join(dest, strip_all_zip_exts(os.path.basename(src)))
+    dest = os.path.join(dest, strip_zip_ext(os.path.basename(src)))
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
     if os.path.exists(dest):                    # file/dir already exists
@@ -89,6 +89,10 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
+        if "." in dest:
+            logging.critical("Unable to unzip the compressed file: %s", src)
+            raise AcceptableException("Unable to unzip")
+
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
         os.makedirs(dest)                       # make dir to unpack file contents
         
