@@ -65,6 +65,7 @@ def main():
                         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
                         help='Scratch space directory to unzip files into')
+    parser.add_argument('-p','--processor', dest='processor_num', type = int, help='Number of the processors')
     args = parser.parse_args()
 
     if not os.path.isdir(args.input_dir):
@@ -98,6 +99,8 @@ def main():
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
+    global MAX_WORKERS
+    MAX_WORKERS = args.processor_num
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
