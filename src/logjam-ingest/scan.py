@@ -25,6 +25,7 @@ import sys
 import time
 import signal
 import concurrent.futures
+from tqdm import tqdm
 import multiprocessing
 
 from elasticsearch import Elasticsearch
@@ -167,15 +168,10 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                     logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
-        
-        total_cases = len(futures)
-        case_index = 0
-        for future in futures:
-            case_index += 1
+
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
             # Raise any exception from child process
             future.result()
-            if not graceful_abort:
-                logging.info("Finished case directory %i out of %i", case_index, total_cases)
     
     if graceful_abort:
         scan.premature_exit()
