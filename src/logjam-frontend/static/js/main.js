@@ -15,7 +15,11 @@ function getColors(count) {
         '#0053b5',
     ];
 
-    var colors =  availableColors.slice(0 + (colorIdx % availableColors.length), count);
+    var colors = [];
+    for (i = 0; i < count; i++) {
+        colors.push(availableColors((colorIdx + i) % availableColors.length));
+    }
+
     colorIdx += count;
     return colors
 }
