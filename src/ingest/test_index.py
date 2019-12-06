@@ -25,6 +25,7 @@ import concurrent.futures
 
 import index
 import fields
+import paths
 
 
 CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
