@@ -50,7 +50,10 @@ def mock_elasticsearch_api(test_obj, docs):
             m += s.recv(2048).decode()          # 2048 bytes is enough for testing
         body = m[m.index("\r\n\r\n")+4:]        # body of HTML after 2 x "\r\n"
         
-        for expec, real in zip(docs, (o for o in ndjson.loads(body) if "index" not in o)):
+        # Check incoming docs from bulk API call, JSON Objects w/ "index" are not docs
+        expect_docs = (docs)
+        actual_docs = (o for o in ndjson.loads(body) if "index" not in o)
+        for expec, real in zip(expect_docs, actual_docs):
             test_obj.assertTrue("categorize_time" in real)
             test_obj.assertTrue("categorize_time" in expec)
             del real["categorize_time"]         # index time is unknown, can't compare
