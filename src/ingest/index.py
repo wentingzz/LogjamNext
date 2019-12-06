@@ -14,6 +14,8 @@ import logging
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 
+import paths
+
 
 INDEX_NAME = "logjam"
 
@@ -40,11 +42,13 @@ def set_data(file_path, send_time, fields_obj):
             return
 
 
-def send_to_es(es_obj, fields_obj, file_path):
+def send_to_es(es_obj, fields_obj, file_entry):
     """
     Sends the contents of the given file to ES with the attached
     fields. The system time of the call is also attached and sent.
     """
+    assert isinstance(file_entry, paths.QuantumEntry)
+    
     send_time = int(round(time.time() * 1000))  # Epoch milliseconds
     
     try:
