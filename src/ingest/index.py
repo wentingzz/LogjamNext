@@ -63,7 +63,7 @@ def send_to_es(es_obj, fields_obj, file_entry):
     
     try:
         error = False
-        logging.debug("Indexing: %s", file_entry.abspath)
+        logging.debug("Indexing: %s", file_entry.relpath)
         for success, info in helpers.parallel_bulk(es_obj, set_data(file_entry, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
             if not success:
                 error = True
@@ -72,7 +72,7 @@ def send_to_es(es_obj, fields_obj, file_entry):
             logging.critical("Unable to index: %s", file_entry.abspath)
             return False
         else:
-            logging.debug("Indexed: %s", file_entry.abspath)
+            logging.debug("Indexed: %s", file_entry.relpath)
             return True
 
     except elasticsearch.exceptions.ConnectionError:
