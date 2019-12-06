@@ -217,7 +217,7 @@ def try_fs_operation(path, func):
         return False                    # error occurred, couldn't fix it
 
 
-def unzip_zip(zip_file, dest_dir):
+def unzip_zip(zip_file, dest_dir, *, exist_ok=True):
     """
     Unzips the provided zip file into the destination directory. Assumes
     that Logjam does not own the zip file. If the zip file unzips into a single
@@ -225,13 +225,30 @@ def unzip_zip(zip_file, dest_dir):
     into a directory named after the filename portion of the zip file.
     """
     assert isinstance(zip_file, paths.QuantumEntry), "zip_file was not type QuantumEntry"
-    assert isinstance(dest_dir, str), "dest_dir was not type str"
+    assert isinstance(dest_dir, paths.QuantumEntry), "dest_dir was not type QuantumEntry"
     assert zip_file.extension == ".zip", "zip_file had no .zip ext: " + zip_file.abspath
     
-    dest_dir = os.path.abspath(dest_dir)
-    os.makedirs(dest_dir, exist_ok=True)
+    os.makedirs(dest_dir.abspath, exist_ok=True)
+    assert dest_dir.is_dir(), "dest_dir was not a directory: " + dest_dir.abspath
     
-    subprocess.run(["unzip", "-q", "./thing.zip", "-d", "."])
+    base_name = zip_file.filename                               # ex. d.tar.zip -> d.tar
+    dest_entry = dest_dir/base_name                             # ex. /tmp/d.tar
+    if dest_entry.exists():
+        if exist_ok:
+            return True
+        else:
+            raise AcceptableException("Already unzipped!")
+    
+    os.makedirs(dest_entry.abspath, exist_ok=True)
+    assert dest_entry.is_dir(), "dest_entry was not a directory: " + dest_entry.abspath
+    
+    ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", dest_entry.abspath])
+    ans.check_returncode()
+    
+    children = os.listdir(dest_entry.abspath)
+    if len(children)==1 and children[0]==base_name:             # ex. /tmp/d.tar/d.tar
+        TODO: Atomic swap of file/dir and parent dir!!!!!
+        dest_entry = 
     
     
 
