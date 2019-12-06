@@ -47,6 +47,13 @@ graceful_abort = False
 #elasticsearch host
 es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
+LOG_LEVEL_STRS = {
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "CRITICAL": logging.CRITICAL,
+    "DEBUG": logging.DEBUG,
+}
+
 
 def main():
     """
@@ -89,14 +96,7 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    if args.log_level == "WARNING":
-        log_level = logging.WARNING
-    elif args.log_level == "INFO":
-        log_level = logging.INFO
-    elif args.log_level == "CRITICAL":
-        log_level = logging.CRITICAL
-    else:
-        log_level = logging.DEBUG
+    log_level = LOG_LEVEL_STRS.get(args.log_level, default="DEBUG")
 
     log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
