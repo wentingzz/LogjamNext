@@ -178,8 +178,8 @@ class IndexDataTestCase(unittest.TestCase):
             },
         ]
         
-        aaa_file = os.path.join(self.tmp_dir, "aaa.txt")
-        with open(aaa_file, "w",newline="\n") as fd:
+        aaa_file = paths.QuantumEntry(self.tmp_dir, "aaa.txt")
+        with open(aaa_file.abspath, "w",newline="\n") as fd:
             fd.write("xyz\n");
             fd.write("pqr\n");
             fd.write("abc\n");
@@ -196,8 +196,8 @@ class IndexDataTestCase(unittest.TestCase):
         return
 
     def test_send_to_es_decode_error(self):
-        xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
-        with open(xxx_file, "wb") as fd:
+        xxx_file = paths.QuantumEntry(self.tmp_dir, "xxx.txt")
+        with open(xxx_file.abspath, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
