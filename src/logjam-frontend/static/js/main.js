@@ -7,6 +7,7 @@
 // vue-resources for http requests
 Vue.use(VueResource);
 
+colorIdx = 0;
 function getColors(count) {
     /**
      * Returns a list of <count> unique colors in hex form
@@ -20,7 +21,13 @@ function getColors(count) {
         '#0053b5',
     ];
 
-    return availableColors.slice(0, count);
+    var colors = [];
+    for (i = 0; i < count; i++) {
+        colors.push(availableColors[(colorIdx + i) % availableColors.length]);
+    }
+
+    colorIdx += count;
+    return colors
 }
 
 Vue.component('pie-chart', {
@@ -62,7 +69,7 @@ Vue.component('pie-chart', {
             chartConfig.data.labels = this.labels;
             chartConfig.data.datasets[0].data = this.values;
 
-            // Randomly pick some pretty colors
+            // Get some colors (cycles through preset list)
             chartConfig.data.datasets[0].backgroundColor = getColors(this.values.length)
 
             // Bind the chart component to the canvas (which is this object's $el property)
@@ -86,12 +93,13 @@ var vm = new Vue({
         platform: "All Platforms",
         versions: [
             "All Versions"
-	],
+    ],
         sgVersion: "All Versions",
         logText: "",
         hasError: false,
         errors: [],
-        charts: {}
+        charts: {},
+    hasResults: true
     },
     created: function () {
         // Fetch versions from server
@@ -138,12 +146,20 @@ var vm = new Vue({
             }
 
             this.charts = [];
-            this.$http.post('/matchData', 
+            colorIdx=0;
+
+	    this.$http.post('/matchData', 
 		{ logText: this.logText, sgVersion: this.sgVersion, platform: this.platform }
 	    ).then( response => {
-                this.charts = response.body;
+                if (response.body[0]["values"][1] != 0) {
+                    this.hasResults = true;
+                    this.charts = response.body;
+                }
+                else {
+                    this.hasResults = false;
+                }
             }, response => {
-                alert("Error getting occurrences: " + response.status + "\n" + response.json());
+                alert("Error getting occurrences: " + response.status + "\n" + response.statusText);
             });
         }
     },
