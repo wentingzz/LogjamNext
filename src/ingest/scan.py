@@ -249,7 +249,7 @@ def recursive_search(scan, es, nodefields, cur_dir):
         
         if entry.is_file():
             if fields.is_storagegrid(nodefields, entry):
-                index.send_to_es(es, nodefields, entry.abspath)
+                index.send_to_es(es, nodefields, entry)
             else:
                 logging.debug("Skipped Non-StorageGRID file: %s", entry.abspath)
         
