@@ -96,7 +96,7 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_level = LOG_LEVEL_STRS.get(args.log_level, default="DEBUG")
+    log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
 
     log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
