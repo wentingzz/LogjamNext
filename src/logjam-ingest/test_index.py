@@ -126,8 +126,6 @@ class IndexDataTestCase(unittest.TestCase):
             fd.write("xyz\n");
             fd.write("pqr\n");
             fd.write("abc\n");
-        self.assertTrue(os.path.exists(aaa_file))
-        self.assertTrue(os.path.isfile(aaa_file))
         
         nodefields = fields.NodeFields(case_num="4007")
         for expected,actual in zip(docs, index.set_data(aaa_file, 1957, nodefields)):
@@ -139,8 +137,6 @@ class IndexDataTestCase(unittest.TestCase):
         xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
         with open(xxx_file, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
-        self.assertTrue(os.path.exists(xxx_file))
-        self.assertTrue(os.path.isfile(xxx_file))
         
         nodefields = fields.NodeFields(case_num="4007")
         with self.assertRaises(StopIteration, msg="Generator should be empty"):
@@ -184,8 +180,6 @@ class IndexDataTestCase(unittest.TestCase):
             fd.write("xyz\n");
             fd.write("pqr\n");
             fd.write("abc\n");
-        self.assertTrue(os.path.exists(aaa_file))
-        self.assertTrue(os.path.isfile(aaa_file))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(mock_elasticsearch_api, self, docs)
@@ -202,8 +196,6 @@ class IndexDataTestCase(unittest.TestCase):
         xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
         with open(xxx_file, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
-        self.assertTrue(os.path.exists(xxx_file))
-        self.assertTrue(os.path.isfile(xxx_file))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(mock_elasticsearch_api, self, None)
