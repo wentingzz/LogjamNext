@@ -132,6 +132,9 @@ class QuantumEntry:
     def exists_in(self, new_src):
         """ Returns whether this entry exists in a different source directory """
         return QuantumEntry(new_src, self.relpath).exists()
+   
+    def is_link(self):
+        return os.path.islink(self.abspath)
     
     def is_dir(self):
         """ Returns whether this entry is a directory """

@@ -25,6 +25,7 @@ import sys
 import time
 import signal
 import concurrent.futures
+from tqdm import tqdm
 import multiprocessing
 
 from elasticsearch import Elasticsearch
@@ -65,6 +66,7 @@ def main():
                         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
                         help='Scratch space directory to unzip files into')
+    parser.add_argument('-p','--processor', dest='processor_num', type = int, help='Number of the processors')
     args = parser.parse_args()
 
     if not os.path.isdir(args.input_dir):
@@ -98,6 +100,8 @@ def main():
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
+    global MAX_WORKERS
+    MAX_WORKERS = args.processor_num
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
@@ -164,15 +168,10 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
                     logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
             else:
                 logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
-        
-        total_cases = len(futures)
-        case_index = 0
-        for future in futures:
-            case_index += 1
+
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
             # Raise any exception from child process
             future.result()
-            if not graceful_abort:
-                logging.info("Finished case directory %i out of %i", case_index, total_cases)
     
     if graceful_abort:
         scan.premature_exit()
@@ -299,9 +298,11 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
         return compressed_entry                     # already exists, return unchanged
 
     assert not scratch_entry.exists(), "Scratch entry should not exist"
-    unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
-    assert scratch_entry.exists(), "Scratch entry should have been created"
-
+    try:
+        unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
+        assert scratch_entry.exists(), "Scratch entry should have been created" + scratch_entry.relpath
+    except unzip.AcceptableException:
+        pass
     return scratch_entry                            # return unzipped entry
 
 
