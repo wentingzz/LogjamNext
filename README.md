@@ -45,12 +45,12 @@ source my-venv/bin/activate
 
 Install dependencies
 ```bash
-pip install -r ./src/logjam-ingest/requirements.txt
+pip install -r ./src/ingest/requirements.txt
 ```
 
 Run scan script on input data:
 ```bash
-python ./src/logjam-ingest/scan.py [input_directory]
+python ./src/ingest/scan.py [input_directory]
 ```
 
 Scan script arguments:
