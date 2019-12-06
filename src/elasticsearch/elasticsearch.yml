@@ -2,6 +2,9 @@ cluster.name: logjam
 # Must bind to all local interfaces to work inside docker
 network.bind_host: 0.0.0.0
 
+# Comment this line for multi-node deployments
+discovery.type: single-node
+
 # Set the IP of one or more nodes that *could* be the master.
 # If more than one, they will sort it out among themselves.
 #cluster.initial_master_nodes:
