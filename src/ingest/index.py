@@ -18,6 +18,7 @@ import paths
 
 
 INDEX_NAME = "logjam"
+ES_DOC_ID_MAX_SIZE = 512
 
 
 def set_data(file_entry, send_time, fields_obj):
@@ -30,7 +31,7 @@ def set_data(file_entry, send_time, fields_obj):
                 
                 # New Doc ID is the file's path + / + line number starting at 1
                 new_doc_id = (file_entry/str(line_num+1)).relpath
-                if len(new_doc_id) >= 512:
+                if len(new_doc_id) >= ES_DOC_ID_MAX_SIZE:
                     new_doc_id = hash(new_doc_id)   # store hash if path exceeds ES limit
                 
                 yield {
