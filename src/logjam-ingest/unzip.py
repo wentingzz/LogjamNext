@@ -99,11 +99,18 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         unzip_entry = paths.QuantumEntry(dest_dir, strip_zip_ext(os.path.basename(src)))
         assert unzip_entry.abspath == os.path.abspath(dest)
         
-        extract_zip(
-            paths.QuantumEntry(os.path.dirname(zip_file), os.path.basename(zip_file)),
-            paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir)),
-            exist_ok=True)
-        assert unzip_entry.exists()
+        try:
+            extract_zip(
+                paths.QuantumEntry(os.path.dirname(zip_file), os.path.basename(zip_file)),
+                paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir)),
+                exist_ok=True)
+            assert unzip_entry.exists()
+        
+        except AcceptableException as e:
+            logging.critical("Error during ZipFile unzip: %s", e)
+            if unzip_entry.exists():
+                unzip_entry.delete()
+            raise AcceptableException("Error during ZipFile unzip: %s", e)
         
         if unzip_entry.is_dir():
             recursive_walk(unzip_entry.abspath, handle_extracted_file)
@@ -112,7 +119,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         else:
             logging.critical("This execution path should never be reached")
             raise Exception("Seemingly impossible execution path")
-        
+    
     elif extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
@@ -295,7 +302,7 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
         unzip_file_new = dest_dir/children[0]
         shutil.move(unzip_file_tmp.abspath, unzip_file_new.abspath)
         assert not unzip_file_tmp.exists()
-        assert unzip_file_new_exists()
+        assert unzip_file_new.exists()
         return True
         
     else:
@@ -354,3 +361,4 @@ def strip_zip_ext(path):
         return prior
     else:
         return path
+
