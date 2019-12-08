@@ -117,7 +117,6 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         elif unzip_entry.is_file():
             handle_extracted_file(unzip_entry.abspath)
         else:
-            logging.critical("This execution path should never be reached")
             raise Exception("Seemingly impossible execution path")
     
     elif extension == ".tar" or extension == ".tgz": 
