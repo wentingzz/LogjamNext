@@ -101,7 +101,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         extract_zip(
             paths.QuantumEntry(os.path.dirname(zip_file), os.path.basename(zip_file)),
-            paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir))
+            paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir)),
             exist_ok=True)
         assert unzip_entry.exists()
         
