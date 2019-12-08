@@ -146,6 +146,8 @@ class ScanTestCase(unittest.TestCase):
         os.mkdir(self.history_dir)
         self.scratch_dir = os.path.join(self.tmp_dir, "scratch")
         os.mkdir(self.scratch_dir)
+        self.input_dir = os.path.join(self.tmp_dir, "input")
+        os.mkdir(self.input_dir)
     
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
@@ -168,8 +170,8 @@ class ScanTestCase(unittest.TestCase):
         history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
         record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
         incremental.overwrite_scan_record(history_active_file, record)
-        
         scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
+        
         self.assertEqual(".", scan.input_dir)
         self.assertEqual(self.history_dir, scan.history_dir)
         self.assertEqual(0, scan.time_period.start)
@@ -215,6 +217,34 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(".", record.input_dir)
         self.assertEqual("./log.txt", record.last_path)
         self.assertFalse(record.is_complete())
+    
+    def test_should_consider_entry(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        record = incremental.ScanRecord(1000, 2000, self.input_dir, os.path.join(self.input_dir,"AAA.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(1000, scan.time_period.start)
+        self.assertEqual(2000, scan.time_period.stop)
+        
+        old_file = paths.QuantumEntry(self.input_dir, "OOO.txt")
+        open(old_file.abspath, "a").close()
+        os.utime(old_file.abspath, (time.time(), 0))
+        self.assertFalse(scan.should_consider_entry(old_file))
+        
+        cur_file = paths.QuantumEntry(self.input_dir, "CCC.txt")
+        open(cur_file.abspath, "a").close()
+        os.utime(cur_file.abspath, (time.time(), 1500))
+        self.assertTrue(scan.should_consider_entry(cur_file))
+        
+        new_file = paths.QuantumEntry(self.input_dir, "NNN.txt")
+        open(new_file.abspath, "a").close()
+        os.utime(new_file.abspath, (time.time(), 3000))
+        self.assertFalse(scan.should_consider_entry(new_file))
+        
+        dir = paths.QuantumEntry(self.input_dir, "DDD")
+        os.makedirs(dir.abspath, exist_ok=True)
+        self.assertTrue(scan.should_consider_entry(dir))
 
 
 class ScanHelperFuncTestCase(unittest.TestCase):
