@@ -266,6 +266,21 @@ class ExtractZipTestCase(unittest.TestCase):
         with open(decompressed_file.abspath, "r") as fd:
             self.assertEqual("TEXT\n", fd.read())
 
+    def test_corrupt_zip(self):
+        zip_file = paths.QuantumEntry(self.tmp_dir, "dir.zip")
+        decompressed_dir = paths.QuantumEntry(self.tmp_dir, "dir")
+        
+        with open(zip_file.abspath, "wb") as fd:
+            fd.write(b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertFalse(decompressed_dir.exists())
+        
+        unzip.extract_zip(
+            zip_file,
+            paths.QuantumEntry(self.tmp_dir, ""),
+            exist_ok=True)
+        self.assetTrue(False)
 
 class DeleteFileTestCase(unittest.TestCase):
     @classmethod
