@@ -282,7 +282,7 @@ class ExtractZipTestCase(unittest.TestCase):
                 paths.QuantumEntry(self.tmp_dir, ""))
         self.assertTrue(zip_file.exists())
         self.assertTrue(zip_file.is_file())
-        self.assertTrue(decompressed_dir.exists(), "dest_dir created even on failure!!!")
+        self.assertTrue(decompressed_dir.exists(), "dest_dir should exist even on failure!!!")
 
 
 class DeleteFileTestCase(unittest.TestCase):

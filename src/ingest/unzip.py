@@ -108,8 +108,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         except AcceptableException as e:
             logging.critical("Error during ZipFile unzip: %s", e)
-            if unzip_entry.exists():
-                unzip_entry.delete()
+            unzip_entry.delete()
             raise AcceptableException("Error during ZipFile unzip: %s", e)
         
         if unzip_entry.is_dir():
