@@ -16,7 +16,8 @@ import incremental
 
 
 
-code_src_dir = os.path.dirname(os.path.realpath(__file__))
+CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Incremental")
 
 
 class TimePeriodTestCase(unittest.TestCase):
@@ -139,7 +140,7 @@ class ScanTestCase(unittest.TestCase):
     
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
         os.mkdir(self.tmp_dir)
         self.history_dir = os.path.join(self.tmp_dir, "history")
         os.mkdir(self.history_dir)
@@ -163,6 +164,17 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
         self.assertEqual(scan.safe_time, scan.time_period.stop)
         self.assertEqual("", scan.last_path)
+        
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
+        overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
+        self.assertEqual(".", scan.input_dir)
+        self.assertEqual(self.history_dir, scan.history_dir)
+        self.assertEqual(0, scan.time_period.start)
+        self.assertEqual(1000, scan.time_period.stop)
+        self.assertEqual("./log.txt", scan.last_path)
     
     def test_update_from_scan_record(self):
         scan = incremental.Scan(".",self.history_dir,self.scratch_dir)
@@ -210,7 +222,7 @@ class ScanHelperFuncTestCase(unittest.TestCase):
     
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
         os.makedirs(self.tmp_dir)
         self.assertTrue(os.path.isdir(self.tmp_dir))
     
