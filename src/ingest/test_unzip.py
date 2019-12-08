@@ -102,21 +102,28 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         signal.signal(signal.SIGALRM, timeout_handler)
 
         signal.alarm(10)  # Send timeout signal in 10 seconds
-        unzip.recursive_unzip(os.path.join(self.tmpdir, 'password_7z.7z'), self.tmpdir)
-
-        # Unzip should fail, but it musn't hang.
-        if timed_out:
-            self.fail("Extracting password-protected 7zip hung for too long")
-
+        try:
+            unzip.recursive_unzip(os.path.join(self.tmpdir, 'password_7z.7z'), self.tmpdir)
+            # Unzip should fail, but it musn't hang.
+            if timed_out:
+                self.fail("Extracting password-protected 7zip hung for too long")
+            else:
+                self.fail("Extracting password-protected 7zip should fail")
+        except unzip.AcceptableException:
+            pass
+        
 
     def test_gz(self):
         unzip.recursive_unzip(os.path.join(self.tmpdir, 'hello_gz.gz'), self.tmpdir)
         self.assertTrue(os.path.isfile(os.path.join(self.tmpdir, 'hello_gz')))
 
     def test_corrupt_tgz(self):
-        unzip.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
-        # Should have an error but handle gracefully. Output file should not exist.
-        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, 'corrupt')))
+        # Should fail and raise AcceptableException
+        try:
+            unzip.recursive_unzip(os.path.join(self.tmpdir, 'corrupt.tar.gz'), self.tmpdir)
+            self.fail("Unzipping corrupt tgz should fail")
+        except unzip.AcceptableException:
+            pass
 
     def test_folder_exists(self):
         """
@@ -140,9 +147,11 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         os.remove(existing_file)
         assert not os.path.isfile(existing_file)
 
-        unzip.recursive_unzip(archive_path, self.tmpdir)
-
-        assert not os.path.isfile(existing_file)
+        try:
+            unzip.recursive_unzip(archive_path, self.tmpdir)
+            self.fail("Unzipping should be skipped")
+        except unzip.AcceptableException:
+            assert not os.path.isfile(existing_file)
 
     @classmethod
     def tearDownClass(cls):
