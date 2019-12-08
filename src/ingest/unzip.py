@@ -279,16 +279,11 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     os.makedirs(unzip_dir.abspath, exist_ok=True)
     assert unzip_dir.is_dir(), "unzip_dir was not a directory: " + unzip_dir.abspath
     
-    if True:                                                    # select faster branch
-        try:
-            with zipfile.ZipFile(zip_file.abspath, "r") as z:
-                z.extractall(path=unzip_dir.abspath)
-        except zipfile.BadZipFile as e:
-            raise AcceptableException("Python 3 ZipFile failed, exception: %s" % str(e))
-    else:
-        ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", unzip_dir.abspath])
-        if ans.returncode != 0:
-            raise AcceptableException("CLI unzip failed, return code: %d" % ans.returncode)
+    try:
+        with zipfile.ZipFile(zip_file.abspath, "r") as z:
+            z.extractall(path=unzip_dir.abspath)
+    except zipfile.BadZipFile as e:
+        raise AcceptableException("Python 3 ZipFile failed, exception: %s" % str(e))
     assert zip_file.exists()
     assert unzip_dir.exists()
     
