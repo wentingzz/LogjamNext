@@ -268,9 +268,12 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     os.makedirs(unzip_dir.abspath, exist_ok=True)
     assert unzip_dir.is_dir(), "unzip_dir was not a directory: " + unzip_dir.abspath
     
-    if True:
-        with zipfile.ZipFile(zip_file.abspath, "r") as z:
-            z.extractall(path=unzip_dir.abspath)
+    if True:                                                    # select faster branch
+        try:
+            with zipfile.ZipFile(zip_file.abspath, "r") as z:
+                z.extractall(path=unzip_dir.abspath)
+        except zipfile.BadZipFile as e:
+            raise AcceptableException("Python 3 ZipFile failed, exception: %s" % str(e))
     else:
         ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", unzip_dir.abspath])
         if ans.returncode != 0:
@@ -280,20 +283,19 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     
     children = os.listdir(unzip_dir.abspath)
     if len(children)==1 and children[0]==base_name:             # ex. /tmp/d.tar/d.tar
-        unzip_file_path_orig = (unzip_dir/children[0]).abspath
-        unzip_file_path_tmp = (dest_dir/(children[0]+".zip.zip.zip")).abspath
-        shutil.move(unzip_file_path_orig, unzip_file_path_tmp)
-        assert not os.path.exists(unzip_file_path_orig)
-        assert os.path.exists(unzip_file_path_tmp)
+        unzip_file_orig = unzip_dir/children[0]
+        unzip_file_tmp = dest_dir/(children[0]+".zip.zip.zip")
+        shutil.move(unzip_file_orig.abspath, unzip_file_tmp.abspath)
+        assert not unzip_file_orig.exists()
+        assert unzip_file_tmp.exists()
         
-        unzip_dir_path = (unzip_dir).abspath
-        shutil.rmtree(unzip_dir_path)
-        assert not os.path.exists(unzip_dir_path)
+        shutil.rmtree(unzip_dir.abspath)
+        assert not unzip_dir.exists()
         
-        unzip_file_path_new = (dest_dir/children[0]).abspath
-        shutil.move(unzip_file_path_tmp, unzip_file_path_new)
-        assert not os.path.exists(unzip_file_path_tmp)
-        assert os.path.exists(unzip_file_path_new)
+        unzip_file_new = dest_dir/children[0]
+        shutil.move(unzip_file_tmp.abspath, unzip_file_new.abspath)
+        assert not unzip_file_tmp.exists()
+        assert unzip_file_new_exists()
         return True
         
     else:
