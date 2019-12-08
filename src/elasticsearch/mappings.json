@@ -24,5 +24,8 @@
                 "type": "integer"
             }
         }
+    },
+    "settings": {
+        "number_of_shards": 16
     }
 }

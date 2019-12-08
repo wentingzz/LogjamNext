@@ -468,7 +468,6 @@ class ManagerScan(Scan):
                 int(filename)
                 unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
             except:
-                print(filename)
                 continue
         self._close()                           # internally close the Scan
         
