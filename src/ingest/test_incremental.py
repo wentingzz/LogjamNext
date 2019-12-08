@@ -278,9 +278,44 @@ class ScanTestCase(unittest.TestCase):
         self.assertTrue(last_record.is_complete())
     
     def test_premature_exit(self):
-        pass
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord(3000, 5000, self.input_dir, os.path.join(self.input_dir,"log.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
         
-    
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(3000, scan.time_period.start)
+        self.assertEqual(5000, scan.time_period.stop)
+        
+        scan.just_scanned_this_entry(paths.QuantumEntry(self.input_dir, "dir/my-log.txt"))
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/my-log.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+        
+        scan.just_scanned_this_entry(paths.QuantumEntry(self.input_dir, "dir/file.txt"))
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/my-log.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+        
+        scan.premature_exit()
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/file.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+
 
 class ScanHelperFuncTestCase(unittest.TestCase):
     """ Tests the basic helper functions used by the Scan class """
