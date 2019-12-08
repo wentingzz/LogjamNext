@@ -168,6 +168,7 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual("", scan.last_path)
         
         history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
         record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
         incremental.overwrite_scan_record(history_active_file, record)
         scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
@@ -220,6 +221,7 @@ class ScanTestCase(unittest.TestCase):
     
     def test_should_consider_entry(self):
         history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
         record = incremental.ScanRecord(1000, 2000, self.input_dir, os.path.join(self.input_dir,"AAA.txt"))
         incremental.overwrite_scan_record(history_active_file, record)
         scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
