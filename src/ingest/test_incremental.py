@@ -116,6 +116,9 @@ class ScanRecordTestCase(unittest.TestCase):
         self.assertEqual(record, record)
         self.assertEqual(record, incremental.ScanRecord.from_str('3 4 "." "X"'))
         self.assertEqual(record, incremental.ScanRecord(3, 4, ".", "X"))
+        
+        with self.assertRaises(NotImplementedError, msg=""):
+            self.assertEqual(record, 23)
     
     def test_str(self):
         record = incremental.ScanRecord.from_str('5 7 "/nfs" "./2001938907/log.txt"')
