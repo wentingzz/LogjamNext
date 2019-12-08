@@ -91,7 +91,29 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         logging.warning("This path was already unzipped: %s", dest)
         raise AcceptableException("This path was already unzipped")
     
-    if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
+    if extension == ".zip":
+        logging.debug("Unzipping: %s", src)
+        
+        zip_file = src
+        dest_dir = os.path.dirname(dest)
+        unzip_entry = paths.QuantumEntry(dest_dir, strip_zip_ext(os.path.basename(src)))
+        assert unzip_entry.abspath == os.path.abspath(dest)
+        
+        extract_zip(
+            paths.QuantumEntry(os.path.dirname(zip_file), os.path.basename(zip_file)),
+            paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir))
+            exist_ok=True)
+        assert unzip_entry.exists()
+        
+        if unzip_entry.is_dir():
+            recursive_walk(unzip_entry.abspath, handle_extracted_file)
+        elif unzip_entry.is_file():
+            handle_extracted_file(unzip_entry.abspath)
+        else:
+            logging.critical("This execution path should never be reached")
+            raise Exception("Seemingly impossible execution path")
+        
+    elif extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
@@ -161,6 +183,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     else:
         logging.critical("This execution path should never be reached")
         raise Exception("Seemingly impossible execution path")
+    
     return
 
 
@@ -250,7 +273,8 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
             z.extractall(path=unzip_dir.abspath)
     else:
         ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", unzip_dir.abspath])
-        ans.check_returncode()
+        if ans.returncode != 0:
+            raise AcceptableException("CLI unzip failed, return code: %d" % ans.returncode)
     assert zip_file.exists()
     assert unzip_dir.exists()
     
