@@ -255,7 +255,9 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     Unzips the provided zip file into the destination directory. Assumes
     that Logjam does not own the zip file. If the zip file unzips into a single
     file, then that is placed under dest_dir. Otherwise, place the unzipped contents
-    into a directory named after the filename portion of the zip file.
+    into a directory named after the filename portion of the zip file. Guarantees that
+    there is always a directory or file in the dest_dir named after the zip_file (makes
+    this function idempotent). Errors during unzipping are propagated through exceptions.
     """
     assert isinstance(zip_file, paths.QuantumEntry), "zip_file was not type QuantumEntry"
     assert isinstance(dest_dir, paths.QuantumEntry), "dest_dir was not type QuantumEntry"
