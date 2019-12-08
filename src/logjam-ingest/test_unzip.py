@@ -156,7 +156,7 @@ class RecursiveUnzipTestCase(unittest.TestCase):
         shutil.rmtree(cls.tmpdir)
 
 
-class UnzipZipTestCase(unittest.TestCase):
+class ExtractZipTestCase(unittest.TestCase):
     """ Tests the function for unzipping zip files only """
     
     def setUp(self):
@@ -169,7 +169,7 @@ class UnzipZipTestCase(unittest.TestCase):
         shutil.rmtree(self.tmp_dir)
         self.assertTrue(not os.path.exists(self.tmp_dir))
     
-    def test_basic_unzip(self):
+    def test_basic_zip_files(self):
         dir_to_compress = paths.QuantumEntry(self.tmp_dir, "a/b/c/dir")
         os.makedirs(dir_to_compress.abspath, exist_ok=True)
         with open((dir_to_compress/"fileA.txt").abspath, "w") as fd:
@@ -185,7 +185,7 @@ class UnzipZipTestCase(unittest.TestCase):
         self.assertFalse(decompressed_dir.exists())
         
         # First unzip
-        unzip.unzip_zip(
+        unzip.extract_zip(
             compressed_file,
             paths.QuantumEntry(self.tmp_dir, ""))
         self.assertTrue(compressed_file.exists())
@@ -195,7 +195,7 @@ class UnzipZipTestCase(unittest.TestCase):
             self.assertEqual("TEXT\n", fd.read())
         
         # Unzip & already exists
-        unzip.unzip_zip(
+        unzip.extract_zip(
             compressed_file,
             paths.QuantumEntry(self.tmp_dir, ""),
             exist_ok=True)
@@ -207,7 +207,7 @@ class UnzipZipTestCase(unittest.TestCase):
         
         # Unzip & already exists, but we don't want it to exist so raise exception
         with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't raise exception"):
-            unzip.unzip_zip(compressed_file,
+            unzip.extract_zip(compressed_file,
                 paths.QuantumEntry(self.tmp_dir, ""),
                 exist_ok=False)
         self.assertTrue(compressed_file.exists())
@@ -233,7 +233,7 @@ class UnzipZipTestCase(unittest.TestCase):
         self.assertFalse(decompressed_file.exists())
         
         # First unzip
-        unzip.unzip_zip(
+        unzip.extract_zip(
             zip_file,
             paths.QuantumEntry(self.tmp_dir, "new"))
         self.assertTrue(zip_file.exists())
@@ -244,7 +244,7 @@ class UnzipZipTestCase(unittest.TestCase):
             self.assertEqual("TEXT\n", fd.read())
         
         # Unzip & already exists
-        unzip.unzip_zip(
+        unzip.extract_zip(
             zip_file,
             paths.QuantumEntry(self.tmp_dir, "new"),
             exist_ok=True)
@@ -256,7 +256,7 @@ class UnzipZipTestCase(unittest.TestCase):
         
         # Unzip & already exists, but we don't want it to exist so raise exception
         with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't raise exception"):
-            unzip.unzip_zip(
+            unzip.extract_zip(
                 zip_file,
                 paths.QuantumEntry(self.tmp_dir, "new"),
                 exist_ok=False)

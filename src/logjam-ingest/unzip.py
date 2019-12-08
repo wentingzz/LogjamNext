@@ -30,9 +30,11 @@ patoolib_patch.patch_7z(patoolib)
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
+
 class AcceptableException(Exception):
     def __init___(self, arg):
         Exception.__init__(self, arg)
+
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
     """
@@ -218,7 +220,7 @@ def try_fs_operation(path, func):
         return False                    # error occurred, couldn't fix it
 
 
-def unzip_zip(zip_file, dest_dir, *, exist_ok=True):
+def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     """
     Unzips the provided zip file into the destination directory. Assumes
     that Logjam does not own the zip file. If the zip file unzips into a single
