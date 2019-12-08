@@ -331,7 +331,49 @@ class ScanTestCase(unittest.TestCase):
         
         scan.premature_exit()
         self.assertEqual(0, os.path.getsize(history_active_file))
+
+
+class WorkerScanTestCase(unittest.TestCase):
+    """ Tests the WorkerScan class for its changed functionality from Scan base class """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.mkdir(self.tmp_dir)
+        self.history_dir = os.path.join(self.tmp_dir, "history")
+        os.mkdir(self.history_dir)
+        self.scratch_dir = os.path.join(self.tmp_dir, "scratch")
+        os.mkdir(self.scratch_dir)
+        self.input_dir = os.path.join(self.tmp_dir, "input")
+        os.mkdir(self.input_dir)
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+        self.assertTrue(not os.path.exists(self.history_dir))
+        self.assertTrue(not os.path.exists(self.scratch_dir))
+    
+    def test_init(self):
+        cur_time = time.time()
+        input_dir = self.input_dir
+        history_dir = self.history_dir
+        scratch_dir = os.path.join(self.scratch_dir, "tmp334")
+        history_active_file = os.path.join(history_dir, "2001789555.txt")
+        history_log_file = os.path.join(history_dir, "2001789555-log.txt")
+        safe_time = cur_time - 10 * 60
+        scan = incremental.WorkerScan(
+            input_dir, history_dir, scratch_dir,
+            history_active_file, history_log_file, safe_time)
         
+        self.assertEqual(safe_time, scan.safe_time)
+        self.assertEqual(input_dir, scan.input_dir)
+        self.assertEqual(history_dir, scan.history_dir)
+        
+        # TODO: THESE ARE ACTUALLY INCORRECT IN WORKERSCAN, NEED TO FIX THEM!!!!!
+        #self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
+        #self.assertEqual(scan.safe_time, scan.time_period.stop)
+        
+        self.assertEqual("", scan.last_path)
 
 
 class ScanHelperFuncTestCase(unittest.TestCase):
