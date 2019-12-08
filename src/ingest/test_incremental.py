@@ -167,6 +167,9 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(scan.safe_time, scan.time_period.stop)
         self.assertEqual("", scan.last_path)
         
+        shutil.rmtree(self.history_dir)                 # clean up last Scan construction
+        os.makedirs(self.history_dir, exist_ok=True)
+        
         history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
         open(history_active_file, "x").close()
         record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
