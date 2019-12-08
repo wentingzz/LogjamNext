@@ -315,6 +315,23 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(self.input_dir, last_record.input_dir)
         self.assertEqual("dir/file.txt", last_record.last_path)
         self.assertFalse(last_record.is_complete())
+    
+    def test_premature_exit_with_nothing_scanned_so_far(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        cur_time = time.time()                      # assumes both same time source
+        
+        self.assertGreater(cur_time, scan.safe_time)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(self.history_dir, scan.history_dir)
+        self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
+        self.assertEqual(scan.safe_time, scan.time_period.stop)
+        self.assertEqual("", scan.last_path)
+        self.assertEqual(0, os.path.getsize(history_active_file))
+        
+        scan.premature_exit()
+        self.assertEqual(0, os.path.getsize(history_active_file))
+        
 
 
 class ScanHelperFuncTestCase(unittest.TestCase):
