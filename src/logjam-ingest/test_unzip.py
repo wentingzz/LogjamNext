@@ -18,6 +18,11 @@ import gzip
 import subprocess
 
 import unzip
+import paths
+
+
+CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Unzip")
 
 
 class RecursiveUnzipTestCase(unittest.TestCase):
@@ -148,6 +153,51 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def tearDownClass(cls):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
+
+
+class UnzipZipTestCase(unittest.TestCase):
+    """ Tests the function for unzipping zip files only """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+    
+    def test_basic_unzip(self):
+        dir_to_compress = paths.QuantumEntry(self.tmp_dir, "a/b/c/dir")
+        os.makedirs(dir_to_compress.abspath, exist_ok=True)
+        with open((dir_to_compress/"fileA.txt").abspath, "w") as fd:
+            fd.write("TEXT\n")
+        compressed_file = paths.QuantumEntry(self.tmp_dir, "dir.zip")
+        decompressed_dir = paths.QuantumEntry(self.tmp_dir, "dir")
+        
+        shutil.make_archive(
+            base_name=os.path.join(self.tmp_dir, "dir"),
+            format="zip",
+            root_dir=dir_to_compress.abspath)
+        self.assertTrue(compressed_file.exists())
+        self.assertFalse(decompressed_dir.exists())
+        
+        # First unzip
+        unzip.unzip_zip(compressed_file, paths.QuantumEntry(self.tmp_dir, ""))
+        self.assertTrue(compressed_file.exists())
+        self.assertTrue(decompressed_dir.exists())
+        self.assertTrue((decompressed_dir/"fileA.txt").exists())
+        with open((decompressed_dir/"fileA.txt").abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+        
+        # Unzip & already exists
+        unzip.unzip_zip(compressed_file, paths.QuantumEntry(self.tmp_dir, ""), exist_ok=True)
+        self.assertTrue(compressed_file.exists())
+        self.assertTrue(decompressed_dir.exists())
+        self.assertTrue((decompressed_dir/"fileA.txt").exists())
+        with open((decompressed_dir/"fileA.txt").abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
 
 
 class DeleteFileTestCase(unittest.TestCase):

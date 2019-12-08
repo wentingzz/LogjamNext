@@ -21,6 +21,7 @@ import conans
 import gzip
 import patoolib
 import subprocess
+import zipfile
 
 import paths
 import patoolib_patch
@@ -232,25 +233,45 @@ def unzip_zip(zip_file, dest_dir, *, exist_ok=True):
     assert dest_dir.is_dir(), "dest_dir was not a directory: " + dest_dir.abspath
     
     base_name = zip_file.filename                               # ex. d.tar.zip -> d.tar
-    dest_entry = dest_dir/base_name                             # ex. /tmp/d.tar
-    if dest_entry.exists():
+    unzip_dir = dest_dir/base_name                              # ex. /tmp/d.tar
+    if unzip_dir.exists():
         if exist_ok:
             return True
         else:
             raise AcceptableException("Already unzipped!")
     
-    os.makedirs(dest_entry.abspath, exist_ok=True)
-    assert dest_entry.is_dir(), "dest_entry was not a directory: " + dest_entry.abspath
+    os.makedirs(unzip_dir.abspath, exist_ok=True)
+    assert unzip_dir.is_dir(), "unzip_dir was not a directory: " + unzip_dir.abspath
     
-    ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", dest_entry.abspath])
-    ans.check_returncode()
+    if True:
+        with zipfile.ZipFile(zip_file.abspath, "r") as z:
+            z.extractall(path=unzip_dir.abspath)
+    else:
+        ans = subprocess.run(["unzip", "-q", zip_file.abspath, "-d", unzip_dir.abspath])
+        ans.check_returncode()
+    assert zip_file.exists()
+    assert unzip_dir.exists()
     
-    children = os.listdir(dest_entry.abspath)
+    children = os.listdir(unzip_dir.abspath)
     if len(children)==1 and children[0]==base_name:             # ex. /tmp/d.tar/d.tar
-        TODO: Atomic swap of file/dir and parent dir!!!!!
-        dest_entry = 
-    
-    
+        unzip_file_path_orig = (unzip_dir/children[0]).abspath
+        unzip_file_path_tmp = (dest_dir/(children[0]+".zip.zip.zip")).abspath
+        shutil.move(unzip_file_path_orig, unzip_file_path_tmp)
+        assert not os.path.exists(unzip_file_path_orig)
+        assert os.path.exists(unzip_file_path_tmp)
+        
+        unzip_dir_path = (unzip_dir).abspath
+        shutil.rmtree(unzip_dir_path)
+        assert not os.path.exists(unzip_dir_path)
+        
+        unzip_file_path_new = (dest_dir/children[0]).abspath
+        shutil.move(unzip_file_path_tmp, unzip_file_path_new)
+        assert not os.path.exists(unzip_file_path_tmp)
+        assert os.path.exists(unzip_file_path_new)
+        return True
+        
+    else:
+        return True
 
 
 def delete_file(path):
