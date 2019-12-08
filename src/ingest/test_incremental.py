@@ -118,7 +118,8 @@ class ScanRecordTestCase(unittest.TestCase):
         self.assertEqual(record, incremental.ScanRecord(3, 4, ".", "X"))
         
         with self.assertRaises(NotImplementedError, msg=""):
-            self.assertEqual(record, 23)
+            ans = (record == 23)
+            self.fail("Should not have allowed comparison")
     
     def test_str(self):
         record = incremental.ScanRecord.from_str('5 7 "/nfs" "./2001938907/log.txt"')
@@ -177,6 +178,7 @@ class ScanTestCase(unittest.TestCase):
         open(history_active_file, "x").close()
         record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
         incremental.overwrite_scan_record(history_active_file, record)
+        
         scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
         
         self.assertEqual(".", scan.input_dir)
@@ -230,6 +232,7 @@ class ScanTestCase(unittest.TestCase):
         open(history_active_file, "x").close()
         record = incremental.ScanRecord(1000, 2000, self.input_dir, os.path.join(self.input_dir,"AAA.txt"))
         incremental.overwrite_scan_record(history_active_file, record)
+        
         scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
         self.assertEqual(self.input_dir, scan.input_dir)
         self.assertEqual(1000, scan.time_period.start)
@@ -254,6 +257,30 @@ class ScanTestCase(unittest.TestCase):
         os.makedirs(dir.abspath, exist_ok=True)
         self.assertTrue(scan.should_consider_entry(dir))
 
+    def test_complete_scan(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord(3000, 5000, self.input_dir, os.path.join(self.input_dir,"log.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(3000, scan.time_period.start)
+        self.assertEqual(5000, scan.time_period.stop)
+        
+        scan.complete_scan()
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("", last_record.last_path)
+        self.assertTrue(last_record.is_complete())
+    
+    def test_premature_exit(self):
+        pass
+        
+    
 
 class ScanHelperFuncTestCase(unittest.TestCase):
     """ Tests the basic helper functions used by the Scan class """
