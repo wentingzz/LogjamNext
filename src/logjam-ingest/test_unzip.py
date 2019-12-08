@@ -276,11 +276,14 @@ class ExtractZipTestCase(unittest.TestCase):
         self.assertTrue(zip_file.is_file())
         self.assertFalse(decompressed_dir.exists())
         
-        unzip.extract_zip(
-            zip_file,
-            paths.QuantumEntry(self.tmp_dir, ""),
-            exist_ok=True)
-        self.assetTrue(False)
+        with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't throw on corrupt"):
+            unzip.extract_zip(
+                zip_file,
+                paths.QuantumEntry(self.tmp_dir, ""))
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertFalse(decompressed_dir.exists())
+
 
 class DeleteFileTestCase(unittest.TestCase):
     @classmethod
