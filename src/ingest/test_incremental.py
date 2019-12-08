@@ -167,7 +167,7 @@ class ScanTestCase(unittest.TestCase):
         
         history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
         record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
-        overwrite_scan_record(history_active_file, record)
+        incremental.overwrite_scan_record(history_active_file, record)
         
         scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
         self.assertEqual(".", scan.input_dir)
