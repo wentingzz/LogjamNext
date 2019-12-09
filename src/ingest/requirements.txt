@@ -2,3 +2,4 @@ wheel
 conan
 patool==1.12
 elasticsearch
+ndjson
