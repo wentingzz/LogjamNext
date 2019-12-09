@@ -80,6 +80,7 @@ def main():
     log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
     logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
 
+    args.input_dir = os.path.normpath(args.input_dir)
     if not os.path.isdir(args.input_dir):
         parser.print_usage()
         print('input_dir is not a directory')
