@@ -76,6 +76,7 @@ def main():
     parser.add_argument('-p','--processor', dest='processor_num', type = int, help='Number of the processors')
     args = parser.parse_args()
 
+    args.input_dir = os.path.normpath(args.input_dir)
     if not os.path.isdir(args.input_dir):
         parser.print_usage()
         print('input_dir is not a directory')
