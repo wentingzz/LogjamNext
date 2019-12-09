@@ -47,6 +47,13 @@ graceful_abort = False
 #elasticsearch host
 es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
+LOG_LEVEL_STRS = {
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "CRITICAL": logging.CRITICAL,
+    "DEBUG": logging.DEBUG,
+}
+
 
 def main():
     """
@@ -58,7 +65,7 @@ def main():
     starts the main business logic by calling `ingest_log_files`.
     """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
-    parser.add_argument('--log-level', dest='log_level', default='DEBUG',
+    parser.add_argument('--log-level', dest='log_level', default="DEBUG",
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='input_dir', action='store',
                         help='Directory to scan for StorageGRID files')
@@ -89,8 +96,10 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
+    log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
+
     log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
 
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
