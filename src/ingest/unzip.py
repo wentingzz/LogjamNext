@@ -261,31 +261,26 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
     there is always a directory or file in the dest_dir named after the zip_file (makes
     this function idempotent). Errors during unzipping are propagated through exceptions.
     """
-    assert isinstance(zip_file, paths.QuantumEntry), "zip_file was not type QuantumEntry"
-    assert isinstance(dest_dir, paths.QuantumEntry), "dest_dir was not type QuantumEntry"
     assert zip_file.extension == ".zip", "zip_file had no .zip ext: " + zip_file.abspath
     
     os.makedirs(dest_dir.abspath, exist_ok=True)
-    assert dest_dir.is_dir(), "dest_dir was not a directory: " + dest_dir.abspath
     
     base_name = zip_file.filename                               # ex. d.tar.zip -> d.tar
     unzip_dir = dest_dir/base_name                              # ex. /tmp/d.tar
     if unzip_dir.exists():
         if exist_ok:
-            return True
+            return
         else:
             raise AcceptableException("Already unzipped!")
     
     os.makedirs(unzip_dir.abspath, exist_ok=True)
-    assert unzip_dir.is_dir(), "unzip_dir was not a directory: " + unzip_dir.abspath
     
     try:
         with zipfile.ZipFile(zip_file.abspath, "r") as z:
             z.extractall(path=unzip_dir.abspath)
     except zipfile.BadZipFile as e:
         raise AcceptableException("Python 3 ZipFile failed, exception: %s" % str(e))
-    assert zip_file.exists()
-    assert unzip_dir.exists()
+    assert zip_file.exists(), "Zip file was tampered with: " + zip_file.abspath
     
     children = os.listdir(unzip_dir.abspath)
     if len(children)==1 and children[0]==base_name:             # ex. /tmp/d.tar/d.tar
@@ -302,10 +297,8 @@ def extract_zip(zip_file, dest_dir, *, exist_ok=True):
         shutil.move(unzip_file_tmp.abspath, unzip_file_new.abspath)
         assert not unzip_file_tmp.exists()
         assert unzip_file_new.exists()
-        return True
         
-    else:
-        return True
+    return
 
 
 def delete_file(path):
