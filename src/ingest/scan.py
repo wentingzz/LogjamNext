@@ -76,6 +76,10 @@ def main():
     parser.add_argument('-p','--processor', dest='processor_num', type = int, help='Number of the processors')
     args = parser.parse_args()
 
+    log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
+    log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
+
     if not os.path.isdir(args.input_dir):
         parser.print_usage()
         print('input_dir is not a directory')
@@ -95,11 +99,6 @@ def main():
         parser.print_usage()
         print('output_directory is not a directory')
         sys.exit(1)
-
-    log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
-
-    log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
 
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
