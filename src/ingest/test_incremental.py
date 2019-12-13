@@ -16,7 +16,8 @@ import incremental
 
 
 
-code_src_dir = os.path.dirname(os.path.realpath(__file__))
+CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Incremental")
 
 
 class TimePeriodTestCase(unittest.TestCase):
@@ -115,6 +116,10 @@ class ScanRecordTestCase(unittest.TestCase):
         self.assertEqual(record, record)
         self.assertEqual(record, incremental.ScanRecord.from_str('3 4 "." "X"'))
         self.assertEqual(record, incremental.ScanRecord(3, 4, ".", "X"))
+        
+        with self.assertRaises(NotImplementedError, msg=""):
+            ans = (record == 23)
+            self.fail("Should not have allowed comparison")
     
     def test_str(self):
         record = incremental.ScanRecord.from_str('5 7 "/nfs" "./2001938907/log.txt"')
@@ -139,12 +144,14 @@ class ScanTestCase(unittest.TestCase):
     
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
         os.mkdir(self.tmp_dir)
         self.history_dir = os.path.join(self.tmp_dir, "history")
         os.mkdir(self.history_dir)
         self.scratch_dir = os.path.join(self.tmp_dir, "scratch")
         os.mkdir(self.scratch_dir)
+        self.input_dir = os.path.join(self.tmp_dir, "input")
+        os.mkdir(self.input_dir)
     
     def tearDown(self):
         shutil.rmtree(self.tmp_dir)
@@ -163,6 +170,22 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
         self.assertEqual(scan.safe_time, scan.time_period.stop)
         self.assertEqual("", scan.last_path)
+        
+        shutil.rmtree(self.history_dir)                 # clean up last Scan construction
+        os.makedirs(self.history_dir, exist_ok=True)
+        
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord.from_str('0 1000 "." "./log.txt"')
+        incremental.overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(".", self.history_dir, self.scratch_dir)
+        
+        self.assertEqual(".", scan.input_dir)
+        self.assertEqual(self.history_dir, scan.history_dir)
+        self.assertEqual(0, scan.time_period.start)
+        self.assertEqual(1000, scan.time_period.stop)
+        self.assertEqual("./log.txt", scan.last_path)
     
     def test_update_from_scan_record(self):
         scan = incremental.Scan(".",self.history_dir,self.scratch_dir)
@@ -203,6 +226,154 @@ class ScanTestCase(unittest.TestCase):
         self.assertEqual(".", record.input_dir)
         self.assertEqual("./log.txt", record.last_path)
         self.assertFalse(record.is_complete())
+    
+    def test_should_consider_entry(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord(1000, 2000, self.input_dir, os.path.join(self.input_dir,"AAA.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(1000, scan.time_period.start)
+        self.assertEqual(2000, scan.time_period.stop)
+        
+        old_file = paths.QuantumEntry(self.input_dir, "OOO.txt")
+        open(old_file.abspath, "a").close()
+        os.utime(old_file.abspath, (time.time(), 0))
+        self.assertFalse(scan.should_consider_entry(old_file))
+        
+        cur_file = paths.QuantumEntry(self.input_dir, "CCC.txt")
+        open(cur_file.abspath, "a").close()
+        os.utime(cur_file.abspath, (time.time(), 1500))
+        self.assertTrue(scan.should_consider_entry(cur_file))
+        
+        new_file = paths.QuantumEntry(self.input_dir, "NNN.txt")
+        open(new_file.abspath, "a").close()
+        os.utime(new_file.abspath, (time.time(), 3000))
+        self.assertFalse(scan.should_consider_entry(new_file))
+        
+        dir = paths.QuantumEntry(self.input_dir, "DDD")
+        os.makedirs(dir.abspath, exist_ok=True)
+        self.assertTrue(scan.should_consider_entry(dir))
+
+    def test_complete_scan(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord(3000, 5000, self.input_dir, os.path.join(self.input_dir,"log.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(3000, scan.time_period.start)
+        self.assertEqual(5000, scan.time_period.stop)
+        
+        scan.complete_scan()
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("", last_record.last_path)
+        self.assertTrue(last_record.is_complete())
+    
+    def test_premature_exit(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        open(history_active_file, "x").close()
+        record = incremental.ScanRecord(3000, 5000, self.input_dir, os.path.join(self.input_dir,"log.txt"))
+        incremental.overwrite_scan_record(history_active_file, record)
+        
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(3000, scan.time_period.start)
+        self.assertEqual(5000, scan.time_period.stop)
+        
+        scan.just_scanned_this_entry(paths.QuantumEntry(self.input_dir, "dir/my-log.txt"))
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/my-log.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+        
+        scan.just_scanned_this_entry(paths.QuantumEntry(self.input_dir, "dir/file.txt"))
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/my-log.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+        
+        scan.premature_exit()
+        
+        last_record = incremental.extract_last_scan_record(history_active_file)
+        self.assertEqual(3000, last_record.time_period.start)
+        self.assertEqual(5000, last_record.time_period.stop)
+        self.assertEqual(self.input_dir, last_record.input_dir)
+        self.assertEqual("dir/file.txt", last_record.last_path)
+        self.assertFalse(last_record.is_complete())
+    
+    def test_premature_exit_with_nothing_scanned_so_far(self):
+        history_active_file = os.path.join(self.history_dir, "scan-history-active.txt")
+        scan = incremental.Scan(self.input_dir, self.history_dir, self.scratch_dir)
+        cur_time = time.time()                      # assumes both same time source
+        
+        self.assertGreater(cur_time, scan.safe_time)
+        self.assertEqual(self.input_dir, scan.input_dir)
+        self.assertEqual(self.history_dir, scan.history_dir)
+        self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
+        self.assertEqual(scan.safe_time, scan.time_period.stop)
+        self.assertEqual("", scan.last_path)
+        self.assertEqual(0, os.path.getsize(history_active_file))
+        
+        scan.premature_exit()
+        self.assertEqual(0, os.path.getsize(history_active_file))
+
+
+class WorkerScanTestCase(unittest.TestCase):
+    """ Tests the WorkerScan class for its changed functionality from Scan base class """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.mkdir(self.tmp_dir)
+        self.history_dir = os.path.join(self.tmp_dir, "history")
+        os.mkdir(self.history_dir)
+        self.scratch_dir = os.path.join(self.tmp_dir, "scratch")
+        os.mkdir(self.scratch_dir)
+        self.input_dir = os.path.join(self.tmp_dir, "input")
+        os.mkdir(self.input_dir)
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+        self.assertTrue(not os.path.exists(self.history_dir))
+        self.assertTrue(not os.path.exists(self.scratch_dir))
+    
+    def test_init(self):
+        cur_time = time.time()
+        input_dir = self.input_dir
+        history_dir = self.history_dir
+        scratch_dir = os.path.join(self.scratch_dir, "tmp334")
+        history_active_file = os.path.join(history_dir, "2001789555.txt")
+        history_log_file = os.path.join(history_dir, "2001789555-log.txt")
+        safe_time = cur_time - 10 * 60
+        scan = incremental.WorkerScan(
+            input_dir, history_dir, scratch_dir,
+            history_active_file, history_log_file, safe_time)
+        
+        self.assertEqual(safe_time, scan.safe_time)
+        self.assertEqual(input_dir, scan.input_dir)
+        self.assertEqual(history_dir, scan.history_dir)
+        
+        # TODO: THESE ARE ACTUALLY INCORRECT IN WORKERSCAN, NEED TO FIX THEM!!!!!
+        #self.assertEqual(incremental.TimePeriod.ancient_history(), scan.time_period.start)
+        #self.assertEqual(scan.safe_time, scan.time_period.stop)
+        
+        self.assertEqual("", scan.last_path)
 
 
 class ScanHelperFuncTestCase(unittest.TestCase):
@@ -210,7 +381,7 @@ class ScanHelperFuncTestCase(unittest.TestCase):
     
     def setUp(self):
         tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
-        self.tmp_dir = os.path.join(code_src_dir, tmp_name)
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
         os.makedirs(self.tmp_dir)
         self.assertTrue(os.path.isdir(self.tmp_dir))
     
