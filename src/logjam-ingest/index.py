@@ -43,14 +43,22 @@ def set_data(file_path, send_time, fields_obj):
 def send_to_es(es_obj, fields_obj, file_path):
     """
     Sends the contents of the given file to ES with the attached
-    fields. The system time of the call is also attached and sent.
+    fields. The system time of the call is also attached and sent
+    es_obj:
+        Elasticsearch object
+    fields_obj: 
+        object containing all the fields
+    file_path:
+        file that is being sent to Elasticsearch
     """
-    send_time = int(round(time.time() * 1000))  # Epoch milliseconds
-    
+    #Epoch milliseconds
+    send_time = int(round(time.time() * 1000))  
+
     try:
         error = False
         logging.debug("Indexing: %s", file_path)
-        for success, info in helpers.parallel_bulk(es_obj, set_data(file_path, send_time, fields_obj), index=INDEX_NAME, doc_type='_doc'):
+        data = set_data(file_path, send_time, fields_obj)
+        for success,info in helpers.parallel_bulk(es_obj,data,index=INDEX_NAME,doc_type='_doc'):
             if not success:
                 error = True
         if error:
@@ -59,7 +67,7 @@ def send_to_es(es_obj, fields_obj, file_path):
             logging.debug("Indexed: %s", file_path)
 
     except elasticsearch.exceptions.ConnectionError:
-        logging.critical("Connection error sending doc %s to elastic search (file too big?)", file_path)
+        logging.critical("Connection error sending doc %s to elastic search", file_path)
     
     except UnicodeDecodeError:
         logging.warning("Error reading %s. Non utf-8 encoding?", file_path)
