@@ -233,6 +233,8 @@ def get_platform(lumber_dir):
                     val = val.strip("\n\"\'; ")     # remove puncuation characters
                     if val in HV_ENV_TO_PLATFORM:   # make sure mapping defined
                         return HV_ENV_TO_PLATFORM[val]
+                    else:
+                        logging.warning("Unknown Platform: %s", val)
     
     return MISSING_PLATFORM
 
