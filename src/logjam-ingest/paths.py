@@ -13,7 +13,7 @@ import unzip
 class QuantumEntry:
     """
     Represents a file system entry that could exist in multiple source directories
-    at once. For the purposes of the Logjam system only the relative path after
+    at once. For the purposes of the Logjam system, only the relative path after
     the source directory is relevant. The source directory is only used when
     locating a file absolutely.
     
@@ -88,12 +88,12 @@ class QuantumEntry:
     
     @property
     def absdirpath(self):
-        """ Absolute directory location of this entry """
+        """ Returns the absolute directory location of this entry """
         return os.path.dirname(self.abspath)
     
     @property
     def reldirpath(self):
-        """ Relative directory location of this entry """
+        """ Returns the relative directory location of this entry """
         return os.path.dirname(self.relpath)
     
     @property
@@ -118,22 +118,23 @@ class QuantumEntry:
     def extension(self):
         """
         Returns the extension of the entry (if the extension exists) including
-        the dot before the extension name. Directories should not have an extension.
+        the period before the extension name. Directories should not have an extension.
         If there is no extension the function will return an empty string. Leading
-        dots are ignored. Extension is taken from the relative path in the source
+        periods are ignored. Extension is taken from the relative path in the source
         directory. If there is no relative path, an empty string is returned.
         """
         return os.path.splitext(self.relpath)[1]
     
     def exists(self):
-        """ Returns whether this entry exists in its given source directory """
+        """ Returns whether this entry exists in the source directory """
         return os.path.exists(self.abspath)
     
     def exists_in(self, new_src):
-        """ Returns whether this entry exists in a different source directory """
+        """ Returns whether this entry exists in a given directory """
         return QuantumEntry(new_src, self.relpath).exists()
    
     def is_link(self):
+        """ Returns whether the source directory is a symbolic link """
         return os.path.islink(self.abspath)
     
     def is_dir(self):
@@ -147,8 +148,8 @@ class QuantumEntry:
     def delete(self):
         """
         Attempts to delete the file refernced by this QuantumEntry.
-        Does not change this QuantumEntry. It will still point
-        to the same location on the file system.
+        Does not change this QuantumEntry. It will still point to the same
+        location on the file system. Returns whether it has been deleted or not.
         """
         if not self.exists():
             return True
