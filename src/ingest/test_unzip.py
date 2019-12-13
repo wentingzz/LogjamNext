@@ -16,8 +16,14 @@ import tarfile
 import stat
 import gzip
 import subprocess
+import zipfile
 
 import unzip
+import paths
+
+
+CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
+TEST_DATA_DIR = os.path.join(CODE_SRC_DIR, "test-data", "Unzip")
 
 
 class RecursiveUnzipTestCase(unittest.TestCase):
@@ -157,6 +163,135 @@ class RecursiveUnzipTestCase(unittest.TestCase):
     def tearDownClass(cls):
         # Remove the compressed data
         shutil.rmtree(cls.tmpdir)
+
+
+class ExtractZipTestCase(unittest.TestCase):
+    """ Tests the function for unzipping zip files only """
+    
+    def setUp(self):
+        tmp_name = "-".join([self._testMethodName, str(int(time.time()))])
+        self.tmp_dir = os.path.join(CODE_SRC_DIR, tmp_name)
+        os.makedirs(self.tmp_dir)
+        self.assertTrue(os.path.isdir(self.tmp_dir))
+    
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir)
+        self.assertTrue(not os.path.exists(self.tmp_dir))
+    
+    def test_basic_zip_files(self):
+        dir_to_compress = paths.QuantumEntry(self.tmp_dir, "a/b/c/dir")
+        os.makedirs(dir_to_compress.abspath, exist_ok=True)
+        with open((dir_to_compress/"fileA.txt").abspath, "w") as fd:
+            fd.write("TEXT\n")
+        compressed_file = paths.QuantumEntry(self.tmp_dir, "dir.zip")
+        decompressed_dir = paths.QuantumEntry(self.tmp_dir, "dir")
+        
+        shutil.make_archive(
+            base_name=os.path.join(self.tmp_dir, "dir"),
+            format="zip",
+            root_dir=dir_to_compress.abspath)
+        self.assertTrue(compressed_file.exists())
+        self.assertFalse(decompressed_dir.exists())
+        
+        # First unzip
+        unzip.extract_zip(
+            compressed_file,
+            paths.QuantumEntry(self.tmp_dir, ""))
+        self.assertTrue(compressed_file.exists())
+        self.assertTrue(decompressed_dir.exists())
+        self.assertTrue((decompressed_dir/"fileA.txt").exists())
+        with open((decompressed_dir/"fileA.txt").abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+        
+        # Unzip & already exists
+        unzip.extract_zip(
+            compressed_file,
+            paths.QuantumEntry(self.tmp_dir, ""),
+            exist_ok=True)
+        self.assertTrue(compressed_file.exists())
+        self.assertTrue(decompressed_dir.exists())
+        self.assertTrue((decompressed_dir/"fileA.txt").exists())
+        with open((decompressed_dir/"fileA.txt").abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+        
+        # Unzip & already exists, but we don't want it to exist so raise exception
+        with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't raise exception"):
+            unzip.extract_zip(compressed_file,
+                paths.QuantumEntry(self.tmp_dir, ""),
+                exist_ok=False)
+        self.assertTrue(compressed_file.exists())
+        self.assertTrue(decompressed_dir.exists())
+        self.assertTrue((decompressed_dir/"fileA.txt").exists())
+        with open((decompressed_dir/"fileA.txt").abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+
+    def test_zip_one_file(self):
+        file_to_compress = paths.QuantumEntry(self.tmp_dir, "orig/file.txt")
+        os.makedirs(file_to_compress.absdirpath, exist_ok=True)
+        with open(file_to_compress.abspath, "w") as fd:
+            fd.write("TEXT\n")
+        zip_file = paths.QuantumEntry(self.tmp_dir, "file.txt.zip")
+        decompressed_file = paths.QuantumEntry(self.tmp_dir, "new/file.txt")
+        
+        with zipfile.ZipFile(zip_file.abspath, "w") as z:
+            z.write(file_to_compress.abspath, arcname="file.txt")
+        self.assertTrue(file_to_compress.exists())
+        self.assertTrue(file_to_compress.is_file())
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertFalse(decompressed_file.exists())
+        
+        # First unzip
+        unzip.extract_zip(
+            zip_file,
+            paths.QuantumEntry(self.tmp_dir, "new"))
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertTrue(decompressed_file.exists())
+        self.assertTrue(decompressed_file.is_file())
+        with open(decompressed_file.abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+        
+        # Unzip & already exists
+        unzip.extract_zip(
+            zip_file,
+            paths.QuantumEntry(self.tmp_dir, "new"),
+            exist_ok=True)
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(decompressed_file.exists())
+        self.assertTrue(decompressed_file.is_file())
+        with open(decompressed_file.abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+        
+        # Unzip & already exists, but we don't want it to exist so raise exception
+        with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't raise exception"):
+            unzip.extract_zip(
+                zip_file,
+                paths.QuantumEntry(self.tmp_dir, "new"),
+                exist_ok=False)
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(decompressed_file.exists())
+        self.assertTrue(decompressed_file.is_file())
+        with open(decompressed_file.abspath, "r") as fd:
+            self.assertEqual("TEXT\n", fd.read())
+
+    def test_corrupt_zip(self):
+        zip_file = paths.QuantumEntry(self.tmp_dir, "dir.zip")
+        decompressed_dir = paths.QuantumEntry(self.tmp_dir, "dir")
+        
+        with open(zip_file.abspath, "wb") as fd:
+            fd.write(b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertFalse(decompressed_dir.exists())
+        
+        with self.assertRaises(unzip.AcceptableException, msg="Unzip didn't throw on corrupt"):
+            unzip.extract_zip(
+                zip_file,
+                paths.QuantumEntry(self.tmp_dir, ""))
+        self.assertTrue(zip_file.exists())
+        self.assertTrue(zip_file.is_file())
+        self.assertTrue(decompressed_dir.exists(), "dest_dir should exist even on failure!!!")
 
 
 class DeleteFileTestCase(unittest.TestCase):
