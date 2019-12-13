@@ -25,6 +25,7 @@ import concurrent.futures
 
 import index
 import fields
+import paths
 
 
 CODE_SRC_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -87,6 +88,7 @@ class IndexDataTestCase(unittest.TestCase):
     def test_set_data(self):
         docs = [
             {
+                "_id": "aaa.txt/1",
                 "_source": {
                     "case":"4007",
                     "node_name":fields.MISSING_NODE_NAME,
@@ -98,6 +100,7 @@ class IndexDataTestCase(unittest.TestCase):
                 },
             },
             {
+                "_id": "aaa.txt/2",
                 "_source": {
                     "case":"4007",
                     "node_name":fields.MISSING_NODE_NAME,
@@ -109,6 +112,7 @@ class IndexDataTestCase(unittest.TestCase):
                 },
             },
             {
+                "_id": "aaa.txt/3",
                 "_source": {
                     "case":"4007",
                     "node_name":fields.MISSING_NODE_NAME,
@@ -121,8 +125,8 @@ class IndexDataTestCase(unittest.TestCase):
             },
         ]
         
-        aaa_file = os.path.join(self.tmp_dir, "aaa.txt")
-        with open(aaa_file, "w",newline="\n") as fd:
+        aaa_file = paths.QuantumEntry(self.tmp_dir, "aaa.txt")
+        with open(aaa_file.abspath, "w",newline="\n") as fd:
             fd.write("xyz\n");
             fd.write("pqr\n");
             fd.write("abc\n");
@@ -134,8 +138,8 @@ class IndexDataTestCase(unittest.TestCase):
         return
     
     def test_set_data_decode_error(self):
-        xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
-        with open(xxx_file, "wb") as fd:
+        xxx_file = paths.QuantumEntry(self.tmp_dir, "xxx.txt")
+        with open(xxx_file.abspath, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
         
         nodefields = fields.NodeFields(case_num="4007")
@@ -175,8 +179,8 @@ class IndexDataTestCase(unittest.TestCase):
             },
         ]
         
-        aaa_file = os.path.join(self.tmp_dir, "aaa.txt")
-        with open(aaa_file, "w",newline="\n") as fd:
+        aaa_file = paths.QuantumEntry(self.tmp_dir, "aaa.txt")
+        with open(aaa_file.abspath, "w",newline="\n") as fd:
             fd.write("xyz\n");
             fd.write("pqr\n");
             fd.write("abc\n");
@@ -193,8 +197,8 @@ class IndexDataTestCase(unittest.TestCase):
         return
 
     def test_send_to_es_decode_error(self):
-        xxx_file = os.path.join(self.tmp_dir, "xxx.txt")
-        with open(xxx_file, "wb") as fd:
+        xxx_file = paths.QuantumEntry(self.tmp_dir, "xxx.txt")
+        with open(xxx_file.abspath, "wb") as fd:
             fd.write(bytes.fromhex("FF FF FF"))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
