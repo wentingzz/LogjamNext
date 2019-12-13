@@ -4,6 +4,7 @@
 @author Jeremy Schmidt
 @author Nathaniel Brooks
 @author Wenting Zheng
+@author Daniel Grist
 
 Functionality for extracting StorageGRID log fields (platform, version, etc.)
 and handling other StorageGRID related tasks such as identifying valid StorageGRID logs.
@@ -13,7 +14,6 @@ and handling other StorageGRID related tasks such as identifying valid StorageGR
 import re
 import os
 import logging
-
 import paths
 
 
@@ -25,9 +25,9 @@ MISSING_TIME_SPAN = "Unknown-Unknown"
 MISSING_NODE_NAME = "Unknown"
 MISSING_GRID_ID = "Unknown"
 
-HV_ENV_TO_PLATFORM = {                              # in file: HV_ENV = '"dict key"';
-    "vSphere" : "vSphere",                          # TODO: Container platform key is
-    "SGA" : "SGA",                                  # unknown
+HV_ENV_TO_PLATFORM = {                              
+    "vSphere" : "vSphere",                          
+    "SGA" : "SGA",                                  
 }
 
 # List of all categories to sort log files by
@@ -36,25 +36,27 @@ CATEGORIES = {
     "bycast" : r".*bycast.*", "cassandra_commands" : r".*cassandra[/_-]*command.*",
     "cassandra_gc" : r".*cassandra[/_-]*gc.*",
     "cassandra_system" : r".*cassandra[/_-]*system.*", "dmesg" : r".*dmesg.*",
-    "gdu_server" : r".*gdu[/_-]*server.*", "init_sg": r".*init[/_-]*sg.*", "install": r".*install.*",
-    "kern" : r".*kern.*", "messages": r".*messages.*", "pge_image_updater": r".*pge[/_-]*image[/_-]*updater.*",
+    "gdu_server" : r".*gdu[/_-]*server.*", "init_sg": r".*init[/_-]*sg.*", 
+    "install": r".*install.*", "kern" : r".*kern.*", "messages": r".*messages.*", 
+    "pge_image_updater": r".*pge[/_-]*image[/_-]*updater.*", 
     "pge_mgmt_api" : r".*pge[/_-]*mgmt[/_-]*api.*", "server_manager" : r".*server[/_-]*manager.*",
-    "sg_fw_update" : r".*sg[/_-]*fw[/_-]*update.*", "storagegrid_daemon" : r".*storagegrid.*daemon.*",
-    "storagegrid_node" : r".*storagegrid.*node.*", "syslog" : ".*syslog.*",
-    "system_commands": r".*system[/_-]*commands.*", "upgrade":r".*upgrade.*"
+    "sg_fw_update" : r".*sg[/_-]*fw[/_-]*update.*", "storagegrid_node" : r".*storagegrid.*node.*",
+    "storagegrid_daemon" : r".*storagegrid.*daemon.*",
+    "syslog":".*syslog.*","system_commands":r".*system[/_-]*commands.*","upgrade":r".*upgrade.*"
 }
 
-VALID_LOG_EXTENSIONS = [                       # extensions to use outside lumberjack
+# Extensions to use outside lumberjacks
+VALID_LOG_EXTENSIONS = [                       
     ".txt",
     ".log",
 ]
 
-VALID_LOG_FILENAMES = [                        # filenames to use outside lumberjack
+# Filenames to use outside lumberjack
+VALID_LOG_FILENAMES = [                        
     "syslog",
     "messages",
     "system_commands",
 ]
-
 
 class NodeFields:
     """
@@ -78,7 +80,7 @@ class NodeFields:
         node_name = get_node_name(lumber_dir)
         grid_id = get_grid_id(lumber_dir)
         
-        return NodeFields(  sg_ver=sg_ver,              # should not extract case number
+        return NodeFields(  sg_ver=sg_ver,          
                             platform=platform,
                             category=category,
                             time_span=time_span,
@@ -153,6 +155,8 @@ def get_category(lumber_dir):
     Gets the category for a StorageGRID Node based on the lumberjack directory provided
     lumber_dir : string
         the lumberjack directory to search for category
+    return : string
+        the category of the directory or MISSING_CATEGORY if not found
     """
     # Split the path by sub-directories
     splitPath = lumber_dir.replace('\\','/').split("/")
@@ -228,10 +232,11 @@ def get_platform(lumber_dir):
     if user_data_file.is_file():
         with open(user_data_file.abspath, "r") as fd:
             for line in fd:
-                if "HV_ENV" in line and "=" in line:# has magic word (HV_ENV) & equals
-                    val = line.split("=")[1]        # take part after equals
-                    val = val.strip("\n\"\'; ")     # remove puncuation characters
-                    if val in HV_ENV_TO_PLATFORM:   # make sure mapping defined
+                # Take part after "=" and remove other punctuation characters
+                if "HV_ENV" in line and "=" in line:
+                    val = line.split("=")[1]        
+                    val = val.strip("\n\"\'; ")     
+                    if val in HV_ENV_TO_PLATFORM:   
                         return HV_ENV_TO_PLATFORM[val]
     
     return MISSING_PLATFORM
@@ -241,6 +246,10 @@ def get_time_span(lumber_dir):
     """
     Gets the time span represented by the given lumberjack directory.
     The time span format is two numbers with a dash between them (ex. 0000-0000)
+    lumber_dir: string
+        the path of the specified lumberjack directory
+    return: string
+        the time span with a dash in between, otherwise MISSING_TIME_SPAN
     """
     match_obj = re.match(r"^([\d]+[-][\d]+)$", os.path.basename(lumber_dir))
     if match_obj is None:
@@ -253,6 +262,10 @@ def get_node_name(lumber_dir):
     """
     Gets the node name represented by the given lumberjack directory.
     The node name is located two directories above the lumberjack directory.
+    lumber_dir: string
+        the path of the specified lumberjack directory
+    return: string
+        the name of the node, empty string otherwise
     """
     return os.path.basename(os.path.dirname(lumber_dir))
 
@@ -261,6 +274,10 @@ def get_grid_id(lumber_dir):
     """
     Gets the grid id represented by the given lumberjack directory.
     The grid id is located three directories above the lumberjack directory.
+    lumber_dir: string
+        the path of the specified lumberjack directory
+    return: string
+        the grid id, otherwise empty string
     """
     return os.path.basename(os.path.dirname(os.path.dirname(lumber_dir)))
 
@@ -271,6 +288,12 @@ def extract_fields(lumber_dir, *, inherit_from):
     denoted by `lumber_dir` and returns a new NodeFields object with the fields.
     The object inherits missing values from `inherit_from` NodeFields object.
     All files under the `lumber_dir` are valid for extracting fields from.
+    lumber_dir: string
+        the path of the specified lumberjack directory
+    inherit_from: NodeFields object
+        object that is used to inherit missing values
+    return: Nodefields object
+        extracted fields
     """
     new_fields = NodeFields.from_lumberjack_dir(lumber_dir)
     
@@ -283,6 +306,10 @@ def contains_bycast(entry_path):
     """
     Returns true if the entry in question has the text string `bycast` in either
     its path or its contents. If the entry is a directory, only check its path.
+    entry_path: string
+        the path that is being inspected
+    return: bool
+        True if the path contains "bycast"
     """
     if "bycast" in entry_path:
         return True
@@ -306,6 +333,12 @@ def is_storagegrid(nodefields, entry):
     Determines whether the entry is related to StorageGRID. Rejects files without
     a correct extension or filename. If the file is outside a lumberjack directory,
     it additionally performs a full bycast search on the path & contents.
+    nodefields: Nodefields object
+        Object containing the node fields 
+    entry: QuantumEntry
+        path for the entry that is being checked
+    return: bool
+        True if the entry pertains to StorageGRID
     """
     assert isinstance(nodefields, NodeFields), "Wrong argument type"
     assert isinstance(entry, paths.QuantumEntry), "Wrong argument type"
@@ -315,10 +348,10 @@ def is_storagegrid(nodefields, entry):
     valid_path = valid_ext or valid_name
     
     if not valid_path:
-        return False                                # always drop bad extensions/names
+        return False
     
-    if nodefields.node_name != MISSING_NODE_NAME:   # name found, inside lumberjack dir
+    if nodefields.node_name != MISSING_NODE_NAME:
         return True
-    else:                                           # no name, outside lumberjack dir
+    else:                                       
         return valid_path and contains_bycast(entry.abspath)
 
