@@ -198,7 +198,7 @@ def get_storage_grid_version(lumber_dir):
     lumber_dir: string
         the path of the specified lumberjack directory
     return: tuple of major version and minor version if
-            the version if found, otherwise MISSING SG_VER
+        the version if found, otherwise MISSING SG_VER
     """
     SG_RELEASE = "storage-grid-release-"
     sys_file = os.path.join(lumber_dir, "system_commands")
