@@ -62,7 +62,7 @@ def send_to_es(es_obj, fields_obj, file_entry):
         Elasticsearch object
     fields_obj: 
         object containing all the fields
-    file_path:
+    file_entry:
         file that is being sent to Elasticsearch
     """
     #Epoch milliseconds
@@ -70,8 +70,8 @@ def send_to_es(es_obj, fields_obj, file_entry):
 
     try:
         error = False
-        logging.debug("Indexing: %s", file_path)
-        data = set_data(file_path, send_time, fields_obj)
+        logging.debug("Indexing: %s", file_entry.relpath)
+        data = set_data(file_entry, send_time, fields_obj)
         for success,info in helpers.parallel_bulk(es_obj,data,index=INDEX_NAME,doc_type='_doc'):
             if not success:
                 error = True
