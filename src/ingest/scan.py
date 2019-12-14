@@ -4,6 +4,7 @@
 @author Jeremy Schmidt
 @author Nathaniel Brooks
 @author Wenting Zheng
+@author Daniel Grist
 
 This script will be used to recursively search through and unzip directories as necessary
 and output files with extensions .log and .txt to Logjam
@@ -36,15 +37,22 @@ import index
 import fields
 import paths
 
+# Directory of the code source
+code_src_dir = os.path.dirname(os.path.realpath(__file__))
 
-code_src_dir = os.path.dirname(os.path.realpath(__file__))          # remove eventually
-intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")   # remove eventually
+# Data directory
+intermediate_dir = os.path.join(code_src_dir, "..", "..", "data")
+
+# Max number of workers (None = number of processors)
 MAX_WORKERS = None
 
+# Path to the Elasticsearch mappings
 mappings_path = os.path.join(code_src_dir, "..", "elasticsearch/mappings.json")
 
+# Flag used for aborting in the middle of the scan
 graceful_abort = False
-#elasticsearch host
+
+# Elasticsearch host
 es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
 LOG_LEVEL_STRS = {
@@ -58,10 +66,8 @@ LOG_LEVEL_STRS = {
 def main():
     """
     Recursively walks the directories of the inspection
-    directory, copying relevant files into Logjam controlled
-    filespace for further processing by Logstash. Unzips compressed
-    files into Logjam controlled scratchspace, then moves relevant files
-    for further processing by Logstash. This function validates parameters, then
+    directory. Unzips compressed files into Logjam controlled scratchspace. 
+    This function validates parameters, then
     starts the main business logic by calling `ingest_log_files`.
     """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
@@ -73,7 +79,7 @@ def main():
                         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
                         help='Scratch space directory to unzip files into')
-    parser.add_argument('-p','--processor', dest='processor_num', type = int, help='Number of the processors')
+    parser.add_argument('-p','--processor',dest='processor_num',type=int,help='Processor number')
     args = parser.parse_args()
 
     log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
@@ -133,7 +139,8 @@ def main():
     
     finally:
         logging.info("Cleaning up scratch space")
-        unzip.delete_directory(scratch_dir)         # always delete scratch_dir
+        # Always delete scratch_dir
+        unzip.delete_directory(scratch_dir)     
 
 
 def get_es_connection():
@@ -151,8 +158,14 @@ def get_es_connection():
 def ingest_log_files(input_dir, scratch_dir, history_dir):
     """
     Begins ingesting files from the specified directories. Assumes that
-    Logjam DOES NOT own `input_dir` or `categ_dir` but also assumes that
+    Logjam DOES NOT own `input_dir` but also assumes that
     Logjam DOES own `scratch_dir` and `history_dir`.
+    input_dir: string
+        path to the input directory
+    scratch_dir: string
+        path to the scratch directory
+    history_dir: string
+        path to the histry directory
     """
     assert os.path.isdir(input_dir), "Input must exist & be a directory"
     
@@ -163,20 +176,20 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
         
         futures = []
         search_dir = paths.QuantumEntry(input_dir, "")
-        for entry in incremental.list_unscanned_entries(search_dir, os.path.basename(scan.last_path)):
+        for e in incremental.list_unscanned_entries(search_dir,os.path.basename(scan.last_path)):
             
-            if entry.is_dir():
-                case_num = fields.get_case_number(entry.relpath)
+            if e.is_dir():
+                case_num = fields.get_case_number(e.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
-                    logging.debug("Search case directory: %s", entry.abspath)
+                    logging.debug("Search case directory: %s", e.abspath)
                     futures.append(executor.submit(search_case_directory, scan, input_dir, case_num))
                     
                     assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
                     
                 else:
-                    logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
+                    logging.debug("Ignored non-StorageGRID directory: %s", e.abspath)
             else:
-                logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
+                logging.debug("Ignored non-StorageGRID file: %s", e.abspath)
 
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
             # Raise any exception from child process
@@ -195,6 +208,12 @@ def search_case_directory(scan_obj, input_dir, case_num):
     been indexed by the Logjam system. Uses the Scan object's time period window to
     determine if a file has been previously indexed. Upon finding valid files, will
     send them to a running Elastissearch service via the Elastisearch object `es_obj`.
+    scan_object: ManagerScan
+        Used to determine the scan period
+    input_dir: string
+        path to input directory 
+    case_num: string
+        case directory number
     """
     
     global graceful_abort
@@ -203,7 +222,10 @@ def search_case_directory(scan_obj, input_dir, case_num):
         
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
     
-    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, 
+                                        scan_obj.scratch_dir, str(case_num) + ".txt", 
+                                        str(case_num) + "-log.txt", scan_obj.safe_time)
+
     assert child_scan.input_dir == scan_obj.input_dir
     
     if not child_scan.already_scanned:
@@ -228,33 +250,47 @@ def recursive_search(scan, es, nodefields, cur_dir):
     """
     Recursively searches directories for StorageGRID Nodes and Log Files. Unzips
     compressed files as needed. Sends the log data to Elasticsearch via the 'es'.
+    scan: ManagerScan
+        Keeps track of what has been scanned
+    es: Elasticsearch object
+        Elasticsearch
+    nodefields: NodeFields
+        contains the NodeFields to be added
+    cur_dir: QuantumEntry
+        path of the current directory
     """
     assert isinstance(nodefields, fields.NodeFields), "Wrong argument type"
     assert isinstance(cur_dir, paths.QuantumEntry), "Wrong argument type"
     assert cur_dir.is_dir(), "Entry is not a directory: " + cur_dir.abspath
     
-    if graceful_abort:                                  # kick out if abort requested
+    # Exit if abort requested
+    if graceful_abort:       
         return
-    
-    if (cur_dir/"lumberjack.log").is_file():            # extract fields 1st
+
+    # Extract fields first
+    if (cur_dir/"lumberjack.log").is_file():            
         logging.debug("Extracting fields from lumberjack directory: %s", cur_dir.relpath)
         nodefields = fields.extract_fields(cur_dir.abspath, inherit_from=nodefields)
-
-    for entry in scan.list_unscanned_entries(cur_dir):  # loop over each unscanned entry
-        if not scan.should_consider_entry(entry):       # check, has been scanned?
+    
+    # Loop over each unscanned entry and ingest it
+    for entry in scan.list_unscanned_entries(cur_dir): 
+        if not scan.should_consider_entry(entry):       
             logging.debug("Skipping file, outside timespan: %s", entry.abspath)
-            scan.just_scanned_this_entry(entry)         # log the scan
-            continue                                    # continue, next entry
+            # Log the scan
+            scan.just_scanned_this_entry(entry)         
+            continue                                    
         
         if entry.extension in unzip.SUPPORTED_FILE_TYPES and entry.is_file():
             scratch_entry = unzip_into_scratch_dir(scan.input_dir, scan.scratch_dir, entry)
             if scratch_entry == entry:
                 logging.debug("Skipping archive, already unpacked: %s", entry.abspath)
-                scan.just_scanned_this_entry(entry)     # log the scan
-                continue                                # continue, next entry
+                # Log the scan
+                scan.just_scanned_this_entry(entry)     
+                continue                                
             else:
                 logging.debug("Unpacked archive, path open: %s", scratch_entry.abspath)
-                entry = scratch_entry                   # override old entry
+                # Override old entry
+                entry = scratch_entry
         
         if entry.is_file():
             if fields.is_storagegrid(nodefields, entry):
@@ -267,19 +303,22 @@ def recursive_search(scan, es, nodefields, cur_dir):
                 logging.debug("Recursing into directory: %s", entry.abspath)
                 recursive_search(scan, es, nodefields, entry)
             except OSError as e:
-                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
-        
-        else:                                           # it wasn't a dir or file?
+                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", 
+                                 cur_dir.abspath, e)
+
+        # Wasn't a directory or a file
+        else:                                           
             logging.debug("Skipped unknown entry: %s", entry.abspath)
         
-        if entry.srcpath == scan.scratch_dir:           # if entry inside scratch
+        if entry.srcpath == scan.scratch_dir:           
             logging.debug("Delete unpacked archive: %s", entry.abspath)
-            entry.delete()                              # rm on FS (does not clear entry)
-        
-        scan.just_scanned_this_entry(entry)             # log the scan
-        continue                                        # continue, next entry
+            # rm on FS (does not clear entry)
+            entry.delete()                   
+        # Log the scan
+        scan.just_scanned_this_entry(entry)             
+        continue                                        
     
-    return                                              # done searching this cur_dir
+    return                                              
 
 
 def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
@@ -291,6 +330,13 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
                        Source       - Relative
     compressed_entry = /mnt/srv/nfs - 2001589801/var/os/dir.zip  ---.
        scratch_entry = /tmp/scratch - 2001589801/var/os/dir  <------'
+
+    input_dir: string
+        path to the input directory
+    scratch_dir: string
+        path to the scratch directory
+    compressed_entry: QuantumEntry
+        directory of the compressed entry
     """
     assert isinstance(input_dir, str)
     assert isinstance(scratch_dir, str)
@@ -304,15 +350,17 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
     scratch_entry = paths.QuantumEntry(scratch_dir, stripped_rel_path)
     
     if scratch_entry.exists_in(input_dir) or scratch_entry.exists_in(scratch_dir):
-        return compressed_entry                     # already exists, return unchanged
+        # Already exists, return unchanged
+        return compressed_entry           
 
     assert not scratch_entry.exists(), "Scratch entry should not exist"
     try:
         unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
-        assert scratch_entry.exists(), "Scratch entry should have been created" + scratch_entry.relpath
+        assert scratch_entry.exists(),"Scratch entry should exist" + scratch_entry.relpath
     except unzip.AcceptableException:
         pass
-    return scratch_entry                            # return unzipped entry
+    # Return unzipped entry
+    return scratch_entry   
 
 
 if __name__ == "__main__":

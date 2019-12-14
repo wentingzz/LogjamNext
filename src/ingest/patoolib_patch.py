@@ -1,4 +1,6 @@
 """
+@author Jeremy Schmidt
+
 Performs a swap of a single function in patoolib to allow
 extracting password protected 7zip archives non-interactively
 """

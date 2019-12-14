@@ -64,7 +64,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     except:
         logging.warning("Get mod time failed, skipping zipped file: %s", src)
         # Do not change permissions, may not own file
-        raise AcceptableException("Get mod time failed")      # raise exception
+        raise AcceptableException("Get mod time failed")    
     
     def handle_extracted_file(path):
         """ Callback for each unzipped file """
@@ -77,17 +77,18 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
         if os.path.splitext(path)[1] in SUPPORTED_FILE_TYPES:
             recursive_unzip(path, os.path.dirname(path), action)
-            delete_file(path)                   # delete zip file, unzipped same location
+            delete_file(path)                   
         else:
-            action(path)                        # basic file, perform action
-            #delete_file(path)                  # no basic file clean up, leave for caller
+            # Basic file, perform action
+            action(path)                
         return
     
-    extension = os.path.splitext(src)[1]        # dest file/dir will mirror old name
+    # Destination will mirror the old name
+    extension = os.path.splitext(src)[1]
     dest = os.path.join(dest, strip_zip_ext(os.path.basename(src)))
     assert os.path.isabs(dest), "New destination path not absolute: "+dest
     
-    if os.path.exists(dest):                    # file/dir already exists
+    if os.path.exists(dest):                
         logging.warning("This path was already unzipped: %s", dest)
         raise AcceptableException("This path was already unzipped")
     
@@ -126,18 +127,19 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
             raise AcceptableException("Unable to unzip")
 
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
-        os.makedirs(dest)                       # make dir to unpack file contents
+        os.makedirs(dest)                       
         
+        # Exception handling only
         error_flag = False
-        try:                                    # exception handling here only
+        try:                            
             conans.tools.unzip(src, dest, keep_permissions=False)
         except Exception as e:
             logging.critical("Error during Conan unzip: %s", e)
-            error_flag = True                   # just log it and skip it
+            error_flag = True                   
         
         if not error_flag:
-            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-            #delete_directory(dest)             # no basic dir clean up, leave for caller
+            # Walk and unzip if needed
+            recursive_walk(dest, handle_extracted_file)
         else:
             if os.path.exists(dest):
                 delete_directory(dest)
@@ -145,9 +147,10 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         
     elif extension == ".gz":
         logging.debug("Decompressing: %s", src)
-        
+       
+        # Exception handling only
         error_flag = False
-        try:                                    # exception handling here only
+        try:                                    
             with gzip.open(src, "rb") as in_fd, open(dest, "wb") as out_fd:
                 while True:
                     data = in_fd.read(1000000)
@@ -156,10 +159,11 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
                     out_fd.write(data)
         except Exception as e:
             logging.critical("Error during GZip unzip: %s", e)
-            error_flag = True                   # just log it and skip it
+            error_flag = True               
         
         if not error_flag:
-            handle_extracted_file(dest) # Recurse for an archive, perform 'action' for a regular file
+            # Recurses through an archive or performs an action to a file
+            handle_extracted_file(dest) 
         else:
             if os.path.exists(dest):
                 if os.path.isdir(dest):
@@ -172,18 +176,19 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         logging.debug("7z Decompressing: %s", src)
         
         assert not os.path.exists(dest), "Directory should not already exist: "+dest
-        os.makedirs(dest)                       # make dir to unpack file contents
+        os.makedirs(dest)                       
         
+        # Exception handling only
         error_flag = False
-        try:                                    # exception handling here only
+        try:                     
             patoolib.extract_archive(src, outdir=dest)
         except Exception as e:
             logging.critical("Error during patool 7zip extraction: %s", e)
-            error_flag = True                   # just log it and skip it
+            error_flag = True                   
         
         if not error_flag:
-            recursive_walk(dest, handle_extracted_file)# walk & unzip if need be
-            #delete_directory(dest)             # no basic dir clean up, leave for caller
+            # Walk and unzip if needed
+            recursive_walk(dest, handle_extracted_file)
         else:
             if os.path.exists(dest):
                 delete_directory(dest)
@@ -206,8 +211,7 @@ def recursive_walk(src, action):
     """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isdir(src), "Source should be a dir: "+src
-    assert os.path.isabs(src), "Source path should be absolute: "+src
-    assert type(action) in [types.FunctionType, types.LambdaType], "Parameter action was not a function"
+    assert type(action) in [types.FunctionType,types.LambdaType],"Parameter action not a function"
     
     for (dirpath,dirnames,filenames) in os.walk(src):
         for file in filenames:
@@ -221,6 +225,8 @@ def recursive_walk(src, action):
 def lift_permissions(path):
     """
     Recursively chmods input file to 755
+    path: string
+        path to input file
     """
     if platform.system() != "Windows":
         parent_dir = os.path.dirname(path)
@@ -228,28 +234,39 @@ def lift_permissions(path):
         if exit_code != 0:
             logging.warning("Bad exit code for chmod: %d %s", exit_code, path)
     else:
-        os.chmod(path, stat.S_IWRITE)   # turn off read-only
+        # Turn off read-only
+        os.chmod(path, stat.S_IWRITE)
 
 
 def try_fs_operation(path, func):
     """
     Tries to execute the given file system operation with lift_permissions
     as a backup in case a 'Permission Denied' error is raised.
+    path: string
+        path to the given directory/file
+    func: function 
+        operation to perform to path
+    return: bool
+        True if operation succeeds on path
     """
+    # Try opperation with the given path
     try:
-        func(path)                      # try operation with the given path
-        return True                     # operation succeeded, return True
+        func(path)                  
+        return True                     
     except OSError as e:
-        if e.errno != 13:               # not permission denied (unknown error code)
-            return False                # could not complete operation, return failure
-        
-    lift_permissions(path)              # try raising the permissions of the path
+        # Not permission denied
+        if e.errno != 13:       
+            return False                
     
+    # Try raising the permissions of the path
+    lift_permissions(path)          
+    
+    # Try operation again
     try:
-        func(path)                      # try operation again
-        return True                     # operation succeeded on 2nd try, return True
+        func(path)                      
+        return True                     
     except:
-        return False                    # error occurred, couldn't fix it
+        return False                    
 
 
 def extract_zip(zip_file, dest_dir, *, exist_ok=True):
@@ -306,6 +323,8 @@ def delete_file(path):
     Attempts to delete a file. If there is a problem halt the program.
     path : string
         path of the file to delete
+    return: bool
+        True if the file is deleted successfully
     """
     path = os.path.abspath(path)
     
@@ -321,6 +340,8 @@ def delete_directory(path):
     Attempts to delete a directory. If there is a problem halt the program.
     path : string
         path of the directory to delete
+    return: bool
+        True if the directory was deleted successfully
     """
     path = os.path.abspath(path)
     
@@ -335,18 +356,26 @@ def strip_all_zip_exts(path):
     """
     Strips all the zip extensions from the path and returns the new path without all
     the zip extensions. If the path did not have zip extensions, returns it unchanged.
+    path: string
+        path to strip zip extensions from
     """
     while True:
-        new_path = strip_zip_ext(path)              # strip one extension
-        if new_path == path:                        # was extension stripped?
-            return path                             # no change, all done!
-        path = new_path                             # recurse down path
+        # Strip one extension
+        new_path = strip_zip_ext(path)              
+        if new_path == path:                        
+            return path                             
+        # Recurse to the next extension
+        path = new_path                             
 
 
 def strip_zip_ext(path):
     """
     Strips a zip extension off the provided path and returns the new path without
     the extension. If the path does not have a zip extension, returns the same path.
+    path: string
+        path that is being stripped
+    return: string
+        Path without the extension
     """
     (prior, extension) = os.path.splitext(path)
     if extension in SUPPORTED_FILE_TYPES:
