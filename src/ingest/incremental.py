@@ -437,7 +437,8 @@ def append_scan_record(path, scan_record):
         file.write(str(scan_record)+"\n")
 
 class WorkerScan(Scan):
-    def __init__(self, input_dir, history_dir, scratch_dir, history_active_file, history_log_file, safe_time):
+    def __init__(self, input_dir, history_dir, scratch_dir, 
+                 history_active_file, history_log_file, safe_time):
         """ Constructs a WorkerScan which operates on the given input directory. """
         assert os.path.exists(input_dir), "File path must exist"
 
@@ -512,7 +513,6 @@ class ManagerScan(Scan):
                 int(filename)
                 unzip.delete_file(os.path.join(self.history_dir, worker_history_file))
             except:
-                print(filename)
                 continue
 
         # Internally close the Scan

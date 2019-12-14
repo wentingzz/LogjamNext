@@ -20,16 +20,21 @@ import stat
 import conans
 import gzip
 import patoolib
+import subprocess
+import zipfile
 
+import paths
 import patoolib_patch
 patoolib_patch.patch_7z(patoolib)
 
 
 SUPPORTED_FILE_TYPES = {".gz", ".tgz", ".tar", ".zip", ".7z"}
 
+
 class AcceptableException(Exception):
     def __init___(self, arg):
         Exception.__init__(self, arg)
+
 
 def recursive_unzip(src, dest, action=lambda file_abspath: None):
     """
@@ -87,7 +92,34 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
         logging.warning("This path was already unzipped: %s", dest)
         raise AcceptableException("This path was already unzipped")
     
-    if extension == ".zip" or extension == ".tar" or extension == ".tgz": 
+    if extension == ".zip":
+        logging.debug("Unzipping: %s", src)
+        
+        zip_file = src
+        dest_dir = os.path.dirname(dest)
+        unzip_entry = paths.QuantumEntry(dest_dir, strip_zip_ext(os.path.basename(src)))
+        assert unzip_entry.abspath == os.path.abspath(dest)
+        
+        try:
+            extract_zip(
+                paths.QuantumEntry(os.path.dirname(zip_file), os.path.basename(zip_file)),
+                paths.QuantumEntry(os.path.dirname(dest_dir), os.path.basename(dest_dir)),
+                exist_ok=True)
+            assert unzip_entry.exists()
+        
+        except AcceptableException as e:
+            logging.critical("Error during ZipFile unzip: %s", e)
+            unzip_entry.delete()
+            raise AcceptableException("Error during ZipFile unzip: %s", e)
+        
+        if unzip_entry.is_dir():
+            recursive_walk(unzip_entry.abspath, handle_extracted_file)
+        elif unzip_entry.is_file():
+            handle_extracted_file(unzip_entry.abspath)
+        else:
+            raise Exception("Seemingly impossible execution path")
+    
+    elif extension == ".tar" or extension == ".tgz": 
         logging.debug("Unzipping: %s", src)
         
         if "." in dest:
@@ -165,6 +197,7 @@ def recursive_unzip(src, dest, action=lambda file_abspath: None):
     else:
         logging.critical("This execution path should never be reached")
         raise Exception("Seemingly impossible execution path")
+    
     return
 
 
@@ -178,7 +211,7 @@ def recursive_walk(src, action):
     """
     assert os.path.exists(src), "Source does not exist: "+src
     assert os.path.isdir(src), "Source should be a dir: "+src
-    assert type(action) in [types.FunctionType, types.LambdaType], "Parameter action was not a function"
+    assert type(action) in [types.FunctionType,types.LambdaType],"Parameter action not a function"
     
     for (dirpath,dirnames,filenames) in os.walk(src):
         for file in filenames:
@@ -234,6 +267,55 @@ def try_fs_operation(path, func):
         return True                     
     except:
         return False                    
+
+
+def extract_zip(zip_file, dest_dir, *, exist_ok=True):
+    """
+    Unzips the provided zip file into the destination directory. Assumes
+    that Logjam does not own the zip file. If the zip file unzips into a single
+    file, then that is placed under dest_dir. Otherwise, place the unzipped contents
+    into a directory named after the filename portion of the zip file. Guarantees that
+    there is always a directory or file in the dest_dir named after the zip_file (makes
+    this function idempotent). Errors during unzipping are propagated through exceptions.
+    """
+    assert zip_file.extension == ".zip", "zip_file had no .zip ext: " + zip_file.abspath
+    
+    os.makedirs(dest_dir.abspath, exist_ok=True)
+    
+    base_name = zip_file.filename                               # ex. d.tar.zip -> d.tar
+    unzip_dir = dest_dir/base_name                              # ex. /tmp/d.tar
+    if unzip_dir.exists():
+        if exist_ok:
+            return
+        else:
+            raise AcceptableException("Already unzipped!")
+    
+    os.makedirs(unzip_dir.abspath, exist_ok=True)
+    
+    try:
+        with zipfile.ZipFile(zip_file.abspath, "r") as z:
+            z.extractall(path=unzip_dir.abspath)
+    except zipfile.BadZipFile as e:
+        raise AcceptableException("Python 3 ZipFile failed, exception: %s" % str(e))
+    assert zip_file.exists(), "Zip file was tampered with: " + zip_file.abspath
+    
+    children = os.listdir(unzip_dir.abspath)
+    if len(children)==1 and children[0]==base_name:             # ex. /tmp/d.tar/d.tar
+        unzip_file_orig = unzip_dir/children[0]
+        unzip_file_tmp = dest_dir/(children[0]+".zip.zip.zip")
+        shutil.move(unzip_file_orig.abspath, unzip_file_tmp.abspath)
+        assert not unzip_file_orig.exists()
+        assert unzip_file_tmp.exists()
+        
+        shutil.rmtree(unzip_dir.abspath)
+        assert not unzip_dir.exists()
+        
+        unzip_file_new = dest_dir/children[0]
+        shutil.move(unzip_file_tmp.abspath, unzip_file_new.abspath)
+        assert not unzip_file_tmp.exists()
+        assert unzip_file_new.exists()
+        
+    return
 
 
 def delete_file(path):
@@ -300,3 +382,4 @@ def strip_zip_ext(path):
         return prior
     else:
         return path
+

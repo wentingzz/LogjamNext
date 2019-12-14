@@ -26,6 +26,7 @@ import sys
 import time
 import signal
 import concurrent.futures
+from tqdm import tqdm
 import multiprocessing
 
 from elasticsearch import Elasticsearch
@@ -54,6 +55,13 @@ graceful_abort = False
 # Elasticsearch host
 es_host = "http://%s:9200" % os.environ.get("ELASTICSEARCH_HOST", "localhost")
 
+LOG_LEVEL_STRS = {
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "CRITICAL": logging.CRITICAL,
+    "DEBUG": logging.DEBUG,
+}
+
 
 def main():
     """
@@ -63,7 +71,7 @@ def main():
     starts the main business logic by calling `ingest_log_files`.
     """
     parser = argparse.ArgumentParser(description='File ingestion frontend for Logjam.Next')
-    parser.add_argument('--log-level', dest='log_level', default='DEBUG',
+    parser.add_argument('--log-level', dest='log_level', default="DEBUG",
                         help='log level of script: DEBUG, INFO, WARNING, or CRITICAL')
     parser.add_argument(dest='input_dir', action='store',
                         help='Directory to scan for StorageGRID files')
@@ -71,8 +79,14 @@ def main():
                         help='Directory to output StorageGRID files to')
     parser.add_argument('-s', '-scratch-space-dir', dest='scratch_space', action='store',
                         help='Scratch space directory to unzip files into')
+    parser.add_argument('-p','--processor',dest='processor_num',type=int,help='Processor number')
     args = parser.parse_args()
 
+    log_level = LOG_LEVEL_STRS.get(args.log_level, "DEBUG")
+    log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
+    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=log_level)
+
+    args.input_dir = os.path.normpath(args.input_dir)
     if not os.path.isdir(args.input_dir):
         parser.print_usage()
         print('input_dir is not a directory')
@@ -93,9 +107,6 @@ def main():
         print('output_directory is not a directory')
         sys.exit(1)
 
-    log_format = "%(asctime)s %(filename)s:%(lineno)d %(levelname)s %(message)s"
-    logging.basicConfig(format=log_format, datefmt="%b-%d %H:%M:%S", level=args.log_level)
-
     # Should not allow configuration of intermediate directory
     history_dir = os.path.join(intermediate_dir, "scan-history")
 
@@ -104,6 +115,8 @@ def main():
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
+    global MAX_WORKERS
+    MAX_WORKERS = args.processor_num
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
@@ -163,31 +176,24 @@ def ingest_log_files(input_dir, scratch_dir, history_dir):
         
         futures = []
         search_dir = paths.QuantumEntry(input_dir, "")
-        for entry in incremental.list_unscanned_entries(search_dir, os.path.basename(scan.last_path)):
+        for e in incremental.list_unscanned_entries(search_dir,os.path.basename(scan.last_path)):
             
-            if entry.is_dir():
-                case_num = fields.get_case_number(entry.relpath)
+            if e.is_dir():
+                case_num = fields.get_case_number(e.relpath)
                 if case_num != fields.MISSING_CASE_NUM:
-                    logging.debug("Search case directory: %s", entry.abspath)
+                    logging.debug("Search case directory: %s", e.abspath)
                     futures.append(executor.submit(search_case_directory, scan, input_dir, case_num))
                     
                     assert os.path.exists(scan.history_log_file), "History Log File does not exist for case: "+case_num
                     
                 else:
-                    logging.debug("Ignored non-StorageGRID directory: %s", entry.abspath)
+                    logging.debug("Ignored non-StorageGRID directory: %s", e.abspath)
             else:
-                logging.debug("Ignored non-StorageGRID file: %s", entry.abspath)
-        
-        total_cases = len(futures)
-        case_index = 0
-        for future in futures:
-            case_index += 1
+                logging.debug("Ignored non-StorageGRID file: %s", e.abspath)
 
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
             # Raise any exception from child process
             future.result()
-
-            if not graceful_abort:
-                logging.info("Finished case directory %i out of %i", case_index, total_cases)
     
     if graceful_abort:
         scan.premature_exit()
@@ -216,7 +222,10 @@ def search_case_directory(scan_obj, input_dir, case_num):
         
     assert case_num != fields.MISSING_CASE_NUM, "Case number should have already been verified"
     
-    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, scan_obj.scratch_dir, str(case_num) + ".txt", str(case_num) + "-log.txt", scan_obj.safe_time)
+    child_scan = incremental.WorkerScan(input_dir, scan_obj.history_dir, 
+                                        scan_obj.scratch_dir, str(case_num) + ".txt", 
+                                        str(case_num) + "-log.txt", scan_obj.safe_time)
+
     assert child_scan.input_dir == scan_obj.input_dir
     
     if not child_scan.already_scanned:
@@ -285,7 +294,7 @@ def recursive_search(scan, es, nodefields, cur_dir):
         
         if entry.is_file():
             if fields.is_storagegrid(nodefields, entry):
-                index.send_to_es(es, nodefields, entry.abspath)
+                index.send_to_es(es, nodefields, entry)
             else:
                 logging.debug("Skipped Non-StorageGRID file: %s", entry.abspath)
         
@@ -294,7 +303,8 @@ def recursive_search(scan, es, nodefields, cur_dir):
                 logging.debug("Recursing into directory: %s", entry.abspath)
                 recursive_search(scan, es, nodefields, entry)
             except OSError as e:
-                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", cur_dir.abspath, e)
+                logging.critical("Could not access directory: %s\nError: %s\nSkipping directory", 
+                                 cur_dir.abspath, e)
 
         # Wasn't a directory or a file
         else:                                           
@@ -346,7 +356,7 @@ def unzip_into_scratch_dir(input_dir, scratch_dir, compressed_entry):
     assert not scratch_entry.exists(), "Scratch entry should not exist"
     try:
         unzip.recursive_unzip(compressed_entry.abspath, scratch_entry.absdirpath)
-        assert scratch_entry.exists(), "Scratch entry should have been created" + scratch_entry.relpath
+        assert scratch_entry.exists(),"Scratch entry should exist" + scratch_entry.relpath
     except unzip.AcceptableException:
         pass
     # Return unzipped entry

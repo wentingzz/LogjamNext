@@ -238,6 +238,8 @@ def get_platform(lumber_dir):
                     val = val.strip("\n\"\'; ")     
                     if val in HV_ENV_TO_PLATFORM:   
                         return HV_ENV_TO_PLATFORM[val]
+                    else:
+                        logging.warning("Unknown Platform: %s", val)
     
     return MISSING_PLATFORM
 
